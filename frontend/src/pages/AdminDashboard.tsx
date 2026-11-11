@@ -36,13 +36,15 @@ function StatCell({
   etiqueta,
   valor,
   acento = false,
+  className,
 }: {
   etiqueta: string;
   valor: string;
   acento?: boolean;
+  className?: string;
 }) {
   return (
-    <div className="px-4 py-4">
+    <div className={cn('border-t border-line px-4 py-4', className)}>
       <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted">{etiqueta}</p>
       <p
         className={cn(
@@ -305,7 +307,7 @@ export function AdminDashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 divide-x divide-line border-t border-line sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 lg:divide-x lg:divide-line">
             <StatCell etiqueta="Total paquetes" valor={String(resumen?.totalPaquetes ?? '—')} />
             <StatCell etiqueta="En ruta / aduana" valor={resumen ? String(enRuta) : '—'} />
             <StatCell etiqueta="Prealertas" valor={resumen ? String(resumen.prealertasPendientes) : '—'} />
@@ -314,6 +316,7 @@ export function AdminDashboard() {
               etiqueta="Ingresos entregados"
               valor={resumen ? formatCOP(resumen.ingresosEntregados) : '—'}
               acento
+              className="col-span-2 sm:col-span-1"
             />
           </div>
         </div>
@@ -394,7 +397,57 @@ export function AdminDashboard() {
                 )}
               </form>
 
-              <div className="overflow-x-auto border border-line bg-white">
+              {/* Móvil: tarjetas apiladas */}
+              <div className="space-y-3 sm:hidden">
+                {cargandoPaquetes &&
+                  Array.from({ length: 5 }).map((_, index) => (
+                    <div key={`skeleton-movil-${index}`} className="border border-line bg-white p-4">
+                      <div className="h-3 w-32 bg-ink/[0.06]" />
+                      <div className="mt-2.5 h-3 w-40 bg-ink/[0.05]" />
+                      <div className="mt-4 h-2.5 w-full bg-ink/[0.04]" />
+                    </div>
+                  ))}
+
+                {!cargandoPaquetes && paquetes.length === 0 && (
+                  <div className="border border-dashed border-ink/20 bg-white/60 p-6 text-center">
+                    <p className="text-sm font-medium text-ink">Sin resultados en el manifiesto.</p>
+                    <p className="mt-1 text-[12px] text-muted">
+                      Ajusta la búsqueda o registra una nueva recepción.
+                    </p>
+                  </div>
+                )}
+
+                {!cargandoPaquetes &&
+                  paquetes.map((paquete) => (
+                    <button
+                      key={`movil-${paquete.id}`}
+                      type="button"
+                      onClick={() => setPaqueteActivo(paquete)}
+                      className="w-full border border-line bg-white p-4 text-left transition-colors active:bg-paper/70"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="font-mono text-[12px] tracking-tight text-ink">{paquete.guia}</p>
+                        <StatusBadge estado={paquete.estado} />
+                      </div>
+                      <p className="mt-2.5 text-[13px] font-medium text-ink">
+                        {paquete.cliente?.nombre ?? 'Sin cliente'}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-muted">
+                        {paquete.cliente?.casillero ?? 'Sin casillero'}
+                      </p>
+                      <p className="mt-2 line-clamp-2 text-[12px] leading-relaxed text-muted">
+                        {paquete.descripcion}
+                      </p>
+                      <div className="mt-3 flex items-center justify-between border-t border-line pt-2.5 font-mono text-[10px] text-ink">
+                        <span>{formatPeso(paquete.pesoCobrable)}</span>
+                        <span>{formatCOP(paquete.precio)}</span>
+                      </div>
+                    </button>
+                  ))}
+              </div>
+
+              {/* Escritorio: tabla */}
+              <div className="hidden overflow-x-auto border border-line bg-white sm:block">
                 <table className="w-full min-w-[880px] border-collapse text-left">
                   <thead>
                     <tr className="border-b border-line bg-paper">
@@ -537,7 +590,64 @@ export function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto border border-line bg-white">
+              {/* Móvil: tarjetas apiladas con acción directa */}
+              <div className="space-y-3 sm:hidden">
+                {cargandoPrealertas &&
+                  Array.from({ length: 4 }).map((_, index) => (
+                    <div key={`skeleton-pre-movil-${index}`} className="border border-line bg-white p-4">
+                      <div className="h-3 w-32 bg-ink/[0.06]" />
+                      <div className="mt-2.5 h-3 w-40 bg-ink/[0.05]" />
+                      <div className="mt-4 h-2.5 w-full bg-ink/[0.04]" />
+                    </div>
+                  ))}
+
+                {!cargandoPrealertas && prealertas.length === 0 && (
+                  <div className="border border-dashed border-ink/20 bg-white/60 p-6 text-center">
+                    <p className="text-sm font-medium text-ink">Sin prealertas en este filtro.</p>
+                    <p className="mt-1 text-[12px] text-muted">
+                      Los avisos de compra aparecen aquí apenas el cliente los envía.
+                    </p>
+                  </div>
+                )}
+
+                {!cargandoPrealertas &&
+                  prealertas.map((prealerta) => (
+                    <div key={`movil-${prealerta.id}`} className="border border-line bg-white p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-medium text-ink">
+                            {prealerta.cliente?.nombre ?? 'Sin cliente'}
+                          </p>
+                          <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-muted">
+                            {prealerta.cliente?.casillero ?? 'Sin casillero'}
+                          </p>
+                        </div>
+                        <PrealertaBadge estado={prealerta.estado} />
+                      </div>
+                      <p className="mt-2.5 text-[13px] font-medium text-ink">{prealerta.tienda}</p>
+                      <p className="mt-0.5 line-clamp-2 text-[12px] leading-relaxed text-muted">
+                        {prealerta.descripcion}
+                      </p>
+                      <div className="mt-2 flex items-center justify-between font-mono text-[9px] uppercase tracking-[0.08em] text-muted">
+                        <span>{prealerta.trackingTienda ?? 'Sin guía de tienda'}</span>
+                        <span>{formatFecha(prealerta.createdAt)}</span>
+                      </div>
+                      {prealerta.estado === 'PENDIENTE' && (
+                        <button
+                          type="button"
+                          onClick={() => abrirRecepcion(prealerta)}
+                          className="btn btn-primary btn-sm mt-3.5 w-full"
+                        >
+                          <Icon name="package" size={12} />
+                          Recibir en sede
+                        </button>
+                      )}
+                    </div>
+                  ))}
+              </div>
+
+              {/* Escritorio: tabla */}
+              <div className="hidden overflow-x-auto border border-line bg-white sm:block">
                 <table className="w-full min-w-[820px] border-collapse text-left">
                   <thead>
                     <tr className="border-b border-line bg-paper">
