@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { Navbar } from '../components/Landing/Navbar';
 import { Hero } from '../components/Landing/Hero';
 import { HowItWorks } from '../components/Landing/HowItWorks';
+import { LaOperacion } from '../components/Landing/LaOperacion';
 import { RatesTable } from '../components/Landing/RatesTable';
 import { CasilleroInfo } from '../components/Landing/CasilleroInfo';
 import { Footer } from '../components/Landing/Footer';
@@ -31,6 +32,7 @@ export function LandingPage() {
       <main id="contenido">
         <Hero />
         <HowItWorks />
+        <LaOperacion />
         <RatesTable />
         <CasilleroInfo />
       </main>

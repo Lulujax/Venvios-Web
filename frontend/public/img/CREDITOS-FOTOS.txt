@@ -1,0 +1,39 @@
+====================================================================
+ VENVIOS EXPRESS - CREDITOS DE FOTOGRAFIAS (frontend/public/img/)
+====================================================================
+Fotografias de stock descargadas para la landing. Todas son de
+uso libre (CC0 / dominio publico): no requieren atribucion ni
+pago. Pueden reemplazarse en cualquier momento por fotos reales
+de la operacion de Venvios Express (mismo nombre de archivo).
+
+  ruta.jpg ......... "Road Truck" - StockSnap.io (ID U02UKEL04U)
+                     Camion en carretera de montana. Licencia CC0.
+                     Se usa en: Hero (FIG. 00 / Carretera CUC -> VE)
+
+  recepcion.jpg .... USDA Food and Nutrition Service (Flickr 50253633661)
+                     Cuadrilla empacando cajas en banda. Dominio
+                     publico (gobierno de EE. UU.). Se usa en: FIG. 01
+
+  registro.jpg ..... "Clipboard Hand" - StockSnap.io (ID TRKNLIGFAJ)
+                     Mano con checklist y paquetes. CC0. FIG. 02
+
+  caja.jpg ......... "Cardboard Box" - StockSnap.io (ID USP4WCYPBW)
+                     Caja de carton abierta. CC0. FIG. 03
+
+  bodega.jpg ....... Imagen de dominio publico USDA via rawpixel
+                     (fl45349329165) - estantes con cajas. FIG. 04
+
+  empaque.jpg ...... "Box Boxes" - StockSnap.io (ID WP1KHDXGOY)
+                     Mesa de empaque e-commerce. CC0. FIG. 05
+
+  sede.jpg ......... "Auto Van" - StockSnap.io (ID WAU4BLHX6U)
+                     Van de carga frente a edificio. CC0. FIG. 06
+
+  flujobodega.jpg .. Imagen de dominio publico USDA via rawpixel
+                     (fl50231519227) - cajas entrando a bodega. FIG. 07
+
+Buscador utilizado: Openverse (api.openverse.org).
+Descarga y compresion: JPEG calidad 76 via System.Drawing.
+
+ Ultima actualizacion: 2026-11-10
+====================================================================

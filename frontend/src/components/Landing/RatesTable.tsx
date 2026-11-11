@@ -33,7 +33,7 @@ export function RatesTable() {
       <div className="shell py-20 lg:py-28">
         <div className="grid gap-12 lg:grid-cols-12 lg:gap-8">
           <div className="lg:col-span-4 lg:sticky lg:top-28 lg:self-start">
-            <p className="eyebrow">§ 03 / Tarifa</p>
+            <p className="eyebrow">§ 04 / Tarifa</p>
             <Reveal>
               <h2 className="display-lg mt-4 max-w-[13ch] text-balance">
                 Una sola tarifa. Sin letra pequeña.

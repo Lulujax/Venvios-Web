@@ -1,0 +1,128 @@
+====================================================================
+ VENVIOS EXPRESS - DATOS DE PRUEBA Y ACCESOS
+====================================================================
+Guardá este archivo. Contiene todo lo necesario para entrar,
+probar y preparar las pruebas en teléfono a futuro.
+
+====================================================================
+ 1. CÓMO ARRANCAR TODO
+====================================================================
+Desde la carpeta del proyecto (Venvios-Web):
+
+    npm run dev
+
+Eso levanta las dos partes a la vez:
+
+    Web (frontend) . . . . . http://localhost:5173
+    API (backend) . . . . . . http://localhost:4000/api/health
+
+La base de datos (PostgreSQL) ya está creada, migrada y con datos
+demo en esta máquina. Si algún día la borrás, restaurala con:
+
+    docker compose up -d        (o el PostgreSQL local)
+    npm run db:migrate
+    npm run db:seed
+
+====================================================================
+ 2. POR DÓNDE ENTRAR (RUTAS DE LA WEB)
+====================================================================
+Página pública . . . . . . . http://localhost:5173/
+Login / Registro . . . . . . http://localhost:5173/login
+Rastreo público de guía . . http://localhost:5173/rastreo
+Panel del CLIENTE . . . . . http://localhost:5173/app
+Consola del OPERADOR . . . http://localhost:5173/admin
+
+En la consola de administración hay 3 pestañas:
+    - Paquetes (manifiesto con búsqueda y filtros)
+    - Prealertas (con botón "Recibir en sede")
+    - Escáner (cámara + foto de evidencia)
+
+====================================================================
+ 3. USUARIOS DE PRUEBA
+====================================================================
+ADMINISTRADOR (trabajador / operador)
+    Correo . . . . . . . admin@venviosexpress.com
+    Contraseña . . . . . VenviosAdmin2026!
+
+CLIENTE DEMO (María Fernanda Rangel)
+    Correo . . . . . . . cliente@venviosexpress.com
+    Contraseña . . . . . Cliente2026!
+    Casillero . . . . . . VEX-CUC-4827
+
+CLIENTE EXTRA (creado en las pruebas del sistema)
+    Correo . . . . . . . jose.demo@venviosexpress.com
+    Contraseña . . . . . JoseDemo2026!
+    Casillero . . . . . . VEX-CUC-DZGF
+
+IMPORTANTE: estas contraseñas son SOLO para desarrollo/demo.
+En producción hay que cambiarlas (variables ADMIN_EMAIL y
+ADMIN_PASSWORD del backend antes de sembrar, y eliminar los
+usuarios demo).
+
+====================================================================
+ 4. DATOS DEMO CARGADOS EN LA BASE
+====================================================================
+Guías para probar el RASTREO PÚBLICO (sin iniciar sesión):
+
+    VEX-2026-04217 . . . En tránsito (ruta a Venezuela)
+    VEX-2026-04108 . . . Entregado (histórico completo)
+    VEX-2026-04302 . . . En bodega (recibido, pago confirmado)
+
+Paquetes del cliente José Ramírez (probando recepción):
+    VEX-2026-46078 . . . 4.5 kg, costo $48.000
+    VEX-2026-34285 . . . 14.4 kg volumétrico, costo $118.000
+
+Prealertas pendientes de ejemplo: la de María (Falabella,
+monitor 24 pulgadas) y la original de la semilla.
+
+Tarifas vigentes (tabla única por paquete):
+    hasta 2 kg . . . $32.000
+    hasta 5 kg . . . $48.000
+    hasta 10 kg . . $72.000
+    hasta 20 kg . . $118.000
+    hasta 30 kg . . $168.000 (+$4.800 por kg excedente)
+
+====================================================================
+ 5. QUÉ PROBAR (GUIÓN RÁPIDO)
+====================================================================
+COMO CLIENTE:
+    1. Entrar a /login con cliente@venviosexpress.com
+    2. Ver casillero VEX-CUC-4827 y copiarlo
+    3. Crear una prealerta nueva (tienda + descripción)
+    4. Ver notificaciones de WhatsApp (destino enmascarado)
+
+COMO OPERADOR (admin):
+    1. Entrar a /login con admin@venviosexpress.com
+    2. En "Prealertas" buscar una PENDIENTE y pulsar
+       "Recibir en sede"
+    3. Llenar peso y dimensiones -> el costo lo calcula el
+       servidor solito y avisa al cliente por WhatsApp
+    4. En "Paquetes" tocar una guía y avanzar el estado
+       (bodega -> tránsito -> aduana -> entregado)
+    5. En "Escáner" activar la cámara (requiere localhost o
+       HTTPS) o buscar manualmente una guía
+
+====================================================================
+ 6. PARA EL FUTURO: PRUEBAS DESDE EL TELÉFONO
+====================================================================
+A) MODO DESARROLLO (misma red WiFi que la PC):
+       En el teléfono abrir  http://IP-DE-TU-PC:5173
+       (ej: http://192.168.1.50:5173)
+       Para eso, arrancar la web con:
+           npm run dev -w frontend -- --host
+       La cámara del escáner NO abre por IP sin HTTPS;
+       usar la búsqueda manual de guía o el modo B).
+
+B) MODO REALISTA (lo recomendado para probar cámara):
+       Desplegar la web en un hosting con HTTPS
+       (Vercel / Netlify / hosting propio con certificado).
+       Con HTTPS la cámara, la foto de evidencia y todo el
+       flujo del trabajador funcionan completo en el teléfono.
+
+C) TODO lo demás (login, prealertas, recepción, estados,
+   tarjetas móviles) ya funciona en cualquier pantalla,
+   con o sin HTTPS.
+
+====================================================================
+ Última actualización: 2026-11-10 · Proyecto Venvios-Web
+====================================================================

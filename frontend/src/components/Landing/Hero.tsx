@@ -26,6 +26,36 @@ function GridOverlay() {
   );
 }
 
+function FotoRuta() {
+  return (
+    <figure className="relative mx-auto mb-7 w-full max-w-[360px] lg:mb-1 lg:rotate-[1.4deg]">
+      <div
+        className="absolute -left-2.5 -top-2.5 h-full w-full border border-gold/60"
+        aria-hidden="true"
+      />
+      <div className="relative border border-line bg-white">
+        <div className="relative overflow-hidden">
+          <img
+            src="/img/ruta.jpg"
+            alt="Camión de carga en la carretera de montaña de la ruta Cúcuta — Venezuela"
+            className="aspect-[3/2] w-full object-cover saturate-[0.85] contrast-[1.02]"
+            draggable={false}
+          />
+          <span className="stamp absolute right-3 top-3 rotate-2 bg-paper">Ruta diaria</span>
+        </div>
+        <figcaption className="flex items-center justify-between gap-3 border-t border-line px-3.5 py-2.5">
+          <span className="font-mono text-[8px] uppercase tracking-[0.15em] text-muted">
+            FIG. 00 / Carretera CUC → VE
+          </span>
+          <span className="shrink-0 font-mono text-[8px] uppercase tracking-[0.15em] text-muted">
+            Puerta a puerta
+          </span>
+        </figcaption>
+      </div>
+    </figure>
+  );
+}
+
 function ManifiestoCard() {
   return (
     <div className="relative mx-auto w-full max-w-[360px] lg:mt-6">
@@ -188,7 +218,10 @@ export function Hero() {
           </div>
 
           <div className="lg:col-span-5 lg:pl-2">
-            <Reveal delay={180}>
+            <Reveal delay={100}>
+              <FotoRuta />
+            </Reveal>
+            <Reveal delay={220}>
               <ManifiestoCard />
             </Reveal>
             <Reveal delay={320}>

@@ -26,7 +26,7 @@ export function CasilleroInfo() {
       <div className="shell py-20 lg:py-28">
         <div className="grid gap-14 lg:grid-cols-12 lg:gap-8">
           <div className="lg:col-span-6">
-            <p className="eyebrow">§ 04 / Casillero</p>
+            <p className="eyebrow">§ 05 / Casillero</p>
             <Reveal>
               <h2 className="display-lg mt-4 max-w-[16ch] text-balance">
                 Tu dirección en Cúcuta tiene nombre: casillero.
