@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  CLIENTE
+  ADMIN
+}
+
+enum EstadoPaquete {
+  RECIBIDO
+  EN_BODEGA
+  EN_TRANSITO
+  EN_ADUANA
+  ENTREGADO
+  CANCELADO
+}
+
+enum EstadoPrealerta {
+  PENDIENTE
+  RECIBIDA
+  CANCELADA
+}
+
+enum CanalNotificacion {
+  WHATSAPP
+  SISTEMA
+}
+
+enum EstadoNotificacion {
+  PENDIENTE
+  ENVIADA
+  FALLIDA
+}
+
+model User {
+  id           String   @id @default(cuid())
+  nombre       String
+  email        String   @unique
+  telefono     String
+  passwordHash String
+  rol          Rol      @default(CLIENTE)
+  activo       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  casillero      Casillero?
+  paquetes       Paquete[]
+  prealertas     Prealerta[]
+  notificaciones Notificacion[]
+
+  @@index([rol])
+}
+
+model Casillero {
+  id        String   @id @default(cuid())
+  codigo    String   @unique
+  direccion String   @default("Barrio Latino, Centro, Cúcuta, Colombia")
+  ciudad    String   @default("Cúcuta")
+  userId    String   @unique
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([codigo])
+}
+
+model Prealerta {
+  id             String          @id @default(cuid())
+  tienda         String
+  descripcion    String
+  trackingTienda String?
+  valorDeclarado Int?
+  estado         EstadoPrealerta @default(PENDIENTE)
+  userId         String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paquete Paquete?
+
+  @@index([userId, estado])
+}
+
+model Paquete {
+  id             String        @id @default(cuid())
+  guia           String        @unique
+  descripcion    String
+  pesoKg         Float
+  largoCm        Float?
+  anchoCm        Float?
+  altoCm         Float?
+  pesoVolumetrico Float?
+  pesoCobrable   Float
+  precio         Int
+  estado         EstadoPaquete @default(RECIBIDO)
+  fotoUrl        String?
+  observaciones  String?
+  userId         String
+  prealertaId    String?       @unique
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  user           User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  prealerta      Prealerta?     @relation(fields: [prealertaId], references: [id], onDelete: SetNull)
+  eventos        EventoPaquete[]
+  notificaciones Notificacion[]
+
+  @@index([userId, estado])
+  @@index([guia])
+}
+
+model EventoPaquete {
+  id        String        @id @default(cuid())
+  paqueteId String
+  estado    EstadoPaquete
+  nota      String?
+  createdAt DateTime      @default(now())
+
+  paquete Paquete @relation(fields: [paqueteId], references: [id], onDelete: Cascade)
+
+  @@index([paqueteId, createdAt])
+}
+
+model Notificacion {
+  id                 String              @id @default(cuid())
+  userId             String
+  paqueteId          String?
+  canal              CanalNotificacion   @default(WHATSAPP)
+  destinoEnmascarado String
+  mensaje            String
+  estado             EstadoNotificacion  @default(PENDIENTE)
+  proveedorId        String?
+  error              String?
+  createdAt          DateTime            @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paquete Paquete? @relation(fields: [paqueteId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+}
+
+model Tarifa {
+  id               String  @id @default(cuid())
+  nombre           String
+  pesoHasta        Float
+  precio           Int
+  precioKgExcedente Int?
+  activo           Boolean @default(true)
+
+  @@index([activo, pesoHasta])
+}
