@@ -73,17 +73,25 @@ export function Footer() {
               <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-paper/40">
                 Redes · {BRAND.handle}
               </p>
-              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 {BRAND.socials.map((red) => (
                   <a
                     key={red.label}
                     href={red.href}
                     target="_blank"
                     rel="noreferrer"
-                    className="footer-link inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-paper/80"
+                    aria-label={`${BRAND.name} en ${red.label} (${BRAND.handle})`}
+                    title={`${red.label} · ${BRAND.handle}`}
+                    className="group inline-flex items-center gap-2.5 border border-paper/25 px-3.5 py-2.5 transition-colors duration-200 ease-out hover:border-gold"
                   >
-                    {red.label}
-                    <Icon name="arrowUpRight" size={11} />
+                    <Icon
+                      name={red.label.toLowerCase() as 'instagram' | 'facebook' | 'tiktok'}
+                      size={16}
+                      className="text-paper/85 transition-colors duration-200 ease-out group-hover:text-gold"
+                    />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-paper/85 transition-colors duration-200 ease-out group-hover:text-paper">
+                      {red.label}
+                    </span>
                   </a>
                 ))}
               </div>

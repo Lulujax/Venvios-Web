@@ -127,14 +127,16 @@ const paths = {
 type GlyphName = keyof typeof paths;
 
 /** Logos de marca reales (react-icons) con la misma API del componente Icon. */
-const MARCAS: Partial<Record<IconName, IconType>> = {
+const MARCAS = {
   whatsapp: FaWhatsapp,
   instagram: FaInstagram,
   facebook: FaFacebookF,
   tiktok: FaTiktok,
-};
+} as const;
 
-export type IconName = GlyphName | keyof typeof MARCAS;
+type MarcaName = keyof typeof MARCAS;
+
+export type IconName = GlyphName | MarcaName;
 
 interface IconProps {
   name: IconName;
@@ -144,7 +146,7 @@ interface IconProps {
 }
 
 export function Icon({ name, size = 18, className, strokeWidth = 1.5 }: IconProps): ReactNode {
-  const Marca = MARCAS[name];
+  const Marca: IconType | undefined = MARCAS[name as MarcaName];
   if (Marca) {
     return (
       <Marca
