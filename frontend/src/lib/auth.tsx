@@ -1,32 +1,17 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
-import type { Usuario } from '../types';
-import { api, ApiError } from './api';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { api, ErrorApi } from './api';
+import type { Rol, Usuario } from './tipos';
 
-export interface RegistroPayload {
-  nombre: string;
-  email: string;
-  telefono: string;
-  password: string;
-}
-
-interface AuthContextValue {
+interface EstadoAuth {
   usuario: Usuario | null;
   cargando: boolean;
-  iniciarSesion: (email: string, password: string) => Promise<Usuario>;
-  registrar: (payload: RegistroPayload) => Promise<Usuario>;
+  ingresar: (telefono: string, contrasena: string) => Promise<Usuario>;
+  registrar: (datos: { nombre: string; cedula: string; telefono: string; contrasena: string }) => Promise<Usuario>;
   salir: () => Promise<void>;
   refrescar: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+const ContextoAuth = createContext<EstadoAuth | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
@@ -34,64 +19,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refrescar = useCallback(async () => {
     try {
-      const data = await api.get<{ usuario: Usuario }>('/auth/me');
-      setUsuario(data.usuario);
+      const respuesta = await api.get<{ usuario: Usuario }>('/auth/yo');
+      setUsuario(respuesta.usuario);
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
-        setUsuario(null);
-      }
+      if (!(error instanceof ErrorApi) || error.estado !== 401) console.warn('No se pudo comprobar la sesión');
+      setUsuario(null);
+    } finally {
+      setCargando(false);
     }
   }, []);
 
   useEffect(() => {
-    let activo = true;
-    void (async () => {
-      try {
-        const data = await api.get<{ usuario: Usuario }>('/auth/me');
-        if (activo) setUsuario(data.usuario);
-      } catch {
-        if (activo) setUsuario(null);
-      } finally {
-        if (activo) setCargando(false);
-      }
-    })();
-    return () => {
-      activo = false;
-    };
-  }, []);
+    void refrescar();
+  }, [refrescar]);
 
-  const iniciarSesion = useCallback(async (email: string, password: string) => {
-    const data = await api.post<{ usuario: Usuario }>('/auth/login', { email, password });
-    setUsuario(data.usuario);
-    return data.usuario;
-  }, []);
-
-  const registrar = useCallback(async (payload: RegistroPayload) => {
-    const data = await api.post<{ usuario: Usuario }>('/auth/registro', payload);
-    setUsuario(data.usuario);
-    return data.usuario;
-  }, []);
-
-  const salir = useCallback(async () => {
-    try {
-      await api.post('/auth/logout');
-    } finally {
-      setUsuario(null);
-    }
-  }, []);
-
-  const value = useMemo(
-    () => ({ usuario, cargando, iniciarSesion, registrar, salir, refrescar }),
-    [usuario, cargando, iniciarSesion, registrar, salir, refrescar],
+  const valor = useMemo<EstadoAuth>(
+    () => ({
+      usuario,
+      cargando,
+      refrescar,
+      ingresar: async (telefono, contrasena) => {
+        const respuesta = await api.post<{ usuario: Usuario }>('/auth/login', { telefono, contrasena });
+        setUsuario(respuesta.usuario);
+        return respuesta.usuario;
+      },
+      registrar: async (datos) => {
+        const respuesta = await api.post<{ usuario: Usuario }>('/auth/registro', datos);
+        setUsuario(respuesta.usuario);
+        return respuesta.usuario;
+      },
+      salir: async () => {
+        await api.post('/auth/logout');
+        setUsuario(null);
+      },
+    }),
+    [usuario, cargando, refrescar],
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <ContextoAuth.Provider value={valor}>{children}</ContextoAuth.Provider>;
 }
 
-export function useAuth(): AuthContextValue {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth debe usarse dentro de AuthProvider.');
-  }
-  return context;
+export function useAuth(): EstadoAuth {
+  const contexto = useContext(ContextoAuth);
+  if (!contexto) throw new Error('useAuth debe usarse dentro de AuthProvider');
+  return contexto;
+}
+
+export function esPersonal(rol: Rol | undefined): boolean {
+  return rol === 'OPERADOR' || rol === 'ADMIN';
+}
+
+export function rutaInicial(usuario: Usuario): string {
+  if (usuario.debeCambiarClave) return '/cambiar-clave';
+  return esPersonal(usuario.rol) ? '/panel' : '/cuenta';
 }

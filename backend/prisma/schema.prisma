@@ -3,155 +3,177 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Rol {
   CLIENTE
+  OPERADOR
   ADMIN
 }
 
-enum EstadoPaquete {
-  RECIBIDO
-  EN_BODEGA
-  EN_TRANSITO
-  EN_ADUANA
-  ENTREGADO
+enum Modalidad {
+  M1
+  M2
+}
+
+enum Transportista {
+  MRW
+  ZOOM
+}
+
+enum EstadoEnvio {
+  PREALERTADO
+  RECIBIDO_PARCIAL
+  RECIBIDO_COMPLETO
+  POR_CONFIRMAR
+  PAGADO
+  DESPACHADO
+  CERRADO
   CANCELADO
 }
 
-enum EstadoPrealerta {
-  PENDIENTE
-  RECIBIDA
-  CANCELADA
+enum EstadoPaquete {
+  ESPERADO
+  RECIBIDO
 }
 
-enum CanalNotificacion {
-  WHATSAPP
-  SISTEMA
+enum MetodoPago {
+  BINANCE
+  PAGO_MOVIL
+  TRANSFERENCIA
+  MANUAL
 }
 
-enum EstadoNotificacion {
-  PENDIENTE
-  ENVIADA
-  FALLIDA
+enum MonedaPago {
+  USD
+  BS
 }
 
-model User {
-  id           String   @id @default(cuid())
-  nombre       String
-  email        String   @unique
-  telefono     String
-  passwordHash String
-  rol          Rol      @default(CLIENTE)
-  activo       Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+enum EstadoPago {
+  POR_CONFIRMAR
+  CONFIRMADO
+  RECHAZADO
+}
 
-  casillero      Casillero?
-  paquetes       Paquete[]
-  prealertas     Prealerta[]
-  notificaciones Notificacion[]
+enum FuenteTasa {
+  API
+  MANUAL
+}
+
+model Usuario {
+  id               String   @id @default(cuid())
+  nombre           String
+  cedulaCifrada    String
+  cedulaHuella     String   @unique
+  telefono         String   @unique
+  passwordHash     String
+  rol              Rol      @default(CLIENTE)
+  activo           Boolean  @default(true)
+  debeCambiarClave Boolean  @default(false)
+  creadoEn         DateTime @default(now())
+
+  envios Envio[]
 
   @@index([rol])
 }
 
-model Casillero {
-  id        String   @id @default(cuid())
-  codigo    String   @unique
-  direccion String   @default("Barrio Latino, Centro, Cúcuta, Colombia")
-  ciudad    String   @default("Cúcuta")
-  userId    String   @unique
-  createdAt DateTime @default(now())
+model Envio {
+  id                     String        @id @default(cuid())
+  clienteId              String
+  modalidad              Modalidad
+  transportista          Transportista
+  tienda                 String
+  valorDeclaradoCentavos Int
+  estado                 EstadoEnvio   @default(PREALERTADO)
+  pesoTotalCentesimas    Int?
+  pesoCobrableCentesimas Int?
+  fleteCentavos          Int?
+  seguroCentavos         Int?
+  totalCentavos          Int?
+  entregaNombre          String?
+  entregaCedulaCifrada   String?
+  entregaTelefono        String?
+  entregaAgencia         String?
+  entregaCiudad          String?
+  entregaEstado          String?
+  guiaVenezolana         String?
+  guiaFotoPath           String?
+  creadoEn               DateTime      @default(now())
+  actualizadoEn          DateTime      @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cliente  Usuario   @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  paquetes Paquete[]
+  pagos    Pago[]
+  eventos  Evento[]
 
-  @@index([codigo])
-}
-
-model Prealerta {
-  id             String          @id @default(cuid())
-  tienda         String
-  descripcion    String
-  trackingTienda String?
-  valorDeclarado Int?
-  estado         EstadoPrealerta @default(PENDIENTE)
-  userId         String
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  paquete Paquete?
-
-  @@index([userId, estado])
+  @@index([clienteId, estado])
+  @@index([estado])
 }
 
 model Paquete {
-  id             String        @id @default(cuid())
-  guia           String        @unique
-  descripcion    String
-  pesoKg         Float
-  largoCm        Float?
-  anchoCm        Float?
-  altoCm         Float?
-  pesoVolumetrico Float?
-  pesoCobrable   Float
-  precio         Int
-  estado         EstadoPaquete @default(RECIBIDO)
-  fotoUrl        String?
-  observaciones  String?
-  userId         String
-  prealertaId    String?       @unique
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id                   String        @id @default(cuid())
+  envioId              String
+  trackingTexto        String
+  trackingNormalizado  String        @unique
+  estado               EstadoPaquete @default(ESPERADO)
+  pesoCentesimas       Int?
+  fotoPath             String?
+  avisadoEn            DateTime?
+  avisadoPorId         String?
+  recibidoPorId        String?
+  recibidoEn           DateTime?
 
-  user           User           @relation(fields: [userId], references: [id], onDelete: Restrict)
-  prealerta      Prealerta?     @relation(fields: [prealertaId], references: [id], onDelete: SetNull)
-  eventos        EventoPaquete[]
-  notificaciones Notificacion[]
+  envio Envio @relation(fields: [envioId], references: [id], onDelete: Cascade)
 
-  @@index([userId, estado])
-  @@index([guia])
+  @@index([envioId])
 }
 
-model EventoPaquete {
-  id        String        @id @default(cuid())
-  paqueteId String
-  estado    EstadoPaquete
-  nota      String?
-  createdAt DateTime      @default(now())
+model Pago {
+  id                    String      @id @default(cuid())
+  envioId               String
+  montoUsdCentavos      Int
+  moneda                MonedaPago
+  montoOriginalCentavos Int
+  metodo                MetodoPago
+  referencia            String?
+  comprobantePath       String?
+  estado                EstadoPago  @default(POR_CONFIRMAR)
+  motivoRechazo         String?
+  tasaBcv               Float?
+  registradoPorId       String
+  confirmadoPorId       String?
+  creadoEn              DateTime    @default(now())
 
-  paquete Paquete @relation(fields: [paqueteId], references: [id], onDelete: Cascade)
+  envio Envio @relation(fields: [envioId], references: [id], onDelete: Cascade)
 
-  @@index([paqueteId, createdAt])
+  @@index([envioId, estado])
 }
 
-model Notificacion {
-  id                 String              @id @default(cuid())
-  userId             String
-  paqueteId          String?
-  canal              CanalNotificacion   @default(WHATSAPP)
-  destinoEnmascarado String
-  mensaje            String
-  estado             EstadoNotificacion  @default(PENDIENTE)
-  proveedorId        String?
-  error              String?
-  createdAt          DateTime            @default(now())
+model Evento {
+  id       String   @id @default(cuid())
+  envioId  String
+  actorId  String?
+  tipo     String
+  detalle  String
+  datos    Json?
+  creadoEn DateTime @default(now())
 
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  paquete Paquete? @relation(fields: [paqueteId], references: [id], onDelete: SetNull)
+  envio Envio @relation(fields: [envioId], references: [id], onDelete: Cascade)
 
-  @@index([userId, createdAt])
+  @@index([envioId, creadoEn])
 }
 
-model Tarifa {
-  id               String  @id @default(cuid())
-  nombre           String
-  pesoHasta        Float
-  precio           Int
-  precioKgExcedente Int?
-  activo           Boolean @default(true)
+model Configuracion {
+  clave String @id
+  valor Json
+}
 
-  @@index([activo, pesoHasta])
+model TasaBcv {
+  fecha            String     @id
+  bolivaresPorUsd  Float
+  fuente           FuenteTasa
+  creadoEn         DateTime   @default(now())
 }

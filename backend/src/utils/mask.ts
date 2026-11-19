@@ -1,37 +1,19 @@
-/**
- * Enmascaramiento de PII para logs y respuestas administrativas.
- * Regla de oro: el operador nunca ve el teléfono del cliente.
- */
-export function maskPhone(phone: string | null | undefined): string {
-  if (!phone) return '—';
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length < 6) return '******';
-  const prefix = phone.trim().startsWith('+') ? `+${digits.slice(0, 2)}` : '';
-  return `${prefix}******${digits.slice(-4)}`;
+export function enmascararCedula(cedula: string): string {
+  const digitos = cedula.replace(/\D/g, '');
+  if (digitos.length < 4) return '***';
+  return `V-***${digitos.slice(-3)}`;
 }
 
-export function maskEmail(email: string | null | undefined): string {
-  if (!email) return '—';
-  const [local, domain] = email.split('@');
-  if (!local || !domain) return '***';
-  const visible = local.slice(0, 1);
-  return `${visible}${'*'.repeat(Math.max(3, local.length - 1))}@${domain}`;
+export function enmascararTelefono(telefono: string): string {
+  const digitos = telefono.replace(/\D/g, '');
+  if (digitos.length < 6) return '***';
+  return `+${digitos.slice(0, 2)}******${digitos.slice(-2)}`;
 }
 
-export function maskName(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '—';
-  return parts
-    .map((part, index) => {
-      if (index === 0) return part;
-      return `${part.slice(0, 1).toUpperCase()}.`;
-    })
-    .join(' ');
-}
-
-/** Sustituye correos y teléfonos embebidos en un texto libre. */
-export function redactPII(text: string): string {
-  return text
-    .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, (match) => maskEmail(match))
-    .replace(/(\+?\d[\d\s-]{7,}\d)/g, (match) => maskPhone(match));
+export function enmascararNombre(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/);
+  const primero = partes[0] ?? '';
+  if (primero.length === 0) return '***';
+  const inicialSegundo = partes.length > 1 ? ` ${partes[1]!.charAt(0)}.` : '';
+  return `${primero}${inicialSegundo}`;
 }

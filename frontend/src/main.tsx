@@ -1,15 +1,28 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+import { ProveedorAvisos } from './components/ui';
+import { AuthProvider } from './lib/auth';
 import './index.css';
 
-const contenedor = document.getElementById('root');
-if (!contenedor) {
-  throw new Error('No encontramos el elemento #root en index.html.');
-}
+const raiz = document.getElementById('raiz');
+if (!raiz) throw new Error('No se encontró el elemento raíz de la página.');
 
-createRoot(contenedor).render(
+createRoot(raiz).render(
   <StrictMode>
-    <App />
+    <BrowserRouter>
+      <AuthProvider>
+        <ProveedorAvisos>
+          <App />
+        </ProveedorAvisos>
+      </AuthProvider>
+    </BrowserRouter>
   </StrictMode>,
 );
+
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => console.warn('No se pudo registrar el service worker'));
+  });
+}

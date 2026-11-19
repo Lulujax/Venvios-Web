@@ -1,46 +1,41 @@
-import { useEffect } from 'react';
-import { BrowserRouter, Link, Route, Routes, useLocation } from 'react-router-dom';
-import { AuthProvider } from './lib/auth';
-import { RequireAuth } from './components/RequireAuth';
-import { BrandMark } from './components/ui/BrandMark';
-import { Icon } from './components/ui/Icon';
-import { LandingPage } from './pages/LandingPage';
-import { LoginPage } from './pages/LoginPage';
-import { TrackPage } from './pages/TrackPage';
-import { ClientDashboard } from './pages/ClientDashboard';
-import { AdminDashboard } from './pages/AdminDashboard';
+import { lazy, Suspense, type ReactNode } from 'react';
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { Cargando } from './components/ui';
+import { esPersonal, rutaInicial, useAuth } from './lib/auth';
+import type { Rol } from './lib/tipos';
+import { CambiarClave, Ingresar, Registro } from './pages/Acceso';
+import DetalleEnvio from './pages/DetalleEnvio';
+import Landing from './pages/Landing';
+import NuevaPrealerta from './pages/NuevaPrealerta';
+import { CuentaLayout, MisEnvios } from './pages/cliente/Cuenta';
+import { Inicio, ListaEnvios, PanelLayout } from './pages/panel/Panel';
+import PagosPendientes from './pages/panel/PagosPendientes';
 
-function ScrollToTop() {
-  const { pathname } = useLocation();
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'auto' });
-  }, [pathname]);
-  return null;
+const Administracion = lazy(() => import('./pages/panel/Administracion'));
+const Escaneo = lazy(() => import('./pages/panel/Escaneo'));
+
+function Protegida({ roles }: { roles: Rol[] }) {
+  const { usuario, cargando } = useAuth();
+  if (cargando) return <div className="contenedor py-10"><Cargando /></div>;
+  if (!usuario) return <Navigate to="/ingresar" replace />;
+  if (usuario.debeCambiarClave) return <Navigate to="/cambiar-clave" replace />;
+  if (!roles.includes(usuario.rol)) return <Navigate to={rutaInicial(usuario)} replace />;
+  return <Outlet />;
 }
 
-function NotFoundPage() {
+function SoloAdmin({ children }: { children: ReactNode }) {
+  const { usuario } = useAuth();
+  return usuario?.rol === 'ADMIN' ? <>{children}</> : <Navigate to="/panel" replace />;
+}
+
+function NoEncontrada() {
+  const { usuario } = useAuth();
   return (
-    <div className="grid min-h-[100dvh] place-items-center bg-paper px-6">
-      <div className="w-full max-w-md">
-        <Link to="/" aria-label="Venvios Express, inicio">
-          <BrandMark />
-        </Link>
-        <p className="eyebrow mt-10">Error 404 · Guía no encontrada</p>
-        <h1 className="display-lg mt-3">Esta página no existe.</h1>
-        <p className="mt-4 max-w-[46ch] text-sm leading-relaxed text-muted">
-          La dirección que buscas no está en nuestro manifiesto. Vuelve al inicio o consulta el
-          rastreo público con tu guía.
-        </p>
-        <div className="mt-8 flex flex-wrap gap-2">
-          <Link to="/" className="btn btn-primary">
-            <Icon name="chevronLeft" size={13} />
-            Volver al inicio
-          </Link>
-          <Link to="/rastreo" className="btn btn-outline">
-            <Icon name="search" size={13} />
-            Rastrear paquete
-          </Link>
-        </div>
+    <div className="grid min-h-[100dvh] place-items-center px-6 text-center">
+      <div>
+        <p className="font-display text-7xl font-extrabold text-oro">404</p>
+        <h1 className="mt-2 text-3xl">No encontramos esa página</h1>
+        <a href={usuario && esPersonal(usuario.rol) ? '/panel' : '/'} className="btn btn-primario mt-6">Volver al inicio</a>
       </div>
     </div>
   );
@@ -48,32 +43,35 @@ function NotFoundPage() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <ScrollToTop />
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/rastreo" element={<TrackPage />} />
-          <Route
-            path="/app"
-            element={
-              <RequireAuth rol="CLIENTE">
-                <ClientDashboard />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <RequireAuth rol="ADMIN">
-                <AdminDashboard />
-              </RequireAuth>
-            }
-          />
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+    <Suspense fallback={<div className="contenedor py-10"><Cargando /></div>}>
+    <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route path="/ingresar" element={<Ingresar />} />
+      <Route path="/registro" element={<Registro />} />
+      <Route path="/cambiar-clave" element={<CambiarClave />} />
+
+      <Route element={<Protegida roles={['CLIENTE']} />}>
+        <Route path="/cuenta" element={<CuentaLayout />}>
+          <Route index element={<MisEnvios />} />
+          <Route path="nuevo" element={<NuevaPrealerta personal={false} />} />
+          <Route path="envios/:id" element={<DetalleEnvio personal={false} />} />
+        </Route>
+      </Route>
+
+      <Route element={<Protegida roles={['OPERADOR', 'ADMIN']} />}>
+        <Route path="/panel" element={<PanelLayout />}>
+          <Route index element={<Inicio />} />
+          <Route path="escanear" element={<Escaneo />} />
+          <Route path="envios" element={<ListaEnvios />} />
+          <Route path="envios/:id" element={<DetalleEnvio personal />} />
+          <Route path="pagos" element={<PagosPendientes />} />
+          <Route path="nuevo" element={<NuevaPrealerta personal />} />
+          <Route path="admin" element={<SoloAdmin><Administracion /></SoloAdmin>} />
+        </Route>
+      </Route>
+
+      <Route path="*" element={<NoEncontrada />} />
+    </Routes>
+    </Suspense>
   );
 }

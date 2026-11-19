@@ -4,57 +4,30 @@ export default {
   theme: {
     extend: {
       colors: {
-        paper: '#F8F9FA',
-        bone: '#F1EDE5',
-        ink: '#111318',
-        navy: {
-          DEFAULT: '#0B1C3C',
-          800: '#081529',
-          700: '#132A54',
-        },
-        gold: {
-          DEFAULT: '#EAB308',
-          soft: '#F5D45C',
-        },
-        red: {
-          DEFAULT: '#D32F2F',
-          dark: '#A92323',
-        },
-        line: '#D8DCE1',
-        muted: '#5C636E',
+        papel: '#FAF8F3',
+        linea: '#E6E0D2',
+        tinta: '#141A33',
+        suave: '#5B6178',
+        marino: { DEFAULT: '#14286B', 900: '#0C1A4A', 700: '#1B3590', 100: '#E3E8F7', 50: '#F0F3FB' },
+        oro: { DEFAULT: '#F2B01E', 600: '#D99A0B', 100: '#FDF0CC', 50: '#FEF8E7' },
+        rojo: { DEFAULT: '#D4262C', 700: '#B01C21', 100: '#FBE4E4' },
+        verde: { DEFAULT: '#1E8A5A', 100: '#DDF3E8' },
       },
       fontFamily: {
-        display: ['"Cabinet Grotesk"', 'Satoshi', 'sans-serif'],
-        sans: ['Satoshi', '"Helvetica Neue"', 'sans-serif'],
+        display: ['Fraunces', 'Georgia', 'serif'],
+        sans: ['Figtree', 'system-ui', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
-      borderRadius: {
-        DEFAULT: '2px',
-        sm: '2px',
-        md: '4px',
-        lg: '4px',
-        xl: '4px',
-        '2xl': '4px',
-        '3xl': '4px',
+      borderRadius: { tarjeta: '20px', boton: '14px' },
+      boxShadow: {
+        tarjeta: '0 1px 0 rgba(20,26,51,.04), 0 8px 24px -12px rgba(20,26,51,.18)',
+        elevada: '0 18px 40px -18px rgba(20,40,107,.35)',
       },
-      borderColor: {
-        DEFAULT: '#D8DCE1',
+      keyframes: {
+        entrar: { from: { opacity: '0', transform: 'translateY(8px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
+        pulso: { '0%,100%': { opacity: '1' }, '50%': { opacity: '.45' } },
       },
-      maxWidth: {
-        shell: '1320px',
-        prose: '65ch',
-      },
-      transitionTimingFunction: {
-        out: 'cubic-bezier(0.22, 1, 0.36, 1)',
-        swift: 'cubic-bezier(0.4, 0, 0.2, 1)',
-      },
-      letterSpacing: {
-        tightest: '-0.045em',
-        label: '0.2em',
-      },
-      screens: {
-        xs: '480px',
-      },
+      animation: { entrar: 'entrar .35s cubic-bezier(.22,1,.36,1) both', pulso: 'pulso 1.4s ease-in-out infinite' },
     },
   },
   plugins: [],

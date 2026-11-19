@@ -1,186 +1,50 @@
-# Venvios Express — Plataforma Courier Colombia → Venezuela
+# Venvios Express
 
-Aplicación web completa para **Venvios Express**, empresa de courier puerta a puerta con sede en
-el Barrio Latino, centro de Cúcuta (Colombia), con ruta a Venezuela.
+Casillero internacional Colombia a Venezuela. Las compras de Shein, AliExpress y Amazon llegan a la oficina de Cúcuta, se escanean con el teléfono, se pesan, se cobran en dólares (pago en Bs a tasa BCV) y se despachan por MRW o Zoom. No hay bot de WhatsApp: el sistema deja el mensaje listo y una persona lo envía.
 
-- **Frontend:** React + Vite + TypeScript + Tailwind CSS
-- **Backend:** Node.js + Express + TypeScript + Prisma + PostgreSQL
-- **Librerías clave:** `@zxing/library` (escáner de códigos), `browser-image-compression`
-  (compresión de evidencias), `argon2` (hash de contraseñas), `twilio` (avisos por WhatsApp)
+Specs en `specs/001-recepcion-y-despacho/` (spec, plan y tareas).
 
-El proyecto sigue un enfoque **Backend-First**: la interfaz es "tonta". Los precios, el peso
-cobrable, las transiciones de estado y toda validación crítica viven **solo en el servidor**.
-El operador nunca ve el teléfono del cliente.
-
----
-
-## Requisitos
-
-- Node.js ≥ 20 (probado con 22)
-- Docker (para PostgreSQL) o un PostgreSQL propio
-- npm ≥ 10
-
-## Instalación
+## Probar en tu computadora
 
 ```bash
-# 1. Clonar e instalar dependencias del monorepo (backend + frontend)
 npm install
-
-# 2. Levantar la base de datos PostgreSQL
-docker compose up -d
-
-#    (Alternativa sin Docker) con un PostgreSQL local puedes crear el rol y la
-#    base de datos a mano, con credenciales que coincidan con backend/.env:
-#      CREATE ROLE venvios LOGIN PASSWORD 'venvios' CREATEDB;
-#      CREATE DATABASE venvios OWNER venvios;
-
-# 3. Configurar variables de entorno del backend
-copy backend\.env.example backend\.env      # Windows
-cp backend/.env.example backend/.env         # Linux / macOS
-
-# 4. Crear las tablas y cargar datos iniciales (tarifas + usuarios demo)
-npm run db:migrate
-npm run db:seed
-
-# 5. Arrancar API + Web en modo desarrollo
 npm run dev
 ```
 
-- **Web:** http://localhost:5173
-- **API:** http://localhost:4000/api/health
+- Web: http://localhost:5173
+- API: http://localhost:4000/api/salud
+- Sin `DATABASE_URL` la API usa datos en memoria (se pierden al reiniciar). Es lo ideal para probar.
+- Administrador de desarrollo: teléfono `573000000001`, contraseña `AdminDev2026!`. Solo existe cuando no hay `ADMIN_PASSWORD`.
+- Cada día el servidor consulta la tasa BCV a `ve.dolarapi.com`. Sin internet, el administrador la carga a mano en Admin → Tasa BCV.
+- La cámara solo funciona con candado (https) o en `localhost`. Para probar con el teléfono real hay que desplegar (ver abajo).
 
-> Sin Twilio configurado (`TWILIO_SID`/`TWILIO_TOKEN` vacíos) los avisos de WhatsApp se ejecutan
-> en **modo simulación local**: se registran como ENVIADAS y el destino queda enmascarado.
+## Comandos
 
-### Credenciales por defecto (solo demo, `NODE_ENV !== production`)
+| Comando | Qué hace |
+| --- | --- |
+| `npm test` | Pruebas del backend (62) y del frontend (22) |
+| `npm run e2e` | Flujo completo en Chrome real (registro, prealerta, escaneo, pago, entrega, despacho) |
+| `npm run typecheck` | Revisa los tipos de TypeScript |
+| `npm run build` | Compila para producción |
+| `npm run db:migrate` / `npm run db:seed` | Crea las tablas y la configuración inicial en Postgres |
 
-| Rol          | Email                       | Contraseña        |
-| ------------ | --------------------------- | ----------------- |
-| Admin        | `admin@venviosexpress.com`  | `VenviosAdmin2026!` |
-| Cliente demo | `cliente@venviosexpress.com` | `Cliente2026!`     |
+## Desplegar (Netlify + Supabase)
 
-Los datos demo incluyen el casillero `VEX-CUC-4827` y los paquetes `VEX-2026-04217`,
-`VEX-2026-04108` y `VEX-2026-04302` (puedes rastrearlos en `/rastreo`).
+1. En Supabase crea un proyecto. Copia la cadena de conexión con pooler (`DATABASE_URL`) y la directa (`DIRECT_URL`). En Storage crea un bucket **privado** llamado `venvios-privado` y copia la clave de servicio.
+2. Genera dos secretos: `JWT_SECRET` (cadena larga aleatoria) y `CEDULA_KEY` (64 caracteres hexadecimales, por ejemplo `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
+3. Crea `backend/.env` con las variables de `.env.example` y corre `npm run db:migrate` y `npm run db:seed` una vez. Define `ADMIN_PASSWORD` antes de sembrar.
+4. En Netlify conecta el repositorio y carga las mismas variables (`DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `CEDULA_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_BUCKET`). El build ya está definido en `netlify.toml`.
+5. Entra como administrador → Admin → Datos de pago, carga los datos reales (Binance y pago móvil) y desmarca «datos de prueba».
 
-### Otros comandos
+Las claves nunca van en el código ni en Git.
 
-```bash
-npm run typecheck   # TypeScript en backend y frontend
-npm run build       # Compilar ambos para producción
-npm run db:studio   # Prisma Studio (inspección de datos)
-npm start           # Solo la API compilada
-```
+## Pruebas manuales sugeridas (en este orden)
 
----
-
-## Estructura del monorepo
-
-```
-Venvios-Web/
-├── RULES.md                  # Reglas de negocio, diseño y seguridad (fuente de verdad)
-├── docker-compose.yml        # PostgreSQL local (venvios/venvios/venvios)
-├── package.json              # Workspaces npm + scripts raíz
-├── backend/
-│   ├── prisma/
-│   │   ├── schema.prisma     # User, Casillero, Prealerta, Paquete, EventoPaquete, Notificacion, Tarifa
-│   │   └── seed.ts            # Tarifas + admin + cliente demo con paquetes
-│   ├── src/
-│   │   ├── config/            # env.ts, session.ts
-│   │   ├── controllers/       # AuthController, PackageController, PublicController, BaseController
-│   │   ├── domain/            # estados.ts (máquina de estados de paquetes)
-│   │   ├── entities/          # DTOs tipados
-│   │   ├── lib/               # prisma.ts
-│   │   ├── middleware/        # AuthGuard, errorHandler, rateLimiters, upload (multer)
-│   │   ├── repositories/      # Acceso a datos con Prisma (POO)
-│   │   ├── routes/            # ApiRouter
-│   │   ├── services/          # AuthService, QuoteService, WhatsAppService, PackageService
-│   │   ├── utils/             # errors, mask, logger, sanitize, format, codes
-│   │   ├── app.ts             # Aplicación Express (helmet, CORS, cookies)
-│   │   └── index.ts           # ServerBootstrap con apagado seguro
-│   ├── .env.example
-│   └── package.json
-└── frontend/
-    ├── index.html             # Fuentes Cabinet Grotesk / Satoshi / JetBrains Mono
-    ├── public/favicon.svg
-    ├── src/
-    │   ├── components/
-    │   │   ├── Admin/         # Scanner (ZXing + compresión), ReceptionModal, PackageDrawer
-    │   │   ├── Client/        # CasilleroCard, PackageList, PrealertaForm
-    │   │   ├── Landing/       # Navbar, Hero, HowItWorks, RatesTable, CasilleroInfo, Footer
-    │   │   ├── ui/            # Icon, BrandMark, StatusBadge
-    │   │   ├── Reveal.tsx     # Animaciones al hacer scroll
-    │   │   └── RequireAuth.tsx
-    │   ├── config/brand.ts    # Único lugar con el WhatsApp público de la marca
-    │   ├── lib/               # api (cliente fetch), auth (contexto), estados, format, cn
-    │   ├── pages/             # LandingPage, LoginPage, TrackPage, ClientDashboard, AdminDashboard
-    │   ├── App.tsx            # Router (/ /login /rastreo /app /admin 404)
-    │   ├── main.tsx
-    │   └── types.ts           # DTOs compartidos
-    ├── tailwind.config.js
-    ├── vite.config.ts         # Proxy /api y /uploads → localhost:4000
-    └── package.json
-```
-
----
-
-## Flujo de negocio
-
-1. El cliente **se registra** y recibe un código de **casillero único** (`VEX-CUC-XXXX`).
-2. Compra en Colombia y envía una **prealerta** desde su panel.
-3. El paquete llega a la sede de Cúcuta: el operador lo **recibe** (peso, dimensiones, foto),
-   se genera la guía `VEX-AAAA-NNNNN` y se calcula el costo en el servidor.
-4. El cliente recibe el **aviso por WhatsApp** con guía y valor a pagar.
-5. El cliente paga; el operador avanza el estado (bodega → tránsito → aduana → entregado)
-   y el cliente recibe avisos automáticos en cada paso.
-
-### Tarifa única (Costo de envío por paquete)
-
-Calculada **solo en el servidor**: peso cobrable = máx(peso real, peso volumétrico L×A×H÷5000),
-aplicando la tabla única vigente (hasta 2/5/10/20/30 kg + excedente por kg). La interfaz
-nunca replica precios; consume `GET /api/tarifas`.
-
----
-
-## API (resumen)
-
-| Método | Ruta                          | Acceso           |
-| ------ | ----------------------------- | ---------------- |
-| GET    | `/api/health`                 | Público          |
-| GET    | `/api/tarifas`                | Público          |
-| GET    | `/api/rastreo/:guia`          | Público          |
-| POST   | `/api/auth/registro`          | Público          |
-| POST   | `/api/auth/login`             | Público          |
-| GET    | `/api/auth/me`                | Sesión           |
-| POST   | `/api/auth/logout`            | Sesión           |
-| GET    | `/api/paquetes`               | Cliente           |
-| GET/POST | `/api/prealertas`           | Cliente           |
-| GET    | `/api/notificaciones`        | Cliente           |
-| GET    | `/api/admin/resumen`          | Admin             |
-| GET    | `/api/admin/paquetes`         | Admin (paginado)  |
-| GET    | `/api/admin/paquetes/buscar`  | Admin             |
-| POST   | `/api/admin/paquetes`         | Admin (recepción) |
-| PATCH  | `/api/admin/paquetes/:id/estado` | Admin          |
-| POST   | `/api/admin/paquetes/:id/foto` | Admin (imagen)   |
-| GET    | `/api/admin/prealertas`       | Admin             |
-| GET    | `/api/admin/clientes/buscar`  | Admin (por casillero, sin PII) |
-
-Sesión con JWT en cookie `httpOnly` (`venvios_session`). Contraseñas con **argon2id**.
-Entradas validadas con Zod y sanitizadas. PII enmascarada en logs y respuestas.
-
----
-
-## Seguridad y privacidad
-
-- El teléfono del cliente **nunca** llega al frontend ni aparece en la consola de administración.
-- Los costos y transiciones de estado se calculan y validan en el backend.
-- Fotos de evidencia con nombre aleatorio, límite de tamaño y validación de tipo.
-- Rate limiting en endpoints públicos y sensibles; CORS con allowlist; helmet activo.
-- El único número visible es el WhatsApp público de la marca (`src/config/brand.ts`).
-
-> **Nota de auditoría de dependencias:** `npm audit` reporta un aviso alto **transitivo**
-> (`deepmerge-ts` → `@prisma/config`) que afecta únicamente al **CLI de Prisma** (herramienta
-> de desarrollo para migraciones), no al servidor en tiempo de ejecución. Se resuelve al
-> migrar a Prisma 7/8. Las dependencias de ejecución (multer, zod, react-router) están
-> actualizadas y sin avisos.
-
-Consultá `RULES.md` para el detalle completo de reglas de diseño, marca y negocio.
+1. Abre la página en el teléfono y en la PC: sin barras horizontales, menú usable.
+2. Crea una cuenta de cliente. Registra una prealerta con 2 trackings, valor 60 $, modalidad «todo incluido».
+3. Entra como operador en otro navegador. En Escanear apunta la cámara a una etiqueta real de Shein/X-Cargo (o escribe el tracking). Verifica que reconoce al cliente.
+4. Pesa 2,40 y 1,95 kg. El total debe ser 44,33 $.
+5. Pulsa «Avisar por WhatsApp»: en el teléfono abre la app, en la PC abre WhatsApp Web con el mensaje.
+6. Como cliente, sube un comprobante. Como operador, confírmalo en Pagos.
+7. Como cliente, llena los datos de entrega. Como operador, despacha con una guía y una foto. Prueba «Enviar guía por WhatsApp».
+8. Instala la página en el teléfono («Agregar a pantalla de inicio»).

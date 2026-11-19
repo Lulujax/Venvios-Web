@@ -1,109 +1,55 @@
-import type { ApiErrorPayload } from '../types';
-
-const BASE_URL =
-  (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || '/api';
-
-export class ApiError extends Error {
-  public readonly status: number;
-  public readonly codigo: string;
-  public readonly detalles?: ApiErrorPayload['detalles'];
-
-  constructor(status: number, payload: ApiErrorPayload) {
-    super(payload.mensaje);
-    this.name = 'ApiError';
-    this.status = status;
-    this.codigo = payload.codigo;
-    this.detalles = payload.detalles;
-  }
-
-  get erroresPorCampo(): Record<string, string> {
-    const resultado: Record<string, string> = {};
-    if (Array.isArray(this.detalles)) {
-      for (const detalle of this.detalles) {
-        if (detalle && typeof detalle === 'object' && 'campo' in detalle) {
-          resultado[String(detalle.campo)] = String(detalle.mensaje);
-        }
-      }
-    }
-    return resultado;
+export class ErrorApi extends Error {
+  constructor(
+    message: string,
+    public readonly estado: number,
+    public readonly codigo: string = 'ERROR',
+    public readonly datos?: Record<string, unknown>,
+  ) {
+    super(message);
+    this.name = 'ErrorApi';
   }
 }
 
-function parsePayload(body: unknown): ApiErrorPayload {
-  if (body && typeof body === 'object' && 'error' in body) {
-    const error = (body as { error?: unknown }).error;
-    if (error && typeof error === 'object' && 'mensaje' in error) {
-      const payload = error as ApiErrorPayload;
-      return {
-        codigo: payload.codigo ?? 'ERROR',
-        mensaje: payload.mensaje ?? 'Ocurrió un error.',
-        detalles: payload.detalles,
-      };
-    }
-  }
-  return { codigo: 'ERROR', mensaje: 'Ocurrió un error inesperado.' };
-}
-
-class ApiClient {
-  private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const headers = new Headers(options.headers);
-    if (options.body && !(options.body instanceof FormData)) {
-      headers.set('Content-Type', 'application/json');
-    }
-    headers.set('Accept', 'application/json');
-
-    let response: Response;
-    try {
-      response = await fetch(`${BASE_URL}${path}`, {
-        ...options,
-        credentials: 'include',
-        headers,
-      });
-    } catch {
-      throw new ApiError(0, {
-        codigo: 'SIN_CONEXION',
-        mensaje: 'No pudimos conectar con el servidor. Revisa tu conexión e intenta de nuevo.',
-      });
-    }
-
-    const text = await response.text();
-    let data: unknown = null;
-    if (text) {
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = text;
-      }
-    }
-
-    if (!response.ok) {
-      throw new ApiError(response.status, parsePayload(data));
-    }
-
-    return data as T;
-  }
-
-  get<T>(path: string): Promise<T> {
-    return this.request<T>(path, { method: 'GET' });
-  }
-
-  post<T>(path: string, body?: unknown): Promise<T> {
-    return this.request<T>(path, {
-      method: 'POST',
-      body: body === undefined ? undefined : JSON.stringify(body),
+async function solicitar<T>(metodo: string, ruta: string, cuerpo?: unknown): Promise<T> {
+  const esFormulario = typeof FormData !== 'undefined' && cuerpo instanceof FormData;
+  let respuesta: Response;
+  try {
+    respuesta = await fetch(`/api${ruta}`, {
+      method: metodo,
+      credentials: 'same-origin',
+      headers: cuerpo !== undefined && !esFormulario ? { 'Content-Type': 'application/json' } : undefined,
+      body: cuerpo === undefined ? undefined : esFormulario ? (cuerpo as FormData) : JSON.stringify(cuerpo),
     });
+  } catch {
+    throw new ErrorApi('No hay conexión con el servidor. Revisa tu internet e intenta de nuevo.', 0, 'SIN_CONEXION');
   }
 
-  patch<T>(path: string, body?: unknown): Promise<T> {
-    return this.request<T>(path, {
-      method: 'PATCH',
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+  const texto = await respuesta.text();
+  let datos: unknown = null;
+  try {
+    datos = texto ? JSON.parse(texto) : null;
+  } catch {
+    datos = null;
   }
 
-  upload<T>(path: string, formData: FormData): Promise<T> {
-    return this.request<T>(path, { method: 'POST', body: formData });
+  if (!respuesta.ok) {
+    const error = (datos as { error?: { mensaje?: string; codigo?: string; datos?: Record<string, unknown> } } | null)?.error;
+    throw new ErrorApi(error?.mensaje ?? 'Algo salió mal. Intenta de nuevo.', respuesta.status, error?.codigo, error?.datos);
   }
+  return datos as T;
 }
 
-export const api = new ApiClient();
+export const api = {
+  get: <T>(ruta: string) => solicitar<T>('GET', ruta),
+  post: <T>(ruta: string, cuerpo?: unknown) => solicitar<T>('POST', ruta, cuerpo ?? {}),
+  put: <T>(ruta: string, cuerpo: unknown) => solicitar<T>('PUT', ruta, cuerpo),
+  patch: <T>(ruta: string, cuerpo: unknown) => solicitar<T>('PATCH', ruta, cuerpo),
+};
+
+export function mensajeDeError(error: unknown): string {
+  return error instanceof Error ? error.message : 'Algo salió mal. Intenta de nuevo.';
+}
+
+export function urlArchivo(ruta: string | null | undefined): string | null {
+  return ruta ? `/api/archivos/${ruta}` : null;
+}

@@ -1,0 +1,184 @@
+# 001 · Recepción, cobro y despacho de paquetes (Venvios Express)
+
+Estado: BORRADOR. Falta que Luis responda las aclaraciones marcadas antes de hacer el plan.
+
+## Qué es y por qué
+
+Venvios Express es un **casillero internacional**: el cliente compra en Shein, AliExpress, Amazon u otra tienda y la compra llega a la oficina de Cúcuta (Av. 3 #8-03, piso 2, local 02, Barrio Latino). Allí se recibe, se pesa, se cruza a Venezuela y se entrega a una transportista venezolana (MRW o Zoom) que lo lleva hasta el cliente.
+
+Hoy todo se lleva por WhatsApp y de memoria. El sistema le da al personal de la oficina un solo lugar donde:
+
+1. Anotar la prealerta que el cliente manda por WhatsApp (su número de tracking de la tienda).
+2. Escanear con el teléfono el código de barras de cada paquete que llega. Ese código es el tracking de la transportista que lo trajo, así que el sistema encuentra solo a su dueño y lo marca como recibido.
+3. Avisarle al cliente por WhatsApp, con un botón, que llegó, cuánto pesa y cuánto debe pagar.
+4. Recibir el comprobante de pago (Binance o pago móvil) que el cliente sube, y confirmarlo.
+5. Registrar la guía de MRW o Zoom con una foto, y avisarle al cliente con otro botón.
+
+Todo lo hace una persona a mano. No hay bot ni mensajes automáticos. El sistema solo deja listo el mensaje y abre el chat; la persona lo envía.
+
+Además hay una página pública con la información de la empresa, las tarifas y un rastreador que lleva al sitio de MRW o de Zoom.
+
+## Quién lo usa
+
+- **Operador**: personal de la oficina. Usa el teléfono para escanear y tomar fotos, y la PC para cobrar y enviar mensajes por WhatsApp Web.
+- **Administrador**: el responsable de las cuentas. Hace todo lo del operador y además corrige errores, cambia tarifas y datos de pago, y gestiona usuarios y operadores. Aún no se sabe cuántos operadores ni administradores habrá, así que el sistema no fija un número.
+- **Visitante**: cualquier persona que entra a la página pública. No tiene cuenta.
+- **Usuario común (el cliente)**: puede haber miles. Tiene cuenta propia: entra a ver sus envíos, cuánto debe, los datos de pago y sube su comprobante. Además recibe avisos por WhatsApp. Solo ve lo suyo.
+
+## Requisitos
+
+### Página pública
+
+- **RF-1** EL SISTEMA mostrará una página pública con: quiénes son, la tabla de tarifas vigente, la nota «Pagos en Bs a tasa BCV», la dirección de la oficina, el WhatsApp de atención y las redes sociales (@venviosexpress en Instagram, Facebook y TikTok).
+- **RF-2** EL SISTEMA mostrará un rastreador donde el visitante elige una transportista de una lista y escribe su número de guía.
+- **RF-3** CUANDO el visitante pulse «Rastrear», EL SISTEMA abrirá en otra pestaña la página oficial de rastreo de esa transportista. Si la página de la transportista acepta el número en el enlace, se lo pasa; si no, copia el número para que el visitante solo lo pegue.
+- **RF-4** EL SISTEMA no consultará a las transportistas por su cuenta: solo redirige.
+- **RF-5** CUANDO el visitante pulse el botón de WhatsApp, EL SISTEMA abrirá un chat con el número de atención y un mensaje inicial ya escrito.
+- **RF-6** EL SISTEMA mostrará en la página pública una calculadora donde el visitante escribe los kilos y el valor declarado, y ve el precio estimado en $ y en Bs.
+
+### Acceso del personal
+
+- **RF-7** EL SISTEMA pedirá usuario y contraseña para entrar al panel. Solo entra el personal.
+- **RF-8** SI alguien falla la contraseña varias veces seguidas, ENTONCES EL SISTEMA bloqueará ese intento por unos minutos.
+- **RF-9** EL SISTEMA tendrá tres tipos de usuario: usuario común (cliente), operador y administrador. Cada uno ve y hace solo lo suyo. Cualquier cantidad de cada tipo.
+- **RF-9b** EL SISTEMA permitirá al cliente registrarse solo desde la página con: nombre y apellido, número de cédula (solo el número, sin foto), teléfono de WhatsApp con código de país y contraseña. No necesita que un operador lo cree.
+- **RF-9d** SI la cédula o el teléfono ya están registrados, ENTONCES EL SISTEMA no creará una segunda cuenta y le indicará cómo recuperar la suya.
+- **RF-9e** EL SISTEMA guardará la cédula cifrada (se puede recuperar con una llave del servidor) y la mostrará completa solo al administrador y al operador cuando prepare un despacho; en listas y registros internos aparece parcial (por ejemplo `V-***678`).
+- **RF-9c** SI un cliente olvida su contraseña, ENTONCES EL SISTEMA permitirá que un operador o administrador le asigne una temporal (sin correo ni SMS automático, para no pagar mensajería).
+
+### Prealertas
+
+- **RF-10** EL SISTEMA permitirá registrar una prealerta con: nombre del cliente, teléfono de WhatsApp con código de país, número de tracking (el que trae el paquete de la tienda o de la transportista, el mismo del código de barras), tienda de origen y valor declarado en dólares. El valor declarado lo da el cliente en la prealerta.
+- **RF-11** EL SISTEMA permitirá indicar cuántos paquetes espera ese cliente en el mismo envío.
+- **RF-12** SI el número de prealerta ya existe, ENTONCES EL SISTEMA avisará y mostrará la prealerta existente en vez de duplicarla.
+- **RF-13** SI falta el teléfono, ENTONCES EL SISTEMA guardará la prealerta, pero la marcará como «sin WhatsApp» y no dejará enviar mensajes hasta que se agregue.
+- **RF-14** CUANDO el operador escriba un nombre o un teléfono ya registrado, EL SISTEMA sugerirá el cliente existente para no volver a escribir sus datos.
+
+### Recepción con el teléfono
+
+- **RF-15** EL SISTEMA permitirá escanear con la cámara del teléfono cualquier código de barras o QR de la etiqueta del paquete (todos los formatos que la cámara pueda leer). Los paquetes que se esperan vienen de Shein, por ejemplo con etiquetas de X-Cargo.
+- **RF-15b** EL SISTEMA guardará el texto exacto que leyó el escáner, y para buscar comparará ignorando espacios, ceros a la izquierda y prefijos comunes. SI una etiqueta trae varios códigos, ENTONCES EL SISTEMA dejará elegir cuál usar.
+- **RF-16** EL SISTEMA permitirá escribir el tracking a mano cuando el código no se pueda leer.
+- **RF-17** CUANDO se lea un tracking con prealerta, EL SISTEMA marcará el paquete como recibido automáticamente y mostrará el nombre del cliente y cuántos paquetes de su envío faltan.
+- **RF-18** SI no existe prealerta con ese tracking, ENTONCES EL SISTEMA lo dirá claramente y ofrecerá registrar el paquete como «sin prealerta» para asignarle el cliente después.
+- **RF-19** EL SISTEMA permitirá cargar el peso de cada paquete en kilos, con dos decimales exactos. No se usa peso volumétrico: solo cuenta el peso físico.
+- **RF-20** EL SISTEMA calculará el precio del envío sumando el peso de todos sus paquetes, aplicando la tarifa por kilo y agregando el seguro de carga (ver «Tarifa»). Lo mostrará en dólares y en bolívares con la tasa BCV del día.
+- **RF-21** EL SISTEMA permitirá solo al administrador corregir a mano el precio, el peso o el valor declarado de un envío, con un motivo obligatorio. Se guarda el valor anterior y quién lo cambió (RF-40). El operador no puede.
+- **RF-22** EL SISTEMA permitirá tomar una foto del paquete al recibirlo. La foto es opcional.
+- **RF-23** SI se escanea un paquete que ya fue recibido, ENTONCES EL SISTEMA avisará que ya está registrado y no lo duplicará.
+- **RF-24** SI el teléfono no permite usar la cámara, ENTONCES EL SISTEMA dejará la búsqueda manual disponible y explicará por qué no abrió la cámara.
+
+### Aviso de llegada por WhatsApp
+
+- **RF-25** CUANDO el operador pulse «Avisar por WhatsApp», EL SISTEMA abrirá el chat del cliente con el mensaje ya escrito: que llegó su paquete, el peso, el precio en $ y en Bs, cuántos paquetes faltan si es un envío de varios, y que entre a su cuenta para ver el detalle y pagar.
+- **RF-26** EL SISTEMA abrirá WhatsApp Web en la PC y la aplicación de WhatsApp en el teléfono.
+- **RF-27** EL SISTEMA guardará que el aviso se abrió, con la fecha y el usuario que lo hizo. No puede saber si el mensaje se envió de verdad, así que el operador lo confirma con un botón.
+- **RF-28** CUANDO llegue cada paquete, EL SISTEMA permitirá avisar al cliente de ese paquete (aviso por paquete), para que el cliente decida si espera los demás o paga ya. El mensaje indica cuántos paquetes del envío ya llegaron y cuántos faltan.
+
+### Pago
+
+- **RF-29** EL SISTEMA mostrará al cliente, en su cuenta, el total a pagar en dólares (y en Bs al cambio del día) y los datos para pagar por Binance o por pago móvil.
+- **RF-30** EL SISTEMA permitirá al cliente subir la foto o captura de su comprobante y escribir el número de referencia.
+- **RF-31** CUANDO el cliente suba un comprobante, EL SISTEMA dejará el envío como «pago por confirmar» y lo mostrará al personal. El personal lo confirma o lo rechaza con un motivo.
+- **RF-32** SI el comprobante se rechaza, ENTONCES EL SISTEMA permitirá al operador abrir un chat de WhatsApp con el motivo escrito, para que el cliente suba otro.
+- **RF-33** EL SISTEMA permitirá al personal registrar un pago a mano (monto, método, referencia) para cuando el cliente pague sin usar el enlace.
+- **RF-33b** Los datos para pagar (pago móvil y cuenta bancaria, y Binance cuando los den) los carga y edita el administrador desde el panel. No van escritos en el código ni en estos documentos. El mensaje de pago incluye: banco, cédula del titular, teléfono, cuenta, nombre del titular, monto y la nota de enviar la captura.
+- **RF-33c** EL SISTEMA no valida el pago contra Binance ni contra el banco: lo verifica una persona mirando el comprobante.
+
+### Despacho y entrega a la transportista venezolana
+
+- **RF-33d** CUANDO el personal confirme el pago, EL SISTEMA dejará listo un mensaje de WhatsApp «Tu pago fue verificado» pidiendo los datos de entrega.
+- **RF-33e** EL SISTEMA pedirá al cliente, en su cuenta, los datos de entrega del envío: nombre y apellido de quien recibe, número de cédula, teléfono, agencia por donde retira (MRW o Zoom), ciudad y estado. Por defecto trae los datos del cliente y los puede cambiar si recibe otra persona.
+- **RF-33f** SI faltan datos de entrega, ENTONCES EL SISTEMA no dejará despachar el envío y mostrará qué falta. El operador puede completarlos si el cliente se los dicta por WhatsApp.
+- **RF-34** EL SISTEMA permitirá marcar un envío como «despachado a Venezuela».
+- **RF-35** EL SISTEMA permitirá registrar la transportista venezolana (MRW o Zoom), su número de guía y una foto de esa guía tomada desde el mismo sistema.
+- **RF-36** CUANDO el operador pulse «Enviar guía por WhatsApp», EL SISTEMA abrirá el chat del cliente con el texto ya escrito (transportista, número de guía y cómo rastrearla) y dejará la foto lista para mandarla en ese mismo chat (ver nota técnica 1).
+- **RF-37** SI el envío no tiene un pago confirmado, ENTONCES EL SISTEMA no dejará despacharlo. Un envío no procede sin pago.
+
+### Seguimiento interno
+
+- **RF-38** EL SISTEMA mostrará una lista de envíos que se puede filtrar por estado: prealertado, recibido parcial, recibido completo, avisado, pago por confirmar, pagado, despachado y cerrado.
+- **RF-39** EL SISTEMA permitirá buscar por nombre del cliente, teléfono, número de prealerta o guía venezolana.
+- **RF-40** EL SISTEMA guardará el historial de cada envío: qué pasó, cuándo y qué usuario lo hizo.
+- **RF-41** EL SISTEMA mostrará al entrar un resumen de los pendientes de hoy: por recibir, por avisar, por cobrar y por despachar.
+
+### Configuración (administrador)
+
+- **RF-42** EL SISTEMA permitirá al administrador cambiar, sin tocar código, los tramos por kilo de la modalidad 1, el precio por kilo de la modalidad 2 y el porcentaje de seguro de cada una.
+- **RF-43** EL SISTEMA consultará la tasa BCV del día en `https://ve.dolarapi.com/v1/dolares/oficial` (campo «promedio», bolívares por dólar), la guardará con su fecha y la usará en todo el sistema. La consulta la hace el servidor, no el navegador del usuario.
+- **RF-44** SI la consulta falla o no hay tasa de hoy, ENTONCES EL SISTEMA usará la última guardada, mostrará un aviso con su fecha y permitirá al administrador cargarla a mano.
+- **RF-45** EL SISTEMA permitirá al administrador editar las plantillas de los mensajes de WhatsApp.
+- **RF-46** EL SISTEMA permitirá al administrador crear, desactivar y cambiar la contraseña de los usuarios del personal.
+- **RF-47** EL SISTEMA traerá solo MRW y Zoom en el rastreador, y permitirá al administrador editar su nombre y enlace de rastreo. Enlaces iniciales: MRW `https://mrwve.com` y Zoom `https://zoom.red/tracking-de-envios-personas/`. No se verificó si aceptan el número en el enlace; si no, el sistema copia el número para pegarlo (RF-3).
+
+### Teléfono y PC
+
+- **RF-48** EL SISTEMA funcionará completo en teléfono y en PC. El diseño se adapta a cada pantalla: en el teléfono prioriza escanear, tomar fotos y recibir; en la PC prioriza listas, cobros y envío de mensajes.
+- **RF-49** EL SISTEMA se podrá instalar en la pantalla de inicio del teléfono como si fuera una aplicación, sin pasar por la tienda de aplicaciones.
+
+### Privacidad y seguridad
+
+- **RF-50** EL SISTEMA guardará las contraseñas con hash (una huella que no se puede revertir).
+- **RF-51** EL SISTEMA no mostrará datos de clientes (nombres, teléfonos, fotos) en la página pública.
+- **RF-52** Un usuario común solo verá sus propios envíos, fotos y comprobantes. Las fotos y comprobantes no tienen dirección pública: solo se sirven a quien tenga permiso.
+- **RF-53** Los registros internos de errores (logs) no guardarán teléfonos ni nombres completos.
+
+## Tarifa
+
+Los precios están en dólares a tasa BCV del día; el pago puede hacerse en Bs.
+
+**Modalidad 1 (la que se construye ahora):**
+
+- Cobro = (peso total del envío en kg × precio por kg según el tramo) + 5 % del valor declarado como seguro de carga.
+- Precio por kg según el peso total del envío: 1 a 9,99 kg = 9,5 $; 10 a 19,99 kg = 8,5 $; 20 a 49,99 kg = 7,5 $; 50 kg en adelante = 6,5 $. El precio del tramo se aplica a todos los kilos, no solo a los que pasan el límite.
+- Estos tramos y el 5 % los edita el administrador (RF-42).
+- El peso total es la suma de todos los paquetes del envío (ejemplo: 3 paquetes de Shein se pesan y se cobran juntos).
+- Peso mínimo cobrable: 2 kg (un envío que pese 1 kg paga como 2 kg). Peso exacto con 2 decimales, sin redondear hacia arriba. Sin peso volumétrico.
+- Ejemplo: 3 paquetes que pesan 2,40 + 1,15 + 0,80 = 4,35 kg con valor declarado de 60 $ → 4,35 × 9,5 = 41,33 $ (41,325 redondeado al centavo) + 3,00 $ de seguro = **44,33 $**.
+
+**Modalidad 2 (cobro a destino):**
+
+- El cliente puede elegirla para cualquier peso.
+- Peso mínimo cobrable en esta modalidad: 1 kg.
+- Si el envío pesa menos de 2 kg, el sistema propone la modalidad 2 por defecto. El cliente puede cambiarla a la modalidad 1; en ese caso paga como mínimo 2 kg y el seguro de la modalidad 1 (5 %).
+- El cliente elige la modalidad al anotar su prealerta. La modalidad final se confirma cuando se pesa el envío completo.
+- Cobro de Venvios = (peso total × 6 $) + 3 % del valor declarado como seguro de carga.
+- Venvios no financia el tramo en Venezuela: el cliente paga a MRW o Zoom, a su llegada, lo que esa transportista le cobre (cobro a destino). Ese monto no pasa por el sistema.
+- El pago a Venvios (6 $/kg + 3 %) sí debe estar confirmado antes de despachar (RF-37).
+- El mensaje al cliente aclara que el envío dentro de Venezuela lo paga él directamente a la transportista.
+- La transportista del cobro a destino es siempre la misma que eligió el cliente (MRW o Zoom).
+
+Nota: con estos tramos, 9,9 kg cuestan 94,05 $ y 10 kg cuestan 85 $. Es lo que dice el flyer y el cliente confirmó que aplica; el sistema lo calcula así.
+
+## Notas técnicas que afectan lo que se le promete al cliente
+
+1. **WhatsApp y la foto.** El enlace que abre un chat de WhatsApp con un mensaje escrito solo acepta texto; no puede adjuntar una foto. Opciones:
+   - En la PC: el sistema copia la foto y abre el chat con el texto. El operador pulsa Ctrl+V y Enter. Son dos teclas más.
+   - En el teléfono: se abre el menú de compartir con la foto y el texto, y el operador elige el chat del cliente.
+   Decisión: en la PC se copia la foto y se pega con Ctrl+V; el texto además dice que la guía y la foto están en su cuenta.
+2. **Cámara.** El navegador solo deja usar la cámara si la página está publicada con candado (https). En producción eso viene incluido; en las pruebas locales hay que tenerlo en cuenta.
+3. **Códigos que se pueden escanear.** Las etiquetas de las transportistas colombianas usan código de barras (Code 128 y similares) o QR, y los dos se pueden leer. Cada transportista formatea su número distinto (ceros a la izquierda, prefijos), así que el sistema comparará ignorando esos detalles. Para probar, hay que conseguir fotos de etiquetas reales de Shein (por ejemplo X-Cargo), AliExpress y Amazon.
+4. **Netlify.** Netlify aloja páginas estáticas y funciones pequeñas, pero no guarda archivos ni base de datos. Fotos, comprobantes y datos van en servicios externos con plan gratis o barato (base de datos Postgres y almacenamiento de imágenes). La decisión concreta va en el plan.
+5. **Miles de cuentas.** Que el cliente tenga cuenta aumenta el trabajo de seguridad (contraseñas, que nadie vea datos de otro) y de almacenamiento (fotos y comprobantes de miles de envíos). El plan debe dimensionar el costo mensual de base de datos y de imágenes antes de prometer los 100 $ al mes.
+
+## Cómo sé que está listo
+
+- Registro una prealerta desde la PC con nombre, teléfono, tracking y valor declarado.
+- Con el teléfono escaneo la etiqueta de ese paquete y aparece el cliente correcto, ya marcado como recibido.
+- Cargo 4,35 kg con valor declarado de 60 $ y el sistema muestra 44,33 $ y su equivalente en Bs con la tasa del día.
+- El cliente entra a su cuenta, ve el monto, sube un comprobante y el envío pasa a «pago por confirmar».
+- Pulso «Avisar por WhatsApp» y se abre el chat del cliente con el mensaje listo.
+- Registro el pago en Bs con su referencia y el envío pasa a «pagado».
+- Registro la guía de MRW, tomo la foto, pulso «Enviar guía» y el cliente recibe texto y foto.
+- En la página pública elijo la transportista, escribo la guía y llego a su página de rastreo.
+- Todo lo anterior funciona igual en un teléfono Android y en una PC con Chrome.
+- Las pruebas automáticas del cálculo de precios, los cambios de estado y las validaciones pasan.
+
+## Fuera de alcance
+
+- Bot de WhatsApp o mensajes automáticos (API de WhatsApp Business, Twilio o similares).
+- Conexión automática con las transportistas para consultar el estado de una guía.
+- Recuperación de contraseña por correo o SMS automático.
+- Verificación automática de pagos contra Binance o el banco.
+- Aplicación nativa en Play Store o App Store.
+- Facturación electrónica.
