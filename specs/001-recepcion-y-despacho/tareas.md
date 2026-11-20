@@ -337,6 +337,7 @@ Hecho cuando: la página abre con candado, la cámara funciona en un teléfono r
 ## Lote: escaneo con la cámara del teléfono
 
 - **T-79** Lector de códigos en el navegador: usa el lector nativo (`BarcodeDetector`) cuando existe y `zxing-wasm` como respaldo; con pruebas del módulo y logs sin datos del cliente. Cubre: RF-15, RF-15e. Hecho cuando: las pruebas leen QR y código de barras de imágenes de ejemplo. `[ ] Hecha y probada`
-- **T-80** Cámara continua: no se apaga entre lecturas, resolución alta, enfoque continuo y guía que sirve para QR y códigos de barras. Cubre: RF-15c. Hecho cuando: escaneo dos paquetes seguidos sin que la cámara se reinicie. `[ ] Hecha y probada`
+- **T-80** Cámara con resolución alta, enfoque continuo y guía que sirve para QR y códigos de barras. Cubre: RF-15c. Hecho cuando: un QR se lee desde 10 a 15 cm sin repetir la lectura. `[ ] Hecha y probada`
 - **T-81** Botón «Tomar o subir foto» que lee el código de la imagen. Cubre: RF-15d. Hecho cuando: una foto de etiqueta devuelve el tracking y una foto sin código muestra el aviso. `[ ] Hecha y probada`
 - **T-82** Coincidencia de trackings con más dígitos (caso Coordinadora), con aviso si coincide con varios. Cubre: RF-15f. Hecho cuando: escanear el código de barras de Coordinadora recibe el paquete prealertado con el número impreso. `[ ] Hecha y probada`
+- **T-83** Escaneo que se apaga tras leer, botón «Escanear siguiente paquete» y resultado arriba en el teléfono. Cubre: RF-15c, RF-15g. Hecho cuando: un QR se lee una sola vez, la cámara se apaga y el resultado se ve sin bajar. `[ ] Hecha y probada`

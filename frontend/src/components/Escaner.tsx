@@ -63,6 +63,7 @@ export function Escaner({ onLeido, pausado = false, obtenerLector = crearLectorD
   const [leyendoFoto, setLeyendoFoto] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [motor, setMotor] = useState<string | null>(null);
+  const [lecturaCamara, setLecturaCamara] = useState(false);
 
   useEffect(() => {
     alLeer.current = onLeido;
@@ -81,7 +82,9 @@ export function Escaner({ onLeido, pausado = false, obtenerLector = crearLectorD
     if (!aceptarLectura(ultimo.current, texto, ahora)) return;
     ultimo.current = { texto, hora: ahora };
     navigator.vibrate?.(60);
-    registro.info('Código leído con la cámara', { largo: texto.length });
+    registro.info('Código leído con la cámara: la cámara se apaga hasta que la vuelvas a encender', { largo: texto.length });
+    setLecturaCamara(true);
+    setActivo(false);
     alLeer.current(texto);
   }, []);
 
@@ -205,8 +208,8 @@ export function Escaner({ onLeido, pausado = false, obtenerLector = crearLectorD
       </div>
       {import.meta.env.DEV && activo && motor && <p className="ayuda">Lector: {motor}</p>}
       {error && <Alerta tono="aviso">{error}</Alerta>}
-      <button type="button" className={`btn w-full ${activo ? 'btn-suave' : 'btn-primario'}`} onClick={() => { setError(null); setActivo((v) => !v); }}>
-        {activo ? <><FiCameraOff aria-hidden /> Apagar cámara</> : <><FiCamera aria-hidden /> Encender cámara</>}
+      <button type="button" className={`btn w-full ${activo ? 'btn-suave' : 'btn-primario'}`} onClick={() => { setError(null); setLecturaCamara(false); setActivo((v) => !v); }}>
+        {activo ? <><FiCameraOff aria-hidden /> Apagar cámara</> : lecturaCamara ? <><FiCamera aria-hidden /> Escanear siguiente paquete</> : <><FiCamera aria-hidden /> Encender cámara</>}
       </button>
       <input ref={entradaFoto} type="file" accept="image/*" className="hidden" aria-label="Elegir foto de la etiqueta" onChange={(evento) => void alElegirFoto(evento)} />
       <button type="button" className="btn btn-suave w-full" disabled={leyendoFoto} onClick={() => entradaFoto.current?.click()}>

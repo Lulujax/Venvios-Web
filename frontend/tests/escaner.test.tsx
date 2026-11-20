@@ -121,17 +121,30 @@ describe('Escaner: cámara', () => {
     expect(await screen.findByText(describirErrorCamara(null))).toBeInTheDocument();
   });
 
-  it('caso feliz: lee un código de la cámara y no repite el mismo en pocos segundos', async () => {
-    prepararCamara();
+  it('caso feliz: al leer un código la cámara se apaga sola y no vuelve a leer en bucle', async () => {
+    const { detener, getUserMedia } = prepararCamara();
     const lector = lectorFalso({ leerCuadro: vi.fn().mockResolvedValue(['QR1234567']) });
     const onLeido = vi.fn();
     render(<Escaner onLeido={onLeido} obtenerLector={async () => lector} />);
     fireEvent.click(screen.getByRole('button', { name: /Encender cámara/ }));
     await waitFor(() => expect(onLeido).toHaveBeenCalledWith('QR1234567'));
+    await waitFor(() => expect(detener).toHaveBeenCalled());
     await act(async () => {
       await new Promise((resolver) => setTimeout(resolver, 600));
     });
     expect(onLeido).toHaveBeenCalledTimes(1);
+    expect(getUserMedia).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: /Escanear siguiente paquete/ })).toBeInTheDocument();
+  });
+
+  it('caso feliz: después de una lectura, el botón vuelve a encender la cámara', async () => {
+    const { getUserMedia } = prepararCamara();
+    const lector = lectorFalso({ leerCuadro: vi.fn().mockResolvedValue(['QR7654321']) });
+    render(<Escaner onLeido={vi.fn()} obtenerLector={async () => lector} />);
+    fireEvent.click(screen.getByRole('button', { name: /Encender cámara/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /Escanear siguiente paquete/ })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /Escanear siguiente paquete/ }));
+    await waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(2));
   });
 
   it('límite: mientras la página busca (pausado) la cámara sigue encendida y no se lee', async () => {

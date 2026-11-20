@@ -177,7 +177,7 @@ export default function Escaneo() {
           </form>
         </div>
 
-        <div className="space-y-4" aria-live="polite">
+        <div className="order-first space-y-4 lg:order-none" aria-live="polite">
           {error && <Alerta tono="error">{error}</Alerta>}
           {buscando && <p className="text-sm font-semibold text-suave">Buscando…</p>}
           {actual?.resultado === 'RECIBIDO' && <TarjetaRecibido key={actual.paqueteId} lectura={actual} alTerminar={() => setActual(null)} />}
