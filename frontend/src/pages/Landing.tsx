@@ -69,7 +69,7 @@ export default function Landing() {
             <dl className="mt-10 grid max-w-md grid-cols-3 gap-4 text-sm">
               <div><dt className="text-white/60">Desde</dt><dd className="font-display text-2xl font-bold text-oro">{datos ? formatearUsd(datos.tarifas.m2PrecioPorKgCentavos) : '6 $'}<span className="text-sm font-sans text-white/60">/kg</span></dd></div>
               <div><dt className="text-white/60">Tasa BCV</dt><dd className="font-display text-2xl font-bold">{datos?.tasa ? datos.tasa.bolivaresPorUsd.toFixed(2) : '—'}</dd></div>
-              <div><dt className="text-white/60">Transporte</dt><dd className="font-display text-2xl font-bold">MRW · Zoom</dd></div>
+              <div><dt className="text-white/60">Transporte</dt><dd className="whitespace-nowrap font-display text-2xl font-bold">MRW - Zoom</dd></div>
             </dl>
           </div>
 

@@ -1,0 +1,204 @@
+{
+  "clientes": [
+    { "clave": "ana", "nombre": "Ana Prueba Rojas", "cedula": "20000101", "email": "ana.prueba1@ejemplo.com", "telefono": "573001110001" },
+    { "clave": "carlos", "nombre": "Carlos Prueba Mena", "cedula": "20000102", "email": "carlos.prueba2@ejemplo.com", "telefono": "573001110002" },
+    { "clave": "rosa", "nombre": "Rosa Prueba Silva", "cedula": "20000103", "email": "rosa.prueba3@ejemplo.com", "telefono": "573001110003" },
+    { "clave": "pedro", "nombre": "Pedro Prueba Diaz", "cedula": "20000104", "email": "pedro.prueba4@ejemplo.com", "telefono": "573001110004" },
+    { "clave": "maria", "nombre": "Maria Prueba Lopez", "cedula": "20000105", "email": "maria.prueba5@ejemplo.com", "telefono": "573001110005" },
+    { "clave": "jose", "nombre": "Jose Prueba Vera", "cedula": "20000106", "email": "jose.prueba6@ejemplo.com", "telefono": "573001110006" },
+    { "clave": "lucia", "nombre": "Lucia Prueba Torres", "cedula": "20000107", "email": "lucia.prueba7@ejemplo.com", "telefono": "573001110007" },
+    { "clave": "andres", "nombre": "Andres Prueba Ruiz", "cedula": "20000108", "email": "andres.prueba8@ejemplo.com", "telefono": "573001110008" }
+  ],
+  "secciones": [
+    {
+      "estado": "PREALERTADO",
+      "envios": [
+        { "tipo": "ALERTA", "cliente": "ana", "modalidad": "M1", "transportista": "MRW", "tienda": "Shein", "valorUsd": 24.5, "paquetes": [
+          { "tracking": "SHN26110001", "estado": "ESPERADO", "pesoKg": null },
+          { "tracking": "SHN26110002", "estado": "ESPERADO", "pesoKg": null },
+          { "tracking": "SHN26110003", "estado": "ESPERADO", "pesoKg": null } ] },
+        { "tipo": "ALERTA", "cliente": "carlos", "modalidad": "M2", "transportista": "ZOOM", "tienda": "AliExpress", "valorUsd": 18, "paquetes": [
+          { "tracking": "ALI26110001", "estado": "ESPERADO", "pesoKg": null },
+          { "tracking": "ALI26110002", "estado": "ESPERADO", "pesoKg": null },
+          { "tracking": "ALI26110003", "estado": "ESPERADO", "pesoKg": null } ] },
+        { "tipo": "ALERTA", "cliente": "rosa", "modalidad": "M1", "transportista": "MRW", "tienda": "Amazon", "valorUsd": 75, "paquetes": [
+          { "tracking": "AMZ26110001", "estado": "ESPERADO", "pesoKg": null },
+          { "tracking": "AMZ26110002", "estado": "ESPERADO", "pesoKg": null },
+          { "tracking": "AMZ26110003", "estado": "ESPERADO", "pesoKg": null } ] },
+        { "tipo": "ALERTA", "cliente": "pedro", "modalidad": "M2", "transportista": "ZOOM", "tienda": "Shein", "valorUsd": 40, "paquetes": [
+          { "tracking": "SHN26110004", "estado": "ESPERADO", "pesoKg": null },
+          { "tracking": "SHN26110005", "estado": "ESPERADO", "pesoKg": null },
+          { "tracking": "SHN26110006", "estado": "ESPERADO", "pesoKg": null } ] },
+        { "tipo": "ALERTA", "cliente": "maria", "modalidad": "M1", "transportista": "MRW", "tienda": "AliExpress", "valorUsd": 12, "paquetes": [
+          { "tracking": "ALI26110004", "estado": "ESPERADO", "pesoKg": null },
+          { "tracking": "ALI26110005", "estado": "ESPERADO", "pesoKg": null },
+          { "tracking": "ALI26110006", "estado": "ESPERADO", "pesoKg": null } ] },
+        { "tipo": "ALERTA", "cliente": "jose", "modalidad": "M1", "transportista": "ZOOM", "tienda": "Amazon", "valorUsd": 99.9, "paquetes": [
+          { "tracking": "AMZ26110004", "estado": "ESPERADO", "pesoKg": null },
+          { "tracking": "AMZ26110005", "estado": "ESPERADO", "pesoKg": null },
+          { "tracking": "AMZ26110006", "estado": "ESPERADO", "pesoKg": null } ] },
+        { "tipo": "ALERTA", "cliente": "lucia", "modalidad": "M2", "transportista": "MRW", "tienda": "Shein", "valorUsd": 55, "paquetes": [
+          { "tracking": "SHN26110007", "estado": "ESPERADO", "pesoKg": null },
+          { "tracking": "SHN26110008", "estado": "ESPERADO", "pesoKg": null },
+          { "tracking": "SHN26110009", "estado": "ESPERADO", "pesoKg": null } ] },
+        { "tipo": "ALERTA", "cliente": "andres", "modalidad": "M1", "transportista": "ZOOM", "tienda": "AliExpress", "valorUsd": 30, "paquetes": [
+          { "tracking": "ALI26110007", "estado": "ESPERADO", "pesoKg": null },
+          { "tracking": "ALI26110008", "estado": "ESPERADO", "pesoKg": null },
+          { "tracking": "ALI26110009", "estado": "ESPERADO", "pesoKg": null } ] }
+      ]
+    },
+    {
+      "estado": "RECIBIDO_PARCIAL",
+      "envios": [
+        { "tipo": "ALERTA", "cliente": "ana", "modalidad": "M1", "transportista": "MRW", "tienda": "Shein", "valorUsd": 60, "paquetes": [
+          { "tracking": "SHN26110010", "estado": "RECIBIDO", "pesoKg": 0.8 },
+          { "tracking": "SHN26110011", "estado": "ESPERADO", "pesoKg": null } ] },
+        { "tipo": "ALERTA", "cliente": "carlos", "modalidad": "M2", "transportista": "ZOOM", "tienda": "Amazon", "valorUsd": 33, "paquetes": [
+          { "tracking": "AMZ26110010", "estado": "RECIBIDO", "pesoKg": 1.4 },
+          { "tracking": "AMZ26110011", "estado": "ESPERADO", "pesoKg": null } ] },
+        { "tipo": "ALERTA", "cliente": "lucia", "modalidad": "M1", "transportista": "MRW", "tienda": "AliExpress", "valorUsd": 21, "paquetes": [
+          { "tracking": "ALI26110010", "estado": "RECIBIDO", "pesoKg": 0.3 },
+          { "tracking": "ALI26110011", "estado": "ESPERADO", "pesoKg": null } ] }
+      ]
+    },
+    {
+      "estado": "RECIBIDO_COMPLETO",
+      "envios": [
+        { "tipo": "ALERTA", "cliente": "rosa", "modalidad": "M1", "transportista": "MRW", "tienda": "Shein", "valorUsd": 48, "paquetes": [
+          { "tracking": "SHN26110020", "estado": "RECIBIDO", "pesoKg": 0.5 },
+          { "tracking": "SHN26110021", "estado": "RECIBIDO", "pesoKg": 1.1 },
+          { "tracking": "SHN26110022", "estado": "RECIBIDO", "pesoKg": 2.0 },
+          { "tracking": "SHN26110023", "estado": "RECIBIDO", "pesoKg": 0.7 } ] },
+        { "tipo": "ALERTA", "cliente": "pedro", "modalidad": "M2", "transportista": "ZOOM", "tienda": "Amazon", "valorUsd": 120, "paquetes": [
+          { "tracking": "AMZ26110020", "estado": "RECIBIDO", "pesoKg": 3.2 },
+          { "tracking": "AMZ26110021", "estado": "RECIBIDO", "pesoKg": 0.9 },
+          { "tracking": "AMZ26110022", "estado": "RECIBIDO", "pesoKg": 1.5 },
+          { "tracking": "AMZ26110023", "estado": "RECIBIDO", "pesoKg": 4.0 } ] },
+        { "tipo": "ALERTA", "cliente": "maria", "modalidad": "M1", "transportista": "MRW", "tienda": "AliExpress", "valorUsd": 15, "paquetes": [
+          { "tracking": "ALI26110020", "estado": "RECIBIDO", "pesoKg": 0.2 },
+          { "tracking": "ALI26110021", "estado": "RECIBIDO", "pesoKg": 0.4 },
+          { "tracking": "ALI26110022", "estado": "RECIBIDO", "pesoKg": 0.3 },
+          { "tracking": "ALI26110023", "estado": "RECIBIDO", "pesoKg": 0.6 } ] },
+        { "tipo": "ALERTA", "cliente": "jose", "modalidad": "M2", "transportista": "ZOOM", "tienda": "Shein", "valorUsd": 88, "paquetes": [
+          { "tracking": "SHN26110024", "estado": "RECIBIDO", "pesoKg": 1.8 },
+          { "tracking": "SHN26110025", "estado": "RECIBIDO", "pesoKg": 2.2 },
+          { "tracking": "SHN26110026", "estado": "RECIBIDO", "pesoKg": 0.6 },
+          { "tracking": "SHN26110027", "estado": "RECIBIDO", "pesoKg": 1.0 } ] },
+        { "tipo": "ALERTA", "cliente": "andres", "modalidad": "M1", "transportista": "MRW", "tienda": "Amazon", "valorUsd": 27.5, "paquetes": [
+          { "tracking": "AMZ26110024", "estado": "RECIBIDO", "pesoKg": 0.9 },
+          { "tracking": "AMZ26110025", "estado": "RECIBIDO", "pesoKg": 0.5 },
+          { "tracking": "AMZ26110026", "estado": "RECIBIDO", "pesoKg": 1.2 },
+          { "tracking": "AMZ26110027", "estado": "RECIBIDO", "pesoKg": 0.8 } ] }
+      ]
+    },
+    {
+      "estado": "ARCHIVADO",
+      "envios": [
+        { "tipo": "ALERTA", "cliente": "ana", "modalidad": "M1", "transportista": "MRW", "tienda": "Shein", "valorUsd": 10, "paquetes": [
+          { "tracking": "SHN26110030", "estado": "ESPERADO", "pesoKg": null } ] },
+        { "tipo": "ALERTA", "cliente": "maria", "modalidad": "M1", "transportista": "ZOOM", "tienda": "Amazon", "valorUsd": 14, "paquetes": [
+          { "tracking": "AMZ26110030", "estado": "ESPERADO", "pesoKg": null } ] },
+        { "tipo": "ALERTA", "cliente": "jose", "modalidad": "M2", "transportista": "MRW", "tienda": "AliExpress", "valorUsd": 22, "paquetes": [
+          { "tracking": "ALI26110030", "estado": "ESPERADO", "pesoKg": null } ] }
+      ]
+    },
+    {
+      "estado": "POR_CONSOLIDAR",
+      "envios": [
+        { "tipo": "CONSOLIDADO", "cliente": "ana", "modalidad": "M1", "transportista": "MRW", "tienda": "Shein", "valorUsd": 150, "paquetes": [
+          { "tracking": "SHN26110040", "estado": "RECIBIDO", "pesoKg": 1.0 },
+          { "tracking": "SHN26110041", "estado": "RECIBIDO", "pesoKg": 1.2 },
+          { "tracking": "SHN26110042", "estado": "RECIBIDO", "pesoKg": 0.9 },
+          { "tracking": "SHN26110043", "estado": "RECIBIDO", "pesoKg": 2.1 },
+          { "tracking": "SHN26110044", "estado": "RECIBIDO", "pesoKg": 0.4 } ] },
+        { "tipo": "CONSOLIDADO", "cliente": "lucia", "modalidad": "M2", "transportista": "ZOOM", "tienda": "Amazon", "valorUsd": 80, "paquetes": [
+          { "tracking": "AMZ26110040", "estado": "RECIBIDO", "pesoKg": 0.6 },
+          { "tracking": "AMZ26110041", "estado": "RECIBIDO", "pesoKg": 1.0 },
+          { "tracking": "AMZ26110042", "estado": "RECIBIDO", "pesoKg": 1.1 },
+          { "tracking": "AMZ26110043", "estado": "RECIBIDO", "pesoKg": 0.7 },
+          { "tracking": "AMZ26110044", "estado": "RECIBIDO", "pesoKg": 2.4 } ] }
+      ]
+    },
+    {
+      "estado": "POR_PAGAR",
+      "envios": [
+        { "tipo": "CONSOLIDADO", "cliente": "carlos", "modalidad": "M1", "transportista": "MRW", "tienda": "AliExpress", "valorUsd": 95, "paquetes": [
+          { "tracking": "ALI26110040", "estado": "RECIBIDO", "pesoKg": 1.5 },
+          { "tracking": "ALI26110041", "estado": "RECIBIDO", "pesoKg": 0.8 },
+          { "tracking": "ALI26110042", "estado": "RECIBIDO", "pesoKg": 0.9 },
+          { "tracking": "ALI26110043", "estado": "RECIBIDO", "pesoKg": 1.1 },
+          { "tracking": "ALI26110044", "estado": "RECIBIDO", "pesoKg": 2.0 } ] },
+        { "tipo": "CONSOLIDADO", "cliente": "rosa", "modalidad": "M2", "transportista": "ZOOM", "tienda": "Shein", "valorUsd": 210, "paquetes": [
+          { "tracking": "SHN26110045", "estado": "RECIBIDO", "pesoKg": 3.0 },
+          { "tracking": "SHN26110046", "estado": "RECIBIDO", "pesoKg": 4.1 },
+          { "tracking": "SHN26110047", "estado": "RECIBIDO", "pesoKg": 2.5 },
+          { "tracking": "SHN26110048", "estado": "RECIBIDO", "pesoKg": 1.9 },
+          { "tracking": "SHN26110049", "estado": "RECIBIDO", "pesoKg": 0.6 } ] }
+      ]
+    },
+    {
+      "estado": "POR_CONFIRMAR",
+      "envios": [
+        { "tipo": "CONSOLIDADO", "cliente": "pedro", "modalidad": "M1", "transportista": "MRW", "tienda": "Amazon", "valorUsd": 130, "paquetes": [
+          { "tracking": "AMZ26110045", "estado": "RECIBIDO", "pesoKg": 1.3 },
+          { "tracking": "AMZ26110046", "estado": "RECIBIDO", "pesoKg": 1.6 },
+          { "tracking": "AMZ26110047", "estado": "RECIBIDO", "pesoKg": 0.9 },
+          { "tracking": "AMZ26110048", "estado": "RECIBIDO", "pesoKg": 2.2 },
+          { "tracking": "AMZ26110049", "estado": "RECIBIDO", "pesoKg": 1.0 } ] }
+      ]
+    },
+    {
+      "estado": "PAGADO",
+      "envios": [
+        { "tipo": "CONSOLIDADO", "cliente": "maria", "modalidad": "M1", "transportista": "ZOOM", "tienda": "AliExpress", "valorUsd": 64, "paquetes": [
+          { "tracking": "ALI26110045", "estado": "RECIBIDO", "pesoKg": 0.7 },
+          { "tracking": "ALI26110046", "estado": "RECIBIDO", "pesoKg": 0.9 },
+          { "tracking": "ALI26110047", "estado": "RECIBIDO", "pesoKg": 1.2 },
+          { "tracking": "ALI26110048", "estado": "RECIBIDO", "pesoKg": 0.5 },
+          { "tracking": "ALI26110049", "estado": "RECIBIDO", "pesoKg": 1.4 } ] }
+      ]
+    },
+    {
+      "estado": "DESPACHADO",
+      "envios": [
+        { "tipo": "CONSOLIDADO", "cliente": "jose", "modalidad": "M2", "transportista": "MRW", "tienda": "Shein", "valorUsd": 175, "paquetes": [
+          { "tracking": "SHN26110050", "estado": "RECIBIDO", "pesoKg": 2.2 },
+          { "tracking": "SHN26110051", "estado": "RECIBIDO", "pesoKg": 1.1 },
+          { "tracking": "SHN26110052", "estado": "RECIBIDO", "pesoKg": 0.8 },
+          { "tracking": "SHN26110053", "estado": "RECIBIDO", "pesoKg": 1.6 },
+          { "tracking": "SHN26110054", "estado": "RECIBIDO", "pesoKg": 3.0 } ] }
+      ]
+    },
+    {
+      "estado": "CERRADO",
+      "envios": [
+        { "tipo": "CONSOLIDADO", "cliente": "andres", "modalidad": "M1", "transportista": "ZOOM", "tienda": "Amazon", "valorUsd": 45, "paquetes": [
+          { "tracking": "AMZ26110050", "estado": "RECIBIDO", "pesoKg": 0.9 },
+          { "tracking": "AMZ26110051", "estado": "RECIBIDO", "pesoKg": 1.0 },
+          { "tracking": "AMZ26110052", "estado": "RECIBIDO", "pesoKg": 0.7 },
+          { "tracking": "AMZ26110053", "estado": "RECIBIDO", "pesoKg": 1.3 } ] },
+        { "tipo": "CONSOLIDADO", "cliente": "ana", "modalidad": "M2", "transportista": "MRW", "tienda": "AliExpress", "valorUsd": 70, "paquetes": [
+          { "tracking": "ALI26110050", "estado": "RECIBIDO", "pesoKg": 1.2 },
+          { "tracking": "ALI26110051", "estado": "RECIBIDO", "pesoKg": 0.6 },
+          { "tracking": "ALI26110052", "estado": "RECIBIDO", "pesoKg": 0.8 },
+          { "tracking": "ALI26110053", "estado": "RECIBIDO", "pesoKg": 1.0 } ] },
+        { "tipo": "CONSOLIDADO", "cliente": "lucia", "modalidad": "M1", "transportista": "ZOOM", "tienda": "Shein", "valorUsd": 33, "paquetes": [
+          { "tracking": "SHN26110055", "estado": "RECIBIDO", "pesoKg": 0.4 },
+          { "tracking": "SHN26110056", "estado": "RECIBIDO", "pesoKg": 0.5 },
+          { "tracking": "SHN26110057", "estado": "RECIBIDO", "pesoKg": 0.3 },
+          { "tracking": "SHN26110058", "estado": "RECIBIDO", "pesoKg": 0.6 } ] }
+      ]
+    },
+    {
+      "estado": "CANCELADO",
+      "envios": [
+        { "tipo": "ALERTA", "cliente": "rosa", "modalidad": "M1", "transportista": "MRW", "tienda": "Amazon", "valorUsd": 19, "paquetes": [
+          { "tracking": "AMZ26110060", "estado": "ESPERADO", "pesoKg": null },
+          { "tracking": "AMZ26110061", "estado": "ESPERADO", "pesoKg": null } ] },
+        { "tipo": "ALERTA", "cliente": "carlos", "modalidad": "M2", "transportista": "ZOOM", "tienda": "Shein", "valorUsd": 26, "paquetes": [
+          { "tracking": "SHN26110060", "estado": "ESPERADO", "pesoKg": null },
+          { "tracking": "SHN26110061", "estado": "ESPERADO", "pesoKg": null } ] }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,113 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { ESTADOS_ENVIO } from '../src/domain/estados';
+import { crearEntorno } from './ayudas';
+import { cargarDatosDePrueba, leerFixtureDatosPrueba, validarFixture, type FixtureDatosPrueba } from '../src/services/DatosPrueba';
+
+const entornoOriginal = { ...process.env };
+
+afterEach(() => {
+  process.env = { ...entornoOriginal };
+});
+
+function fixtureMinimo(): Record<string, unknown> {
+  return {
+    clientes: [{ clave: 'ana', nombre: 'Ana Prueba', cedula: '20000001', email: 'ana@ejemplo.com', telefono: '573001110001' }],
+    secciones: [
+      {
+        estado: 'PREALERTADO',
+        envios: [
+          {
+            tipo: 'ALERTA',
+            cliente: 'ana',
+            modalidad: 'M1',
+            transportista: 'MRW',
+            tienda: 'Shein',
+            valorUsd: 10,
+            paquetes: [{ tracking: 'SHN00000001', estado: 'ESPERADO', pesoKg: null }],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function conEnvios(envios: unknown[]): Record<string, unknown> {
+  const fixture = fixtureMinimo();
+  (fixture.secciones as Array<{ envios: unknown[] }>)[0]!.envios = envios;
+  return fixture;
+}
+
+function envioDe(paquetes: unknown[], cliente = 'ana'): Record<string, unknown> {
+  return { tipo: 'ALERTA', cliente, modalidad: 'M1', transportista: 'MRW', tienda: 'Shein', valorUsd: 10, paquetes };
+}
+
+describe('datos de prueba en memoria', () => {
+  it('caso feliz: el archivo real trae al menos 100 paquetes repartidos en las 11 secciones de estado', async () => {
+    const entorno = await crearEntorno();
+    const fixture = leerFixtureDatosPrueba();
+    const resumen = await cargarDatosDePrueba(entorno.contexto, fixture);
+    const envios = await entorno.contexto.repos.envios.listar({ limite: 1000 });
+    const paquetes = envios.reduce((total, envio) => total + envio.paquetes.length, 0);
+    expect(resumen.paquetes).toBeGreaterThanOrEqual(100);
+    expect(paquetes).toBe(resumen.paquetes);
+    expect(new Set(envios.map((envio) => envio.estado))).toEqual(new Set(ESTADOS_ENVIO));
+  });
+
+  it('caso feliz: un paquete recibido queda con su peso en centésimas y su estado', async () => {
+    const entorno = await crearEntorno();
+    await cargarDatosDePrueba(entorno.contexto, leerFixtureDatosPrueba());
+    const recibido = (await entorno.contexto.repos.envios.listar({ limite: 1000, estados: ['RECIBIDO_COMPLETO'] }))[0]!;
+    expect(recibido.paquetes[0]!.estado).toBe('RECIBIDO');
+    expect(recibido.paquetes[0]!.pesoCentesimas).toBe(50);
+  });
+
+  it('límite: una sección sin envíos no crea envíos, pero sí los clientes', async () => {
+    const entorno = await crearEntorno();
+    const fixture = validarFixture(conEnvios([]));
+    const resumen = await cargarDatosDePrueba(entorno.contexto, fixture);
+    expect(resumen).toEqual({ clientes: 1, envios: 0, paquetes: 0 });
+  });
+
+  it('error: un cliente que no existe en la lista se rechaza al validar', () => {
+    const fixture = conEnvios([envioDe([{ tracking: 'SHN00000002', estado: 'ESPERADO', pesoKg: null }], 'fantasma')]);
+    expect(() => validarFixture(fixture)).toThrow(/Cliente desconocido: fantasma/);
+  });
+
+  it('error: el mismo tracking repetido dentro del archivo se rechaza', () => {
+    const fixture = conEnvios([
+      envioDe([{ tracking: 'SHN00000003', estado: 'ESPERADO', pesoKg: null }]),
+      envioDe([{ tracking: 'shn-0000-0003', estado: 'ESPERADO', pesoKg: null }]),
+    ]);
+    expect(() => validarFixture(fixture)).toThrow(/Tracking repetido/);
+  });
+
+  it('error: un paquete recibido sin peso se rechaza', () => {
+    const fixture = conEnvios([envioDe([{ tracking: 'SHN00000004', estado: 'RECIBIDO', pesoKg: null }])]);
+    expect(() => validarFixture(fixture)).toThrow(/necesita peso/);
+  });
+
+  it('error: un paquete esperado con peso se rechaza', () => {
+    const fixture = conEnvios([envioDe([{ tracking: 'SHN00000005', estado: 'ESPERADO', pesoKg: 2 }])]);
+    expect(() => validarFixture(fixture)).toThrow(/no lleva peso/);
+  });
+
+  it('error: un archivo que no existe muestra un mensaje claro', () => {
+    expect(() => leerFixtureDatosPrueba('ruta/que/no/existe.json')).toThrow('No se encontró el archivo de datos de prueba.');
+  });
+
+  it('error: con DATABASE_URL definida no carga nada', async () => {
+    const entorno = await crearEntorno();
+    process.env.DATABASE_URL = 'postgresql://no-usar';
+    const fixture: FixtureDatosPrueba = validarFixture(fixtureMinimo());
+    await expect(cargarDatosDePrueba(entorno.contexto, fixture)).rejects.toThrow(/nunca con base de datos/);
+    expect(await entorno.contexto.repos.usuarios.listar(['CLIENTE'])).toHaveLength(0);
+  });
+
+  it('error: en modo producción no carga nada', async () => {
+    const entorno = await crearEntorno();
+    delete process.env.DATABASE_URL;
+    const fixture = validarFixture(fixtureMinimo());
+    await expect(cargarDatosDePrueba({ ...entorno.contexto, produccion: true }, fixture)).rejects.toThrow(/nunca con base de datos ni en producción/);
+    expect(await entorno.contexto.repos.envios.listar({ limite: 10 })).toHaveLength(0);
+  });
+});
