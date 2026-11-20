@@ -29,7 +29,7 @@ Además hay una página pública con la información de la empresa, las tarifas 
 
 ### Página pública
 
-- **RF-1** EL SISTEMA mostrará una página pública con: quiénes son, la tabla de tarifas vigente, la nota «Pagos en Bs a tasa BCV», la dirección de la oficina, el WhatsApp de atención y las redes sociales (@venviosexpress en Instagram, Facebook y TikTok).
+- **RF-1** EL SISTEMA mostrará una página pública, sin detalles de cómo trabaja la oficina por dentro (no se explica el escaneo ni los medios de pago concretos; se dice solo «realiza tu pago en bolívares»), con: quiénes son, la tabla de tarifas vigente, la nota «Pagos en Bs a tasa BCV», la dirección de la oficina, el WhatsApp de atención y las redes sociales (@venviosexpress en Instagram, Facebook y TikTok).
 - **RF-2** EL SISTEMA mostrará un rastreador donde el visitante elige una transportista de una lista y escribe su número de guía.
 - **RF-3** CUANDO el visitante pulse «Rastrear», EL SISTEMA abrirá en otra pestaña la página oficial de rastreo de esa transportista. Si la página de la transportista acepta el número en el enlace, se lo pasa; si no, copia el número para que el visitante solo lo pegue.
 - **RF-4** EL SISTEMA no consultará a las transportistas por su cuenta: solo redirige.
@@ -38,13 +38,24 @@ Además hay una página pública con la información de la empresa, las tarifas 
 
 ### Acceso del personal
 
-- **RF-7** EL SISTEMA pedirá usuario y contraseña para entrar al panel. Solo entra el personal.
+- **RF-7** EL SISTEMA pedirá correo o número de casillero y contraseña para entrar. El personal entra al panel y el cliente a su cuenta.
 - **RF-8** SI alguien falla la contraseña varias veces seguidas, ENTONCES EL SISTEMA bloqueará ese intento por unos minutos.
 - **RF-9** EL SISTEMA tendrá tres tipos de usuario: usuario común (cliente), operador y administrador. Cada uno ve y hace solo lo suyo. Cualquier cantidad de cada tipo.
-- **RF-9b** EL SISTEMA permitirá al cliente registrarse solo desde la página con: nombre y apellido, número de cédula (solo el número, sin foto), teléfono de WhatsApp con código de país y contraseña. No necesita que un operador lo cree.
-- **RF-9d** SI la cédula o el teléfono ya están registrados, ENTONCES EL SISTEMA no creará una segunda cuenta y le indicará cómo recuperar la suya.
+- **RF-9b** EL SISTEMA permitirá al cliente registrarse solo desde la página con: nombre y apellido, número de cédula (solo el número, sin foto), correo, teléfono de WhatsApp (selector de país con Venezuela por defecto y el número de ejemplo `4241234567` como guía) y contraseña repetida dos veces. No necesita que un operador lo cree.
+- **RF-9g** EL SISTEMA exigirá contraseñas de al menos 8 caracteres, con una mayúscula y un carácter especial, y mostrará en vivo cuáles requisitos se cumplen. No dejará registrar si las dos contraseñas no coinciden.
+- **RF-9h** EL SISTEMA dará a cada cliente al registrarse un número de casillero único con la forma `VENV-123456` (seis dígitos al azar). SI el número ya existe, ENTONCES EL SISTEMA generará otro hasta encontrar uno libre.
+- **RF-9i** EL SISTEMA permitirá ver y ocultar la contraseña en los campos de contraseña.
+- **RF-9d** SI la cédula, el correo o el teléfono ya están registrados, ENTONCES EL SISTEMA no creará una segunda cuenta y le indicará cómo recuperar la suya.
 - **RF-9e** EL SISTEMA guardará la cédula cifrada (se puede recuperar con una llave del servidor) y la mostrará completa solo al administrador y al operador cuando prepare un despacho; en listas y registros internos aparece parcial (por ejemplo `V-***678`).
 - **RF-9c** SI un cliente olvida su contraseña, ENTONCES EL SISTEMA permitirá que un operador o administrador le asigne una temporal (sin correo ni SMS automático, para no pagar mensajería).
+
+### Cuenta del cliente
+
+- **RF-9j** EL SISTEMA mostrará al cliente un panel con menú lateral en la PC y barra inferior en el teléfono, con: Inicio (vista general con su número de casillero, dirección de envío y contadores), Pedidos (historial de envíos ya pagados y pendientes de pago), Alertas (prealertas) y Finanzas (pagos).
+- **RF-9k** EN Alertas, EL SISTEMA listará las prealertas del cliente con estado «Pendiente» mientras el paquete no haya llegado a la oficina y «Atendida» cuando ya llegó, con un botón para crear una nueva alerta.
+- **RF-9l** EN Finanzas, EL SISTEMA listará los envíos que ya llegaron y tienen precio calculado, para pagarlos y subir el comprobante.
+- **RF-9m** EL SISTEMA mostrará en el panel del cliente un botón flotante de WhatsApp hacia la atención. No mostrará rastreador dentro de la cuenta.
+- **RF-9n** AL pagar, EL SISTEMA ligará método y moneda: Binance solo en dólares; pago móvil y transferencia solo en bolívares. El cambio de un campo ajustará el otro, y el servidor rechazará combinaciones inválidas.
 
 ### Prealertas
 

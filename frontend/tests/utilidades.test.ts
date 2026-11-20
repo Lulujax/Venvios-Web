@@ -62,8 +62,8 @@ describe('validaciones del formulario', () => {
   it('nombre, contraseña, monto, referencia y tracking', () => {
     expect(validarNombre('Luis Peña')).toBeNull();
     expect(validarNombre('Luis')).not.toBeNull();
-    expect(validarContrasena('12345678')).toBeNull();
-    expect(validarContrasena('1234567')).not.toBeNull();
+    expect(validarContrasena('Clave2026!')).toBeNull();
+    expect(validarContrasena('12345678')).not.toBeNull();
     expect(validarMonto('44,33')).toBeNull();
     expect(validarMonto('0')).not.toBeNull();
     expect(validarMonto('abc')).not.toBeNull();

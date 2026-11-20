@@ -3,7 +3,9 @@ import { coincidenTrackings, normalizarTracking } from '../src/domain/tracking';
 import { faltantesParaDespachar, validarDespacho, validarTransicion } from '../src/domain/estados';
 import {
   validarCedula,
+  normalizarCodigoCasillero,
   validarContrasena,
+  validarEmail,
   validarNombre,
   validarPesoKg,
   validarTelefono,
@@ -120,5 +122,25 @@ describe('cifrado y máscaras', () => {
     expect(enmascararCedula('12345678')).toBe('V-***678');
     expect(enmascararCedula('1')).toBe('***');
     expect(enmascararTelefono('584142448341')).not.toContain('2448');
+  });
+});
+
+describe('correo, casillero y contraseña', () => {
+  it('valida y normaliza el correo', () => {
+    expect(validarEmail(' Ana@Correo.COM ')).toBe('ana@correo.com');
+    expect(() => validarEmail('ana@correo')).toThrow();
+  });
+
+  it('normaliza el número de casillero', () => {
+    expect(normalizarCodigoCasillero('venv-123456')).toBe('VENV-123456');
+    expect(normalizarCodigoCasillero('VENV123456')).toBe('VENV-123456');
+    expect(normalizarCodigoCasillero('VENV-12')).toBeNull();
+  });
+
+  it('exige 8 caracteres, mayúscula y carácter especial', () => {
+    expect(validarContrasena('Clave2026!')).toBe('Clave2026!');
+    expect(() => validarContrasena('clave2026!')).toThrow();
+    expect(() => validarContrasena('Clave20260')).toThrow();
+    expect(() => validarContrasena('Cl2026!')).toThrow();
   });
 });

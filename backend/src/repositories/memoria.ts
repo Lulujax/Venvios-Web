@@ -38,9 +38,9 @@ export class UsuarioMemoria implements UsuarioRepository {
 
   async crear(nuevo: NuevoUsuario): Promise<Usuario> {
     const existente = [...this.datos.values()].find(
-      (u) => u.cedulaHuella === nuevo.cedulaHuella || u.telefono === nuevo.telefono,
+      (u) => u.cedulaHuella === nuevo.cedulaHuella || u.telefono === nuevo.telefono || u.email === nuevo.email || u.codigo === nuevo.codigo,
     );
-    if (existente) throw AppError.conflict('Ya existe una cuenta con esa cédula o ese teléfono.');
+    if (existente) throw AppError.conflict('Ya existe una cuenta con esa cédula, ese correo o ese teléfono.');
     const usuario: Usuario = { ...nuevo, id: randomUUID(), creadoEn: new Date() };
     this.datos.set(usuario.id, usuario);
     return copiar(usuario);
@@ -58,6 +58,16 @@ export class UsuarioMemoria implements UsuarioRepository {
 
   async porTelefono(telefono: string): Promise<Usuario | null> {
     const usuario = [...this.datos.values()].find((u) => u.telefono === telefono);
+    return usuario ? copiar(usuario) : null;
+  }
+
+  async porEmail(email: string): Promise<Usuario | null> {
+    const usuario = [...this.datos.values()].find((u) => u.email === email);
+    return usuario ? copiar(usuario) : null;
+  }
+
+  async porCodigo(codigo: string): Promise<Usuario | null> {
+    const usuario = [...this.datos.values()].find((u) => u.codigo === codigo);
     return usuario ? copiar(usuario) : null;
   }
 

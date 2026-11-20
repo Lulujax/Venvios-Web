@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PNG_MINIMO, crearEntorno, crearPersonalYEntrar, datosCliente, registrarCliente, type Entorno } from './ayudas';
+import { CifradoCedula } from '../src/domain/cifrado';
+import { crearRepositoriosMemoria } from '../src/repositories/memoria';
+import { AuthService } from '../src/services/AuthService';
 
 let entorno: Entorno;
 
@@ -45,11 +48,54 @@ describe('cuentas', () => {
   it('límite: tras 5 fallos seguidos se bloquea el intento', async () => {
     const { datos } = await registrarCliente(entorno);
     for (let i = 0; i < 5; i += 1) {
-      const fallo = await entorno.agente().post('/api/auth/login').send({ telefono: datos.telefono, contrasena: 'incorrecta1' });
+      const fallo = await entorno.agente().post('/api/auth/login').send({ identificador: datos.email, contrasena: 'incorrecta1' });
       expect(fallo.status).toBe(401);
     }
-    const bloqueado = await entorno.agente().post('/api/auth/login').send({ telefono: datos.telefono, contrasena: datos.contrasena });
+    const bloqueado = await entorno.agente().post('/api/auth/login').send({ identificador: datos.email, contrasena: datos.contrasena });
     expect(bloqueado.status).toBe(429);
+  });
+
+  it('caso feliz: el cliente recibe un número de casillero VENV-000000 y entra con él o con su correo', async () => {
+    const { datos, agente } = await registrarCliente(entorno);
+    const yo = await agente.get('/api/auth/yo');
+    expect(yo.body.usuario.codigo).toMatch(/^VENV-\d{6}$/);
+    expect(yo.body.usuario.email).toBe(datos.email);
+    const porCodigo = await entorno.agente().post('/api/auth/login').send({ identificador: yo.body.usuario.codigo.toLowerCase(), contrasena: datos.contrasena });
+    expect(porCodigo.status).toBe(200);
+    const porCorreo = await entorno.agente().post('/api/auth/login').send({ identificador: datos.email.toUpperCase(), contrasena: datos.contrasena });
+    expect(porCorreo.status).toBe(200);
+  });
+
+  it('error: el teléfono ya no sirve para entrar', async () => {
+    const { datos } = await registrarCliente(entorno);
+    const respuesta = await entorno.agente().post('/api/auth/login').send({ identificador: datos.telefono, contrasena: datos.contrasena });
+    expect(respuesta.status).toBe(401);
+  });
+
+  it('error: correo repetido o inválido no crea cuenta', async () => {
+    const { datos } = await registrarCliente(entorno);
+    const repetido = await entorno.agente().post('/api/auth/registro').send({ ...datosCliente(), email: datos.email.toUpperCase() });
+    expect(repetido.status).toBe(409);
+    const invalido = await entorno.agente().post('/api/auth/registro').send({ ...datosCliente(), email: 'sin-arroba' });
+    expect(invalido.status).toBe(400);
+  });
+
+  it('error: contraseñas sin mayúscula, sin carácter especial o cortas se rechazan', async () => {
+    for (const contrasena of ['clave2026!', 'Clave20260', 'Cl2026!']) {
+      const respuesta = await entorno.agente().post('/api/auth/registro').send({ ...datosCliente(), contrasena });
+      expect(respuesta.status).toBe(400);
+    }
+  });
+
+  it('el número de casillero repetido se vuelve a generar', async () => {
+    const secuencia = ['111111', '111111', '222222'];
+    const repos = crearRepositoriosMemoria();
+    const servicio = new AuthService(repos.usuarios, new CifradoCedula('a'.repeat(64)), 'secreto-de-prueba-largo', undefined, () => secuencia.shift() ?? '999999');
+    const base = { nombre: 'Ana Perez', email: 'a@correo.com', telefono: '584141111111', cedula: '11111111', contrasena: 'ClavePrueba2026!' };
+    const primero = await servicio.registrarCliente(base);
+    const segundo = await servicio.registrarCliente({ ...base, email: 'b@correo.com', telefono: '584142222222', cedula: '22222222' });
+    expect(primero.usuario.codigo).toBe('VENV-111111');
+    expect(segundo.usuario.codigo).toBe('VENV-222222');
   });
 
   it('sin sesión se rechaza con 401', async () => {
@@ -61,10 +107,10 @@ describe('cuentas', () => {
     const { agente } = await crearPersonalYEntrar(entorno, 'OPERADOR');
     const respuesta = await agente.post(`/api/staff/clientes/${usuario.id}/clave-temporal`);
     expect(respuesta.status).toBe(200);
-    const entrada = await entorno.agente().post('/api/auth/login').send({ telefono: datos.telefono, contrasena: respuesta.body.temporal });
+    const entrada = await entorno.agente().post('/api/auth/login').send({ identificador: datos.email, contrasena: respuesta.body.temporal });
     expect(entrada.status).toBe(200);
     expect(entrada.body.usuario.debeCambiarClave).toBe(true);
-    const viejaYa = await entorno.agente().post('/api/auth/login').send({ telefono: datos.telefono, contrasena: datos.contrasena });
+    const viejaYa = await entorno.agente().post('/api/auth/login').send({ identificador: datos.email, contrasena: datos.contrasena });
     expect(viejaYa.status).toBe(401);
   });
 });
@@ -269,12 +315,27 @@ describe('pagos', () => {
     return { cliente, operador: operador.agente, envioId: envio.id };
   }
 
+  it('error: método y moneda deben coincidir (Binance en dólares, pago móvil en bolívares)', async () => {
+    const { cliente, envioId } = await envioListoParaPagar();
+    const intento = (metodo: string, moneda: string) =>
+      cliente.agente
+        .post(`/api/envios/${envioId}/pagos`)
+        .field('metodo', metodo)
+        .field('moneda', moneda)
+        .field('monto', '10')
+        .field('referencia', 'REF-0099')
+        .attach('archivo', PNG_MINIMO, { filename: 'p.png', contentType: 'image/png' });
+    expect((await intento('BINANCE', 'BS')).status).toBe(400);
+    expect((await intento('PAGO_MOVIL', 'USD')).status).toBe(400);
+    expect((await intento('TRANSFERENCIA', 'USD')).status).toBe(400);
+  });
+
   it('pago parcial deja saldo y no libera el envío; el segundo pago lo completa', async () => {
     const { cliente, operador, envioId } = await envioListoParaPagar();
     const subir = (monto: string, referencia: string) =>
       cliente.agente
         .post(`/api/envios/${envioId}/pagos`)
-        .field('metodo', 'PAGO_MOVIL')
+        .field('metodo', 'BINANCE')
         .field('moneda', 'USD')
         .field('monto', monto)
         .field('referencia', referencia)
@@ -374,7 +435,7 @@ describe('administración', () => {
     expect(creado.status).toBe(201);
     const desactivado = await admin.agente.patch(`/api/admin/usuarios/${creado.body.usuario.id}`).send({ activo: false });
     expect(desactivado.body.usuario.activo).toBe(false);
-    const login = await entorno.agente().post('/api/auth/login').send({ telefono: nuevo.telefono, contrasena: nuevo.contrasena });
+    const login = await entorno.agente().post('/api/auth/login').send({ identificador: nuevo.email, contrasena: nuevo.contrasena });
     expect(login.status).toBe(401);
   });
 

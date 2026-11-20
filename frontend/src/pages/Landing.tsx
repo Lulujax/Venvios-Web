@@ -12,8 +12,8 @@ import { useCarga } from '../lib/useCarga';
 
 const PASOS = [
   { icono: FiBox, titulo: 'Compra donde quieras', texto: 'Shein, AliExpress, Amazon o cualquier tienda. Envía a nuestra oficina en Cúcuta.' },
-  { icono: FiPackage, titulo: 'Avísanos y escaneamos', texto: 'Registras tu tracking en tu cuenta. Cuando llega, lo escaneamos, lo pesamos y te escribimos por WhatsApp.' },
-  { icono: FiCheckCircle, titulo: 'Pagas en $ o en Bs', texto: 'Ves el total, pagas por Binance o pago móvil a tasa BCV y subes tu comprobante.' },
+  { icono: FiPackage, titulo: 'Avísanos tu compra', texto: 'Registra tu tracking en tu cuenta. Cuando tu paquete llegue a nuestra oficina, te escribimos por WhatsApp.' },
+  { icono: FiCheckCircle, titulo: 'Realiza tu pago en Bs', texto: 'Consulta tu total en tu cuenta y págalo en bolívares a tasa BCV.' },
   { icono: FiTruck, titulo: 'Sale a Venezuela', texto: 'Lo despachamos con MRW o Zoom. Te enviamos la guía con foto para que lo rastrees.' },
 ];
 
@@ -60,7 +60,7 @@ export default function Landing() {
               Más cerca de <span className="text-oro">quienes más quieres.</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg text-white/80">
-              Compras en Shein, AliExpress o Amazon, llegan a nuestra oficina en Cúcuta y las llevamos hasta tu casa en Venezuela. Pagas en dólares o en bolívares a tasa BCV.
+              Compras en Shein, AliExpress o Amazon, llegan a nuestra oficina en Cúcuta y las llevamos hasta tu casa en Venezuela. Pagas en bolívares a tasa BCV.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link to="/registro" className="btn btn-acento">Crear mi casillero</Link>

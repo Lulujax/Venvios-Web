@@ -4,6 +4,7 @@ import { FotoInput } from '../FotoInput';
 import { Alerta, Campo, Seleccion, useAviso } from '../ui';
 import { api, mensajeDeError } from '../../lib/api';
 import { aNumero, formatearBs, formatearUsd } from '../../lib/formato';
+import { monedaDelMetodo, TEXTO_MONEDA } from '../../lib/pago';
 import type { Envio, InfoPago } from '../../lib/tipos';
 import { useCarga } from '../../lib/useCarga';
 import { validarMonto, validarReferencia } from '../../lib/validar';
@@ -26,8 +27,8 @@ function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
 export function PagoCliente({ envio, alCambiar }: { envio: Envio; alCambiar: (envio: Envio) => void }) {
   const avisar = useAviso();
   const { datos: info, error: errorInfo } = useCarga(() => api.get<InfoPago>(`/envios/${envio.id}/pago`), [envio.id, envio.pagadoCentavos]);
-  const [metodo, setMetodo] = useState('BINANCE');
-  const [moneda, setMoneda] = useState('USD');
+  const [metodo, setMetodo] = useState('PAGO_MOVIL');
+  const moneda = monedaDelMetodo(metodo);
   const [monto, setMonto] = useState('');
   const [referencia, setReferencia] = useState('');
   const [archivo, setArchivo] = useState<File | null>(null);
@@ -111,8 +112,8 @@ export function PagoCliente({ envio, alCambiar }: { envio: Envio; alCambiar: (en
       <form onSubmit={enviar} className="space-y-4 rounded-2xl border border-linea bg-white p-4" noValidate>
         <h3 className="text-base">Subir comprobante</h3>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Seleccion etiqueta="Pagaste por" value={metodo} onChange={(e) => setMetodo(e.target.value)} opciones={[{ valor: 'BINANCE', texto: 'Binance' }, { valor: 'PAGO_MOVIL', texto: 'Pago móvil' }, { valor: 'TRANSFERENCIA', texto: 'Transferencia' }]} />
-          <Seleccion etiqueta="Moneda" value={moneda} onChange={(e) => setMoneda(e.target.value)} opciones={[{ valor: 'USD', texto: 'Dólares ($)' }, { valor: 'BS', texto: 'Bolívares (Bs)' }]} />
+          <Seleccion etiqueta="Pagaste por" value={metodo} onChange={(e) => setMetodo(e.target.value)} opciones={[{ valor: 'PAGO_MOVIL', texto: 'Pago móvil' }, { valor: 'TRANSFERENCIA', texto: 'Transferencia' }, { valor: 'BINANCE', texto: 'Binance' }]} />
+          <Seleccion etiqueta="Moneda" value={moneda} onChange={() => undefined} disabled opciones={[{ valor: moneda, texto: TEXTO_MONEDA[moneda] }]} />
           <Campo etiqueta={`Monto pagado (${moneda === 'USD' ? '$' : 'Bs'})`} inputMode="decimal" value={monto} onChange={(e) => setMonto(e.target.value)} error={errores.monto} />
           <Campo etiqueta="Número de referencia" value={referencia} onChange={(e) => setReferencia(e.target.value)} error={errores.referencia} />
         </div>

@@ -14,7 +14,8 @@ npm run dev
 - Web: http://localhost:5173
 - API: http://localhost:4000/api/salud
 - Sin `DATABASE_URL` la API usa datos en memoria (se pierden al reiniciar). Es lo ideal para probar.
-- Administrador de desarrollo: teléfono `573000000001`, contraseña `AdminDev2026!`. Solo existe cuando no hay `ADMIN_PASSWORD`.
+- Administrador de desarrollo: correo `admin@venvios.local`, contraseña `AdminDev2026!`. Solo existe cuando no hay `ADMIN_PASSWORD`.
+- Cada cliente recibe un número de casillero `VENV-123456` y entra con su correo o con ese número.
 - Cada día el servidor consulta la tasa BCV a `ve.dolarapi.com`. Sin internet, el administrador la carga a mano en Admin → Tasa BCV.
 - La cámara solo funciona con candado (https) o en `localhost`. Para probar con el teléfono real hay que desplegar (ver abajo).
 
@@ -22,7 +23,7 @@ npm run dev
 
 | Comando | Qué hace |
 | --- | --- |
-| `npm test` | Pruebas del backend (62) y del frontend (22) |
+| `npm test` | Pruebas del backend (71) y del frontend (41) |
 | `npm run e2e` | Flujo completo en Chrome real (registro, prealerta, escaneo, pago, entrega, despacho) |
 | `npm run typecheck` | Revisa los tipos de TypeScript |
 | `npm run build` | Compila para producción |
@@ -41,7 +42,7 @@ Las claves nunca van en el código ni en Git.
 ## Pruebas manuales sugeridas (en este orden)
 
 1. Abre la página en el teléfono y en la PC: sin barras horizontales, menú usable.
-2. Crea una cuenta de cliente. Registra una prealerta con 2 trackings, valor 60 $, modalidad «todo incluido».
+2. Crea una cuenta de cliente (correo, teléfono con país, contraseña con mayúscula y carácter especial). Revisa el menú Inicio, Pedidos, Alertas y Finanzas. En Alertas crea una alerta con 2 trackings, valor 60 $, modalidad «todo incluido».
 3. Entra como operador en otro navegador. En Escanear apunta la cámara a una etiqueta real de Shein/X-Cargo (o escribe el tracking). Verifica que reconoce al cliente.
 4. Pesa 2,40 y 1,95 kg. El total debe ser 44,33 $.
 5. Pulsa «Avisar por WhatsApp»: en el teléfono abre la app, en la PC abre WhatsApp Web con el mensaje.

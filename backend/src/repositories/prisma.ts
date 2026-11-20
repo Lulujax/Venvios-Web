@@ -89,6 +89,14 @@ export class UsuarioPrisma implements UsuarioRepository {
     return this.db.usuario.findUnique({ where: { telefono } });
   }
 
+  porEmail(email: string): Promise<Usuario | null> {
+    return this.db.usuario.findUnique({ where: { email } });
+  }
+
+  porCodigo(codigo: string): Promise<Usuario | null> {
+    return this.db.usuario.findUnique({ where: { codigo } });
+  }
+
   listar(roles?: Rol[]): Promise<Usuario[]> {
     return this.db.usuario.findMany({
       where: roles ? { rol: { in: roles } } : undefined,

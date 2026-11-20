@@ -13,6 +13,8 @@ export interface Usuario {
   nombre: string;
   cedulaCifrada: string;
   cedulaHuella: string;
+  email: string;
+  codigo: string;
   telefono: string;
   passwordHash: string;
   rol: Rol;
@@ -124,6 +126,8 @@ export interface UsuarioRepository {
   porId(id: string): Promise<Usuario | null>;
   porCedulaHuella(huella: string): Promise<Usuario | null>;
   porTelefono(telefono: string): Promise<Usuario | null>;
+  porEmail(email: string): Promise<Usuario | null>;
+  porCodigo(codigo: string): Promise<Usuario | null>;
   listar(roles?: Rol[]): Promise<Usuario[]>;
   actualizar(id: string, cambios: Partial<Omit<Usuario, 'id' | 'creadoEn'>>): Promise<Usuario>;
 }

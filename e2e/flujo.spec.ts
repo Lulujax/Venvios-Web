@@ -2,9 +2,9 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const ADMIN = { telefono: '573000000001', contrasena: 'AdminDev2026!' };
+const ADMIN = { correo: 'admin@venvios.local', contrasena: 'AdminDev2026!' };
 const sufijo = String(Date.now()).slice(-6);
-const CLIENTE = { nombre: 'Maria Gonzalez', cedula: `2${sufijo}1`, telefono: `5730099${sufijo}`, contrasena: 'ClavePrueba2026' };
+const CLIENTE = { nombre: 'Maria Gonzalez', cedula: `2${sufijo}1`, correo: `maria${sufijo}@correo.com`, telefono: `424${sufijo}`, contrasena: 'ClavePrueba2026!' };
 const TRACKINGS = [`XC${sufijo}001`, `XC${sufijo}002`];
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
@@ -13,10 +13,10 @@ mkdirSync(CARPETA, { recursive: true });
 writeFileSync(join(CARPETA, 'pixel.png'), PNG);
 const IMAGEN = join(CARPETA, 'pixel.png');
 
-async function entrar(page: Page, telefono: string, contrasena: string) {
+async function entrar(page: Page, identificador: string, contrasena: string) {
   await page.goto('/ingresar');
-  await page.getByLabel('Teléfono').fill(telefono);
-  await page.getByLabel('Contraseña').fill(contrasena);
+  await page.getByLabel('Correo o número de casillero').fill(identificador);
+  await page.getByLabel('Contraseña', { exact: true }).fill(contrasena);
   await page.getByRole('button', { name: 'Entrar' }).click();
 }
 
@@ -29,7 +29,7 @@ test.describe.configure({ mode: 'serial' });
 test('flujo completo: registro, prealerta, recepción, pago, entrega y despacho', async ({ browser }) => {
   const admin = await contextoNuevo(browser);
   const paginaAdmin = await admin.newPage();
-  await entrar(paginaAdmin, ADMIN.telefono, ADMIN.contrasena);
+  await entrar(paginaAdmin, ADMIN.correo, ADMIN.contrasena);
   await expect(paginaAdmin.getByRole('heading', { name: /Hola/ })).toBeVisible();
   const respuestaTasa = await paginaAdmin.request.put('/api/admin/tasa', { data: { bolivaresPorUsd: 900 } });
   expect(respuestaTasa.ok()).toBeTruthy();
@@ -39,13 +39,20 @@ test('flujo completo: registro, prealerta, recepción, pago, entrega y despacho'
   await cliente.goto('/registro');
   await cliente.getByLabel('Nombre y apellido').fill(CLIENTE.nombre);
   await cliente.getByLabel('Número de cédula').fill(CLIENTE.cedula);
+  await cliente.getByLabel('Correo electrónico').fill(CLIENTE.correo);
+  await expect(cliente.getByLabel('País del teléfono')).toHaveValue('VE');
+  await expect(cliente.getByPlaceholder('4241234567')).toBeVisible();
   await cliente.getByLabel('Teléfono de WhatsApp').fill(CLIENTE.telefono);
-  await cliente.getByLabel('Contraseña').fill(CLIENTE.contrasena);
+  await cliente.getByLabel('Contraseña', { exact: true }).fill(CLIENTE.contrasena);
+  await cliente.getByRole('button', { name: 'Mostrar contraseña', exact: true }).click();
+  await expect(cliente.getByLabel('Contraseña', { exact: true })).toHaveAttribute('type', 'text');
+  await cliente.getByLabel('Repite la contraseña', { exact: true }).fill(CLIENTE.contrasena);
   await cliente.getByRole('button', { name: 'Crear mi cuenta' }).click();
   await expect(cliente.getByRole('heading', { name: /Hola, Maria/ })).toBeVisible();
   await cliente.screenshot({ path: join(CARPETA, 'cliente-inicio-movil.png'), fullPage: true });
 
-  await cliente.getByRole('link', { name: /Registrar paquetes/ }).first().click();
+  await expect(cliente.getByText(/Casillero VENV-\d{6}/)).toBeVisible();
+  await cliente.getByRole('link', { name: /Crear alerta/ }).first().click();
   await cliente.getByLabel('Tracking del paquete 1').fill(TRACKINGS[0]!);
   await cliente.getByRole('button', { name: /Agregar otro paquete/ }).click();
   await cliente.getByLabel('Tracking del paquete 2').fill(TRACKINGS[1]!);
@@ -59,7 +66,7 @@ test('flujo completo: registro, prealerta, recepción, pago, entrega y despacho'
 
   const operadorCtx = await contextoNuevo(browser, true);
   const operador = await operadorCtx.newPage();
-  await entrar(operador, ADMIN.telefono, ADMIN.contrasena);
+  await entrar(operador, ADMIN.correo, ADMIN.contrasena);
   await operador.goto('/panel/escanear');
   await expect(operador.getByRole('heading', { name: 'Recibir paquetes' })).toBeVisible();
   await operador.screenshot({ path: join(CARPETA, 'operador-escaner-movil.png'), fullPage: true });
@@ -77,6 +84,8 @@ test('flujo completo: registro, prealerta, recepción, pago, entrega y despacho'
 
   await cliente.reload();
   await expect(cliente.getByText('Saldo a pagar')).toBeVisible();
+  await cliente.getByLabel('Pagaste por').selectOption('BINANCE');
+  await expect(cliente.getByLabel('Moneda')).toBeDisabled();
   await cliente.getByLabel('Número de referencia').fill('BIN-998877');
   await cliente.getByLabel(/Monto pagado/).fill('44.33');
   await cliente.locator('input[type="file"]').first().setInputFiles(IMAGEN);
@@ -127,7 +136,7 @@ test('la página pública calcula, muestra tarifas y adapta el menú al teléfon
 test('un cliente no entra al panel del personal', async ({ browser }) => {
   const contexto = await contextoNuevo(browser);
   const pagina = await contexto.newPage();
-  await entrar(pagina, CLIENTE.telefono, CLIENTE.contrasena);
+  await entrar(pagina, CLIENTE.correo, CLIENTE.contrasena);
   await expect(pagina).toHaveURL(/\/cuenta/);
   await pagina.goto('/panel');
   await expect(pagina).toHaveURL(/\/cuenta/);

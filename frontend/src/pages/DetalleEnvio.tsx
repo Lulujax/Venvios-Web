@@ -145,7 +145,7 @@ export default function DetalleEnvio({ personal }: { personal: boolean }) {
   const [cancelando, setCancelando] = useState(false);
   const [motivoCancelar, setMotivoCancelar] = useState('');
 
-  const volver = personal ? '/panel/envios' : '/cuenta';
+  const volver = personal ? '/panel/envios' : '/cuenta/pedidos';
 
   if (cargando && !datos) return <div className="contenedor py-8"><Cargando /></div>;
   if (error || !datos) return <div className="contenedor py-8"><ErrorCarga mensaje={error ?? 'No encontramos ese envío.'} reintentar={() => void recargar()} /></div>;

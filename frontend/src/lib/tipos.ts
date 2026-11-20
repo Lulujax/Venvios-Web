@@ -14,6 +14,8 @@ export type EstadoEnvio =
 export interface Usuario {
   id: string;
   nombre: string;
+  email: string;
+  codigo: string;
   telefono: string;
   cedulaEnmascarada: string;
   rol: Rol;

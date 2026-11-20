@@ -20,6 +20,12 @@ export interface NuevoPago {
 const TOLERANCIA_CENTAVOS = 5;
 const METODOS: MetodoPago[] = ['BINANCE', 'PAGO_MOVIL', 'TRANSFERENCIA', 'MANUAL'];
 
+export function monedaDelMetodo(metodo: MetodoPago): MonedaPago | null {
+  if (metodo === 'BINANCE') return 'USD';
+  if (metodo === 'PAGO_MOVIL' || metodo === 'TRANSFERENCIA') return 'BS';
+  return null;
+}
+
 export class PagoService {
   constructor(
     private readonly repos: Repositorios,
@@ -67,6 +73,9 @@ export class PagoService {
     const envio = await this.envios.obtenerEnvio(actor, envioId);
     this.validarEnvioCobrable(envio);
     if (!METODOS.includes(datos.metodo) || datos.metodo === 'MANUAL') throw AppError.badRequest('Elige cómo pagaste.');
+    if (monedaDelMetodo(datos.metodo) !== datos.moneda) {
+      throw AppError.badRequest('Ese método de pago no admite esa moneda: Binance es en dólares; pago móvil y transferencia, en bolívares.', 'METODO_MONEDA');
+    }
     const referencia = limpiarTexto(datos.referencia, 40);
     if (referencia.length < 4) throw AppError.badRequest('Escribe el número de referencia del pago.');
     const comprobante = validarImagen(datos.archivo);

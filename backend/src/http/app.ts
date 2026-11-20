@@ -45,6 +45,7 @@ function numero(valor: unknown): number {
 const esquemaRegistro = z.object({
   nombre: z.string(),
   cedula: z.string(),
+  email: z.string(),
   telefono: z.string(),
   contrasena: z.string(),
 });
@@ -141,8 +142,8 @@ export function crearApp(contexto: Contexto): express.Express {
     '/auth/login',
     limiteAuth,
     ruta(async (req, res) => {
-      const { telefono, contrasena } = z.object({ telefono: z.string(), contrasena: z.string() }).parse(req.body);
-      const sesion = await contexto.auth.iniciarSesion(telefono, contrasena);
+      const { identificador, contrasena } = z.object({ identificador: z.string(), contrasena: z.string() }).parse(req.body);
+      const sesion = await contexto.auth.iniciarSesion(identificador, contrasena);
       fijarCookie(res, sesion.token);
       res.json({ usuario: sesion.usuario });
     }),

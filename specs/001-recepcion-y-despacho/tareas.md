@@ -300,3 +300,11 @@ Hecho cuando: un recorrido completo (registro, prealerta, escaneo, peso, pago, d
 Cubre: todo
 Hecho cuando: la página abre con candado, la cámara funciona en un teléfono real y las variables secretas están en Netlify, no en el código.
 [ ] Hecha y probada
+
+## Cambios posteriores (acceso y cuenta del cliente)
+
+- Registro con correo, teléfono con selector de país (Venezuela por defecto), contraseña repetida con requisitos (RF-9b, RF-9g) y número de casillero VENV-123456 (RF-9h).
+- Ingreso con correo o número de casillero; ver y ocultar contraseña (RF-7, RF-9i).
+- Panel del cliente con Inicio, Pedidos, Alertas, Finanzas y botón de WhatsApp (RF-9j a RF-9m).
+- Método y moneda de pago ligados (RF-9n). Textos públicos sin detalles internos (RF-1).
+- Pendiente de tu prueba manual; ninguna casilla marcada.

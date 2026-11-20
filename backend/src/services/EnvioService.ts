@@ -403,6 +403,8 @@ export class EnvioService {
       nombre: 'Sin asignar',
       cedulaCifrada: this.cifrado.cifrar('00000'),
       cedulaHuella: 'sin-asignar',
+      email: 'sin-asignar@venvios.invalid',
+      codigo: 'VENV-000000',
       telefono: TELEFONO_SIN_ASIGNAR,
       passwordHash: await hash(randomBytes(16).toString('hex')),
       rol: 'CLIENTE',

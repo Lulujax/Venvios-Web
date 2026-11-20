@@ -68,6 +68,8 @@ model Usuario {
   nombre           String
   cedulaCifrada    String
   cedulaHuella     String   @unique
+  email            String   @unique
+  codigo           String   @unique
   telefono         String   @unique
   passwordHash     String
   rol              Rol      @default(CLIENTE)

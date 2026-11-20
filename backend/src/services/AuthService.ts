@@ -1,10 +1,12 @@
 import { hash, verify } from '@node-rs/argon2';
 import jwt from 'jsonwebtoken';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import type { CifradoCedula } from '../domain/cifrado';
 import {
+  normalizarCodigoCasillero,
   validarCedula,
   validarContrasena,
+  validarEmail,
   validarNombre,
   validarTelefono,
 } from '../domain/validaciones';
@@ -16,6 +18,8 @@ import { enmascararCedula } from '../utils/mask';
 export interface UsuarioPublico {
   id: string;
   nombre: string;
+  email: string;
+  codigo: string;
   telefono: string;
   cedulaEnmascarada: string;
   rol: Rol;
@@ -34,6 +38,7 @@ export interface PayloadSesion {
 }
 
 const MAX_INTENTOS = 5;
+const MAX_REINTENTOS_CODIGO = 50;
 const BLOQUEO_MS = 10 * 60 * 1000;
 const DURACION_SESION_SEGUNDOS = 60 * 60 * 24 * 7;
 
@@ -66,6 +71,7 @@ export class AuthService {
     private readonly cifrado: CifradoCedula,
     private readonly secretoJwt: string,
     private readonly limitador: LimitadorIntentos = new LimitadorIntentos(),
+    private readonly generarDigitos: () => string = () => String(randomInt(0, 1000000)).padStart(6, '0'),
   ) {
     if (!secretoJwt || secretoJwt.length < 16) throw new Error('JWT_SECRET debe tener al menos 16 caracteres.');
   }
@@ -74,6 +80,8 @@ export class AuthService {
     return {
       id: usuario.id,
       nombre: usuario.nombre,
+      email: usuario.email,
+      codigo: usuario.codigo,
       telefono: usuario.telefono,
       cedulaEnmascarada: enmascararCedula(this.cifrado.descifrar(usuario.cedulaCifrada)),
       rol: usuario.rol,
@@ -88,22 +96,24 @@ export class AuthService {
     return { token, usuario: this.aPublico(usuario) };
   }
 
-  async registrarCliente(datos: { nombre: string; cedula: string; telefono: string; contrasena: string }): Promise<SesionEmitida> {
+  async registrarCliente(datos: { nombre: string; cedula: string; email: string; telefono: string; contrasena: string }): Promise<SesionEmitida> {
     logger.info('Registro de cliente iniciado');
     const nombre = validarNombre(datos.nombre);
     const cedula = validarCedula(datos.cedula);
+    const email = validarEmail(datos.email);
     const telefono = validarTelefono(datos.telefono);
     const contrasena = validarContrasena(datos.contrasena);
-    return this.crearYEmitir({ nombre, cedula, telefono, contrasena, rol: 'CLIENTE', debeCambiarClave: false });
+    return this.crearYEmitir({ nombre, cedula, email, telefono, contrasena, rol: 'CLIENTE', debeCambiarClave: false });
   }
 
   async crearPersonal(
-    datos: { nombre: string; cedula: string; telefono: string; contrasena: string; rol: 'OPERADOR' | 'ADMIN' },
+    datos: { nombre: string; cedula: string; email: string; telefono: string; contrasena: string; rol: 'OPERADOR' | 'ADMIN' },
     actorId: string,
   ): Promise<UsuarioPublico> {
     const sesion = await this.crearYEmitir({
       nombre: validarNombre(datos.nombre),
       cedula: validarCedula(datos.cedula),
+      email: validarEmail(datos.email),
       telefono: validarTelefono(datos.telefono),
       contrasena: validarContrasena(datos.contrasena),
       rol: datos.rol,
@@ -116,19 +126,26 @@ export class AuthService {
   private async crearYEmitir(datos: {
     nombre: string;
     cedula: string;
+    email: string;
     telefono: string;
     contrasena: string;
     rol: Rol;
     debeCambiarClave: boolean;
   }): Promise<SesionEmitida> {
     const huella = this.cifrado.huella(datos.cedula);
-    if ((await this.usuarios.porCedulaHuella(huella)) || (await this.usuarios.porTelefono(datos.telefono))) {
+    if (
+      (await this.usuarios.porCedulaHuella(huella)) ||
+      (await this.usuarios.porTelefono(datos.telefono)) ||
+      (await this.usuarios.porEmail(datos.email))
+    ) {
       throw AppError.conflict('Ya existe una cuenta con esos datos. Intenta iniciar sesión o pide ayuda en la oficina.');
     }
     const usuario = await this.usuarios.crear({
       nombre: datos.nombre,
       cedulaCifrada: this.cifrado.cifrar(datos.cedula),
       cedulaHuella: huella,
+      email: datos.email,
+      codigo: await this.codigoLibre(),
       telefono: datos.telefono,
       passwordHash: await hash(datos.contrasena),
       rol: datos.rol,
@@ -139,17 +156,39 @@ export class AuthService {
     return this.emitir(usuario);
   }
 
-  async iniciarSesion(telefonoCrudo: string, contrasena: string): Promise<SesionEmitida> {
-    const telefono = validarTelefono(telefonoCrudo);
-    this.limitador.verificar(telefono);
-    const usuario = await this.usuarios.porTelefono(telefono);
+  async codigoLibre(): Promise<string> {
+    for (let intento = 1; intento <= MAX_REINTENTOS_CODIGO; intento += 1) {
+      const candidato = `VENV-${this.generarDigitos()}`;
+      if (!(await this.usuarios.porCodigo(candidato))) {
+        logger.info('Número de casillero asignado', { intento });
+        return candidato;
+      }
+      logger.warn('Número de casillero repetido, se genera otro', { intento });
+    }
+    throw new AppError('No se pudo generar un número de casillero. Intenta de nuevo.', 500);
+  }
+
+  private async buscarPorIdentificador(identificador: string): Promise<{ clave: string; usuario: Usuario | null }> {
+    const texto = typeof identificador === 'string' ? identificador.trim() : '';
+    if (texto.includes('@')) {
+      const email = texto.toLowerCase().slice(0, 120);
+      return { clave: email, usuario: await this.usuarios.porEmail(email) };
+    }
+    const codigo = normalizarCodigoCasillero(texto);
+    if (codigo) return { clave: codigo, usuario: await this.usuarios.porCodigo(codigo) };
+    return { clave: 'x:' + texto.toLowerCase().slice(0, 40), usuario: null };
+  }
+
+  async iniciarSesion(identificador: string, contrasena: string): Promise<SesionEmitida> {
+    const { clave, usuario } = await this.buscarPorIdentificador(identificador);
+    this.limitador.verificar(clave);
     const valida = usuario && usuario.activo ? await verify(usuario.passwordHash, contrasena) : false;
     if (!usuario || !valida) {
-      this.limitador.registrarFallo(telefono);
+      this.limitador.registrarFallo(clave);
       logger.warn('Inicio de sesión fallido');
-      throw AppError.unauthorized('Teléfono o contraseña incorrectos.');
+      throw AppError.unauthorized('Correo, número de casillero o contraseña incorrectos.');
     }
-    this.limitador.limpiar(telefono);
+    this.limitador.limpiar(clave);
     logger.info('Inicio de sesión correcto', { id: usuario.id, rol: usuario.rol });
     return this.emitir(usuario);
   }
@@ -202,6 +241,7 @@ export class AuthService {
     const clientes = await this.usuarios.listar(['CLIENTE']);
     const coincidencias = clientes.filter((c) => {
       if (c.nombre.toLowerCase().includes(limpio)) return true;
+      if (c.codigo.toLowerCase().includes(limpio) || c.email.includes(limpio)) return true;
       if (digitos.length >= 4 && c.telefono.includes(digitos)) return true;
       if (digitos.length >= 5 && this.cifrado.huella(digitos) === c.cedulaHuella) return true;
       return false;

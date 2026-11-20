@@ -7,7 +7,11 @@ import { CambiarClave, Ingresar, Registro } from './pages/Acceso';
 import DetalleEnvio from './pages/DetalleEnvio';
 import Landing from './pages/Landing';
 import NuevaPrealerta from './pages/NuevaPrealerta';
-import { CuentaLayout, MisEnvios } from './pages/cliente/Cuenta';
+import { Alertas } from './pages/cliente/Alertas';
+import { CuentaLayout } from './pages/cliente/Cuenta';
+import { Finanzas } from './pages/cliente/Finanzas';
+import { Inicio as InicioCuenta } from './pages/cliente/Inicio';
+import { Pedidos } from './pages/cliente/Pedidos';
 import { Inicio, ListaEnvios, PanelLayout } from './pages/panel/Panel';
 import PagosPendientes from './pages/panel/PagosPendientes';
 
@@ -52,7 +56,10 @@ export default function App() {
 
       <Route element={<Protegida roles={['CLIENTE']} />}>
         <Route path="/cuenta" element={<CuentaLayout />}>
-          <Route index element={<MisEnvios />} />
+          <Route index element={<InicioCuenta />} />
+          <Route path="pedidos" element={<Pedidos />} />
+          <Route path="alertas" element={<Alertas />} />
+          <Route path="finanzas" element={<Finanzas />} />
           <Route path="nuevo" element={<NuevaPrealerta personal={false} />} />
           <Route path="envios/:id" element={<DetalleEnvio personal={false} />} />
         </Route>

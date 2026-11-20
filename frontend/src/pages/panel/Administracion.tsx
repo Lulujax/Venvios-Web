@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Alerta, Campo, Cargando, ErrorCarga, Seccion, useAviso } from '../../components/ui';
+import { Alerta, Campo, CampoTelefono, Cargando, ErrorCarga, RequisitosContrasenaLista, Seccion, useAviso } from '../../components/ui';
 import { api, mensajeDeError } from '../../lib/api';
 import { aNumero } from '../../lib/formato';
 import type { Contacto, DatosPago, Tarifas, TransportistaPublico, Usuario } from '../../lib/tipos';
 import { useCarga } from '../../lib/useCarga';
-import { validarCedula, validarContrasena, validarNombre, validarTelefono } from '../../lib/validar';
+import { PAIS_PREDETERMINADO, componerTelefono, validarTelefonoLocal } from '../../lib/telefono';
+import { validarCedula, validarContrasena, validarEmail, validarNombre } from '../../lib/validar';
 
 type Pestana = 'usuarios' | 'tarifas' | 'pagos' | 'mensajes' | 'transporte' | 'tasa';
 
@@ -42,21 +43,21 @@ function useConfigClave<T>(clave: string) {
 function Usuarios() {
   const avisar = useAviso();
   const { datos, cargando, error, recargar } = useCarga(() => api.get<{ usuarios: Usuario[] }>('/admin/usuarios').then((r) => r.usuarios));
-  const [nuevo, setNuevo] = useState({ nombre: '', cedula: '', telefono: '', contrasena: '', rol: 'OPERADOR' });
+  const [nuevo, setNuevo] = useState({ nombre: '', cedula: '', email: '', pais: PAIS_PREDETERMINADO, telefono: '', contrasena: '', rol: 'OPERADOR' });
   const [errores, setErrores] = useState<Record<string, string | undefined>>({});
   const [errorForm, setErrorForm] = useState<string | null>(null);
   const [creando, setCreando] = useState(false);
 
   async function crear(evento: FormEvent) {
     evento.preventDefault();
-    const fallos = { nombre: validarNombre(nuevo.nombre) ?? undefined, cedula: validarCedula(nuevo.cedula) ?? undefined, telefono: validarTelefono(nuevo.telefono) ?? undefined, contrasena: validarContrasena(nuevo.contrasena) ?? undefined };
+    const fallos = { nombre: validarNombre(nuevo.nombre) ?? undefined, cedula: validarCedula(nuevo.cedula) ?? undefined, email: validarEmail(nuevo.email) ?? undefined, telefono: validarTelefonoLocal(nuevo.pais, nuevo.telefono) ?? undefined, contrasena: validarContrasena(nuevo.contrasena) ?? undefined };
     setErrores(fallos);
     if (Object.values(fallos).some(Boolean)) return;
     setCreando(true);
     setErrorForm(null);
     try {
-      await api.post('/admin/usuarios', nuevo);
-      setNuevo({ nombre: '', cedula: '', telefono: '', contrasena: '', rol: 'OPERADOR' });
+      await api.post('/admin/usuarios', { nombre: nuevo.nombre, cedula: nuevo.cedula, email: nuevo.email.trim(), telefono: componerTelefono(nuevo.pais, nuevo.telefono), contrasena: nuevo.contrasena, rol: nuevo.rol });
+      setNuevo({ nombre: '', cedula: '', email: '', pais: PAIS_PREDETERMINADO, telefono: '', contrasena: '', rol: 'OPERADOR' });
       await recargar();
       avisar('Usuario creado. Deberá cambiar su contraseña al entrar.');
     } catch (falla) {
@@ -83,7 +84,7 @@ function Usuarios() {
         <ul className="space-y-2">
           {datos?.map((u) => (
             <li key={u.id} className="flex items-center justify-between gap-3 rounded-2xl border border-linea px-4 py-3 text-sm">
-              <div className="min-w-0"><p className="truncate font-bold">{u.nombre}</p><p className="text-suave">{u.rol === 'ADMIN' ? 'Administrador' : 'Operador'} · +{u.telefono}</p></div>
+              <div className="min-w-0"><p className="truncate font-bold">{u.nombre}</p><p className="text-suave">{u.rol === 'ADMIN' ? 'Administrador' : 'Operador'} · {u.email}</p></div>
               <button type="button" className={`btn btn-chico ${u.activo ? 'btn-suave' : 'btn-primario'}`} onClick={() => void alternar(u)}>{u.activo ? 'Desactivar' : 'Activar'}</button>
             </li>
           ))}
@@ -93,8 +94,12 @@ function Usuarios() {
         <form onSubmit={crear} className="space-y-4" noValidate>
           <Campo etiqueta="Nombre y apellido" value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} error={errores.nombre} />
           <Campo etiqueta="Cédula" inputMode="numeric" value={nuevo.cedula} onChange={(e) => setNuevo({ ...nuevo, cedula: e.target.value })} error={errores.cedula} />
-          <Campo etiqueta="Teléfono (con código de país)" type="tel" value={nuevo.telefono} onChange={(e) => setNuevo({ ...nuevo, telefono: e.target.value })} error={errores.telefono} />
-          <Campo etiqueta="Contraseña temporal" type="text" value={nuevo.contrasena} onChange={(e) => setNuevo({ ...nuevo, contrasena: e.target.value })} error={errores.contrasena} ayuda="La persona la cambiará al entrar." />
+          <Campo etiqueta="Correo electrónico" type="email" autoCapitalize="none" value={nuevo.email} onChange={(e) => setNuevo({ ...nuevo, email: e.target.value })} error={errores.email} />
+          <CampoTelefono etiqueta="Teléfono de WhatsApp" pais={nuevo.pais} numero={nuevo.telefono} alCambiarPais={(pais) => setNuevo({ ...nuevo, pais })} alCambiarNumero={(telefono) => setNuevo({ ...nuevo, telefono })} error={errores.telefono} />
+          <div>
+            <Campo etiqueta="Contraseña temporal" type="text" value={nuevo.contrasena} onChange={(e) => setNuevo({ ...nuevo, contrasena: e.target.value })} error={errores.contrasena} ayuda="La persona la cambiará al entrar." />
+            <RequisitosContrasenaLista contrasena={nuevo.contrasena} />
+          </div>
           <div>
             <label htmlFor="rol-nuevo" className="etiqueta">Rol</label>
             <select id="rol-nuevo" className="campo" value={nuevo.rol} onChange={(e) => setNuevo({ ...nuevo, rol: e.target.value })}>

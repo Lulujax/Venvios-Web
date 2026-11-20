@@ -5,6 +5,7 @@ import { logger } from '../utils/logger';
 export interface DatosAdminInicial {
   nombre: string;
   cedula: string;
+  email: string;
   telefono: string;
   contrasena: string;
 }
@@ -36,11 +37,12 @@ export function datosAdminDesdeEntorno(produccion: boolean): DatosAdminInicial |
   const contrasena = process.env.ADMIN_PASSWORD;
   if (!contrasena) {
     if (produccion) return null;
-    return { nombre: 'Admin Desarrollo', cedula: '10000001', telefono: '573000000001', contrasena: 'AdminDev2026!' };
+    return { nombre: 'Admin Desarrollo', cedula: '10000001', email: 'admin@venvios.local', telefono: '573000000001', contrasena: 'AdminDev2026!' };
   }
   return {
     nombre: process.env.ADMIN_NOMBRE ?? 'Administrador Venvios',
     cedula: process.env.ADMIN_CEDULA ?? '10000001',
+    email: process.env.ADMIN_EMAIL ?? 'admin@venvios.local',
     telefono: process.env.ADMIN_TELEFONO ?? '573000000001',
     contrasena,
   };

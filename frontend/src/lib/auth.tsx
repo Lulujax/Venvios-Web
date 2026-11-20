@@ -5,8 +5,8 @@ import type { Rol, Usuario } from './tipos';
 interface EstadoAuth {
   usuario: Usuario | null;
   cargando: boolean;
-  ingresar: (telefono: string, contrasena: string) => Promise<Usuario>;
-  registrar: (datos: { nombre: string; cedula: string; telefono: string; contrasena: string }) => Promise<Usuario>;
+  ingresar: (identificador: string, contrasena: string) => Promise<Usuario>;
+  registrar: (datos: { nombre: string; cedula: string; email: string; telefono: string; contrasena: string }) => Promise<Usuario>;
   salir: () => Promise<void>;
   refrescar: () => Promise<void>;
 }
@@ -38,8 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       usuario,
       cargando,
       refrescar,
-      ingresar: async (telefono, contrasena) => {
-        const respuesta = await api.post<{ usuario: Usuario }>('/auth/login', { telefono, contrasena });
+      ingresar: async (identificador, contrasena) => {
+        const respuesta = await api.post<{ usuario: Usuario }>('/auth/login', { identificador, contrasena });
         setUsuario(respuesta.usuario);
         return respuesta.usuario;
       },

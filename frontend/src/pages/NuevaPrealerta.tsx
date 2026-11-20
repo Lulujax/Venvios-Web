@@ -92,7 +92,7 @@ export default function NuevaPrealerta({ personal }: { personal: boolean }) {
   return (
     <div className="contenedor max-w-3xl py-6 sm:py-8">
       <h1 className="text-3xl">{personal ? 'Nueva prealerta' : 'Registrar paquetes'}</h1>
-      <p className="mb-6 mt-2 text-suave">Anota los números de tracking de lo que compraste. Cuando lleguen a nuestra oficina los escaneamos y te avisamos.</p>
+      <p className="mb-6 mt-2 text-suave">Anota los números de tracking de lo que compraste. Cuando lleguen a nuestra oficina te avisamos.</p>
 
       <form onSubmit={enviar} className="space-y-6" noValidate>
         {personal && (

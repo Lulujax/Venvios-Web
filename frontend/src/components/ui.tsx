@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react';
-import { FiAlertTriangle, FiCheckCircle, FiInbox, FiInfo } from 'react-icons/fi';
+import { FiAlertTriangle, FiCheck, FiCheckCircle, FiCircle, FiEye, FiEyeOff, FiInbox, FiInfo } from 'react-icons/fi';
 import { ETIQUETAS_ESTADO, TONO_ESTADO } from '../lib/formato';
 import { urlArchivo } from '../lib/api';
+import { PAISES, buscarPais } from '../lib/telefono';
+import { requisitosContrasena } from '../lib/validar';
 import type { EstadoEnvio } from '../lib/tipos';
 
 export function Marca({ claro = false, tamano = 'normal' }: { claro?: boolean; tamano?: 'normal' | 'grande' }) {
@@ -87,6 +89,120 @@ export function Campo({ etiqueta, ayuda, error, id, className = '', ...resto }: 
         {etiqueta}
       </label>
       <input id={identificador} className={`campo ${error ? 'border-rojo focus:ring-rojo/20' : ''}`} aria-invalid={Boolean(error)} aria-describedby={ayuda || error ? `${identificador}-nota` : undefined} {...resto} />
+      {(ayuda || error) && (
+        <p id={`${identificador}-nota`} className={`ayuda ${error ? 'font-semibold text-rojo' : ''}`}>
+          {error ?? ayuda}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function CampoContrasena({ etiqueta, ayuda, error, id, className = '', ...resto }: CampoProps) {
+  const [visible, setVisible] = useState(false);
+  const identificador = id ?? `campo-${etiqueta.toLowerCase().replace(/\W+/g, '-')}`;
+  return (
+    <div className={className}>
+      <label htmlFor={identificador} className="etiqueta">
+        {etiqueta}
+      </label>
+      <div className="relative">
+        <input
+          id={identificador}
+          type={visible ? 'text' : 'password'}
+          className={`campo pr-14 ${error ? 'border-rojo focus:ring-rojo/20' : ''}`}
+          aria-invalid={Boolean(error)}
+          aria-describedby={ayuda || error ? `${identificador}-nota` : undefined}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          {...resto}
+        />
+        <button
+          type="button"
+          onClick={() => setVisible((actual) => !actual)}
+          aria-label={visible ? `Ocultar ${etiqueta.toLowerCase()}` : `Mostrar ${etiqueta.toLowerCase()}`}
+          aria-pressed={visible}
+          className="absolute inset-y-0 right-0 grid w-12 place-items-center rounded-r-boton text-lg text-marino hover:text-marino-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-marino"
+        >
+          {visible ? <FiEyeOff aria-hidden /> : <FiEye aria-hidden />}
+        </button>
+      </div>
+      {(ayuda || error) && (
+        <p id={`${identificador}-nota`} className={`ayuda ${error ? 'font-semibold text-rojo' : ''}`}>
+          {error ?? ayuda}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function RequisitosContrasenaLista({ contrasena }: { contrasena: string }) {
+  const requisitos = requisitosContrasena(contrasena);
+  const items: Array<{ cumple: boolean; texto: string }> = [
+    { cumple: requisitos.largo, texto: 'Mínimo 8 caracteres' },
+    { cumple: requisitos.mayuscula, texto: 'Una letra mayúscula' },
+    { cumple: requisitos.especial, texto: 'Un carácter especial (por ejemplo ! # $ %)' },
+  ];
+  return (
+    <ul className="mt-2 space-y-1 text-[13px]" aria-label="Requisitos de la contraseña">
+      {items.map((item) => (
+        <li key={item.texto} className={`flex items-center gap-2 font-semibold ${item.cumple ? 'text-verde' : 'text-suave'}`}>
+          {item.cumple ? <FiCheck aria-hidden /> : <FiCircle aria-hidden />}
+          <span>
+            {item.texto}
+            <span className="sr-only">{item.cumple ? ': cumplido' : ': pendiente'}</span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+interface CampoTelefonoProps {
+  etiqueta: string;
+  pais: string;
+  numero: string;
+  alCambiarPais: (codigo: string) => void;
+  alCambiarNumero: (numero: string) => void;
+  error?: string | null;
+  ayuda?: string;
+}
+
+export function CampoTelefono({ etiqueta, pais, numero, alCambiarPais, alCambiarNumero, error, ayuda }: CampoTelefonoProps) {
+  const actual = buscarPais(pais);
+  const identificador = `tel-${etiqueta.toLowerCase().replace(/\W+/g, '-')}`;
+  return (
+    <div>
+      <label htmlFor={identificador} className="etiqueta">
+        {etiqueta}
+      </label>
+      <div className="flex gap-2">
+        <select
+          aria-label="País del teléfono"
+          value={pais}
+          onChange={(e) => alCambiarPais(e.target.value)}
+          className="campo w-[8.5rem] shrink-0 px-3"
+        >
+          {PAISES.map((opcion) => (
+            <option key={opcion.codigo} value={opcion.codigo}>
+              {opcion.codigo} +{opcion.prefijo}
+            </option>
+          ))}
+        </select>
+        <input
+          id={identificador}
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel-national"
+          value={numero}
+          onChange={(e) => alCambiarNumero(e.target.value)}
+          placeholder={actual.ejemplo}
+          className={`campo min-w-0 flex-1 ${error ? 'border-rojo focus:ring-rojo/20' : ''}`}
+          aria-invalid={Boolean(error)}
+          aria-describedby={ayuda || error ? `${identificador}-nota` : undefined}
+        />
+      </div>
       {(ayuda || error) && (
         <p id={`${identificador}-nota`} className={`ayuda ${error ? 'font-semibold text-rojo' : ''}`}>
           {error ?? ayuda}
