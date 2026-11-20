@@ -56,9 +56,11 @@ describe('datos de prueba en memoria', () => {
   it('caso feliz: un paquete recibido queda con su peso en centésimas y su estado', async () => {
     const entorno = await crearEntorno();
     await cargarDatosDePrueba(entorno.contexto, leerFixtureDatosPrueba());
-    const recibido = (await entorno.contexto.repos.envios.listar({ limite: 1000, estados: ['RECIBIDO_COMPLETO'] }))[0]!;
-    expect(recibido.paquetes[0]!.estado).toBe('RECIBIDO');
-    expect(recibido.paquetes[0]!.pesoCentesimas).toBe(50);
+    const envio = (await entorno.contexto.repos.envios.porTracking('SHN26110020'))!;
+    const paquete = envio.paquetes.find((candidato) => candidato.trackingNormalizado === 'SHN26110020')!;
+    expect(envio.estado).toBe('RECIBIDO_COMPLETO');
+    expect(paquete.estado).toBe('RECIBIDO');
+    expect(paquete.pesoCentesimas).toBe(50);
   });
 
   it('límite: una sección sin envíos no crea envíos, pero sí los clientes', async () => {

@@ -163,7 +163,7 @@ export default function Escaneo() {
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">
       <h1 className="mb-1 text-3xl">Recibir paquetes</h1>
-      <p className="mb-6 text-suave">Escanea el código de barras de la etiqueta. Si no se lee, escribe el número.</p>
+      <p className="mb-6 text-suave">Escanea el QR o el código de barras de la etiqueta, o toma una foto. Si no se lee, escribe el número.</p>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">

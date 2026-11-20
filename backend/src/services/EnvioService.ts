@@ -16,7 +16,7 @@ import {
   type TipoEnvio,
 } from '../domain/estados';
 import { calcularPrecio, kilosACentesimas, modalidadPropuesta, type Modalidad } from '../domain/tarifas';
-import { coincidenTrackings, normalizarTracking } from '../domain/tracking';
+import { codigoContieneTracking, coincidenTrackings, normalizarTracking } from '../domain/tracking';
 import { limpiarTexto, validarCedula, validarPesoKg, validarTelefono, validarValorDeclarado } from '../domain/validaciones';
 import type { Envio, Pago, Paquete, Repositorios, Rol, Transportista, Usuario } from '../repositories/tipos';
 import { AppError } from '../utils/errors';
@@ -524,7 +524,22 @@ export class EnvioService {
       const paquete = envio.paquetes.find((p) => p.estado === 'ESPERADO' && coincidenTrackings(p.trackingNormalizado, normalizado));
       if (paquete) return { envio, paquete };
     }
-    return null;
+    return this.buscarPorContenido(texto, pendientes);
+  }
+
+  private buscarPorContenido(texto: string, pendientes: Envio[]): { envio: Envio; paquete: Paquete } | null {
+    const coincidencias: Array<{ envio: Envio; paquete: Paquete }> = [];
+    for (const envio of pendientes) {
+      for (const paquete of envio.paquetes) {
+        if (paquete.estado === 'ESPERADO' && codigoContieneTracking(texto, paquete.trackingTexto)) coincidencias.push({ envio, paquete });
+      }
+    }
+    if (coincidencias.length > 1) {
+      logger.warn('El código coincide con varios paquetes esperados', { coincidencias: coincidencias.length });
+      throw AppError.conflict('Ese código coincide con más de un paquete esperado. Escribe el número completo para elegir el correcto.');
+    }
+    if (coincidencias.length === 1) logger.info('Paquete encontrado porque el código contiene su tracking');
+    return coincidencias[0] ?? null;
   }
 
   async escanear(actor: Actor, textoLeido: string): Promise<ResultadoEscaneo> {

@@ -27,3 +27,22 @@ export function coincidenTrackings(a: string, b: string): boolean {
   if (normalA === normalB) return true;
   return quitarPrefijo(normalA) === quitarPrefijo(normalB);
 }
+
+const LARGO_MINIMO_CONTENIDO = 8;
+const LARGO_PIEZA_EN_CODIGO = 3;
+const PATRON_BASE_Y_PIEZA = /^\s*(\d{6,})\s*[.\-/]\s*(\d{1,3})\s*$/;
+
+export function candidatosDeContenido(trackingTexto: string): string[] {
+  const candidatos = new Set<string>([normalizarTracking(trackingTexto)]);
+  const partes = PATRON_BASE_Y_PIEZA.exec(trackingTexto);
+  if (partes) {
+    const piezaCompleta = partes[2]!.padStart(LARGO_PIEZA_EN_CODIGO, '0');
+    candidatos.add(normalizarTracking(`${partes[1]!}${piezaCompleta}`));
+  }
+  return [...candidatos].filter((candidato) => candidato.length >= LARGO_MINIMO_CONTENIDO);
+}
+
+export function codigoContieneTracking(codigoLeido: string, trackingTexto: string): boolean {
+  const leido = normalizarTracking(codigoLeido);
+  return candidatosDeContenido(trackingTexto).some((candidato) => leido.includes(candidato));
+}

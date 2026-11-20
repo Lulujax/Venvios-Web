@@ -333,3 +333,10 @@ Hecho cuando: la página abre con candado, la cámara funciona en un teléfono r
 - **T-76** Tasa BCV en caché y vistas cargadas en bloque. Cubre: RF-86. Hecho cuando: una lista de envíos consulta la tasa una sola vez. `[ ] Hecha y probada`
 - **T-77** Cuentas de prueba (admin y operador) desde variables de entorno, sin claves en el código. Cubre: RF-87. Hecho cuando: el admin entra con ADMIN_PASSWORD y el operador con OPERADOR_PASSWORD. `[ ] Hecha y probada`
 - **T-78** Rastreador sin campo de guía: elegir transportista y abrir su página oficial. Cubre: RF-2, RF-3. Hecho cuando: el botón abre la página sin pedir número. `[ ] Hecha y probada`
+
+## Lote: escaneo con la cámara del teléfono
+
+- **T-79** Lector de códigos en el navegador: usa el lector nativo (`BarcodeDetector`) cuando existe y `zxing-wasm` como respaldo; con pruebas del módulo y logs sin datos del cliente. Cubre: RF-15, RF-15e. Hecho cuando: las pruebas leen QR y código de barras de imágenes de ejemplo. `[ ] Hecha y probada`
+- **T-80** Cámara continua: no se apaga entre lecturas, resolución alta, enfoque continuo y guía que sirve para QR y códigos de barras. Cubre: RF-15c. Hecho cuando: escaneo dos paquetes seguidos sin que la cámara se reinicie. `[ ] Hecha y probada`
+- **T-81** Botón «Tomar o subir foto» que lee el código de la imagen. Cubre: RF-15d. Hecho cuando: una foto de etiqueta devuelve el tracking y una foto sin código muestra el aviso. `[ ] Hecha y probada`
+- **T-82** Coincidencia de trackings con más dígitos (caso Coordinadora), con aviso si coincide con varios. Cubre: RF-15f. Hecho cuando: escanear el código de barras de Coordinadora recibe el paquete prealertado con el número impreso. `[ ] Hecha y probada`

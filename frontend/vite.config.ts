@@ -1,8 +1,9 @@
+import basicSsl from '@vitejs/plugin-basic-ssl';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), basicSsl()],
   server: {
     port: 5173,
     host: true,
@@ -16,7 +17,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          escaner: ['@zxing/library'],
           react: ['react', 'react-dom', 'react-router-dom'],
         },
       },
