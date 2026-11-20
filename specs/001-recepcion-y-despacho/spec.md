@@ -67,19 +67,24 @@ Estos requisitos reemplazan: el cálculo del precio con la suma de los pesos de 
 - **RF-63** CUANDO un cliente registre una alerta con un tracking igual al de un paquete sin dueño, EL SISTEMA lo unirá a su alerta como ya recibido y lo dejará en el historial.
 - **RF-64** EL SISTEMA permitirá al operador o al administrador cambiar el dueño de un paquete en bodega (o devolverlo a sin dueño), con un motivo opcional que queda en el historial.
 - **RF-65** EL SISTEMA permitirá al operador o al administrador descartar un paquete o un envío con un motivo obligatorio. Los casos especiales (paquete dañado, equivocado, devoluciones, pagos de más) se acuerdan con el cliente por WhatsApp y el sistema solo registra la decisión.
-- **RF-66** EL SISTEMA permitirá al cliente elegir, entre sus paquetes en bodega, cuáles se envían juntos (consolidar), con la modalidad, la transportista y el valor declarado. El envío queda «Por consolidar».
-- **RF-67** EL SISTEMA permitirá al operador consolidar en nombre del cliente cuando lo acuerdan por WhatsApp, agregar o quitar paquetes de un consolidado antes del pago y registrar el peso total del consolidado. CUANDO registre el peso, EL SISTEMA calculará el total y el envío pasará a «Listo para pagar».
+- **RF-66** EL SISTEMA permitirá al cliente elegir, entre sus paquetes en bodega, cuáles se envían juntos (consolidar), con la transportista (MRW o Zoom), la modalidad y los datos de entrega (RF-33e). El valor declarado del envío es la **suma de los valores declarados de los paquetes elegidos** y el cliente lo ve antes de enviar la solicitud. El envío queda «Por consolidar».
+- **RF-67** EL SISTEMA permitirá al operador ver las solicitudes de consolidación, consolidar en nombre del cliente cuando lo acuerdan por WhatsApp, agregar o quitar paquetes de un consolidado antes del pago, elegir la modalidad de cobro y registrar el peso total del consolidado. CUANDO registre el peso, EL SISTEMA calculará el seguro de carga automáticamente y el total, y el envío pasará a «Por pagar». EL SISTEMA dejará listo el mensaje de cotización con el enlace de la página para registrar el pago (RF-70).
+- **RF-67b** ANTES de que el envío tenga un pago registrado, EL SISTEMA permitirá al operador editar el valor declarado de cada paquete y el monto del seguro (que viene calculado por defecto), con un motivo obligatorio. Se guarda el valor anterior, quién lo cambió y cuándo (RF-40). CUANDO se edite, EL SISTEMA recalculará el total.
 - **RF-68** SI cambian los paquetes de un consolidado ya pesado, ENTONCES EL SISTEMA borrará el total y lo devolverá a «Por consolidar» hasta pesarlo de nuevo.
 - **RF-69** EL SISTEMA permitirá al cliente o al personal deshacer un consolidado que aún no tiene pagos; sus paquetes vuelven a la bodega del cliente.
 - **RF-70** El aviso de llegada por paquete dice que llegó y que el cliente entre a su cuenta a consolidar. El total se avisa con un mensaje de cotización cuando se pesa el consolidado.
 - **RF-71** EL SISTEMA solo aceptará del cliente un comprobante por el monto exacto pendiente: en dólares para Binance, y en bolívares a la tasa BCV del día para pago móvil y transferencia. El monto viene escrito y no se edita. SI el cliente pagó otro monto, ENTONCES EL SISTEMA le indicará escribir a administración por WhatsApp.
-- **RF-72** EL SISTEMA pedirá como referencia del pago los últimos 6 dígitos, solo números.
+- **RF-72** EL SISTEMA pedirá como referencia del pago móvil y de la transferencia los últimos 6 dígitos, solo números.
+- **RF-72b** EL SISTEMA pedirá en los pagos por Binance el monto en dólares, la captura y el **ID de la transacción** (número largo, letras y números permitidos), no los 6 dígitos.
 - **RF-73** EL SISTEMA permitirá al cliente eliminar la alerta de un paquete que aún no llegó. Las alertas pendientes no vencen.
-- **RF-74** El operador marca como «Entregado» un envío despachado. No hay seguimiento después de eso.
+- **RF-74** CUANDO el cliente pulse «Ya lo recibí» en un envío «En ruta», EL SISTEMA lo marcará «Entregado» y guardará la fecha.
+- **RF-74b** EL SISTEMA permitirá al operador marcar «Entregado» un envío «En ruta» en cualquier momento, sin esperar días, pero le pedirá confirmar en pantalla antes de hacerlo. Queda en el historial quién lo hizo.
+- **RF-88** EL SISTEMA usará estos nombres cortos para el estado de un envío: «Por consolidar», «Por pagar», «Pago en revisión», «Enviando a Venezuela» (pago aprobado), «En ruta» (ya tiene la guía y la foto de la transportista) y «Entregado». No habrá un paso extra entre «Enviando a Venezuela» y «En ruta».
+- **RF-89** EL SISTEMA mostrará al cliente, por cada paquete, un seguimiento corto con sus pasos y la fecha de cada uno: «Prealertado», «En oficina», «Consolidando», «Por pagar», «Pago en revisión», «Enviando a Venezuela», «En ruta» (con la guía de la transportista) y «Entregado». El personal ve el mismo seguimiento. El seguimiento de cada paquete sigue a su envío aunque el paquete cambie de consolidado.
 
 ### Prealertas
 
-- **RF-10** EL SISTEMA permitirá registrar una prealerta con: nombre del cliente, teléfono de WhatsApp con código de país, número de tracking (el que trae el paquete de la tienda o de la transportista, el mismo del código de barras), tienda de origen y valor declarado en dólares. El valor declarado lo da el cliente en la prealerta.
+- **RF-10** EL SISTEMA permitirá registrar una prealerta con: nombre del cliente, teléfono de WhatsApp con código de país, número de tracking (el que trae el paquete de la tienda o de la transportista, el mismo del código de barras), tienda de origen y valor declarado en dólares **de cada paquete (cada número de tracking lleva su propio valor)**. El valor declarado lo da el cliente en la prealerta.
 - **RF-11** EL SISTEMA permitirá indicar cuántos paquetes espera ese cliente en el mismo envío.
 - **RF-12** SI el número de prealerta ya existe, ENTONCES EL SISTEMA avisará y mostrará la prealerta existente en vez de duplicarla.
 - **RF-13** SI falta el teléfono, ENTONCES EL SISTEMA guardará la prealerta, pero la marcará como «sin WhatsApp» y no dejará enviar mensajes hasta que se agregue.
@@ -99,7 +104,7 @@ Estos requisitos reemplazan: el cálculo del precio con la suma de los pesos de 
 - **RF-18** SI no existe prealerta con ese tracking, ENTONCES EL SISTEMA lo dirá claramente y ofrecerá registrar el paquete como «sin prealerta» para asignarle el cliente después.
 - **RF-19** EL SISTEMA permitirá cargar el peso de cada paquete en kilos, con dos decimales exactos. No se usa peso volumétrico: solo cuenta el peso físico.
 - **RF-20** EL SISTEMA calculará el precio del envío sumando el peso de todos sus paquetes, aplicando la tarifa por kilo y agregando el seguro de carga (ver «Tarifa»). Lo mostrará en dólares y en bolívares con la tasa BCV del día.
-- **RF-21** EL SISTEMA permitirá solo al administrador corregir a mano el precio, el peso o el valor declarado de un envío, con un motivo obligatorio. Se guarda el valor anterior y quién lo cambió (RF-40). El operador no puede.
+- **RF-21** EL SISTEMA permitirá solo al administrador corregir a mano el precio, el peso o el valor declarado de un envío que **ya tiene un pago registrado**, con un motivo obligatorio. Se guarda el valor anterior y quién lo cambió (RF-40). Antes del pago, el operador puede editar el valor declarado y el seguro (ver RF-67b).
 - **RF-22** EL SISTEMA permitirá tomar una foto del paquete al recibirlo. La foto es opcional.
 - **RF-23** SI se escanea un paquete que ya fue recibido, ENTONCES EL SISTEMA avisará que ya está registrado y no lo duplicará.
 - **RF-24** SI el teléfono no permite usar la cámara, ENTONCES EL SISTEMA dejará la búsqueda manual disponible y explicará por qué no abrió la cámara.
@@ -123,8 +128,8 @@ Estos requisitos reemplazan: el cálculo del precio con la suma de los pesos de 
 
 ### Despacho y entrega a la transportista venezolana
 
-- **RF-33d** CUANDO el personal confirme el pago, EL SISTEMA dejará listo un mensaje de WhatsApp «Tu pago fue verificado» pidiendo los datos de entrega.
-- **RF-33e** EL SISTEMA pedirá al cliente, en su cuenta, los datos de entrega del envío: nombre y apellido de quien recibe, número de cédula, teléfono, agencia por donde retira (MRW o Zoom), ciudad y estado. Por defecto trae los datos del cliente y los puede cambiar si recibe otra persona.
+- **RF-33d** CUANDO el personal confirme el pago, EL SISTEMA dejará listo un mensaje de WhatsApp «Tu pago fue verificado» que avisa que el envío sale hacia Venezuela.
+- **RF-33e** EL SISTEMA pedirá al cliente los datos de entrega **al solicitar la consolidación** (RF-66): nombre y apellido de quien recibe, número de cédula, teléfono, agencia por donde retira (MRW o Zoom), ciudad y estado. Por defecto trae los datos del cliente y los puede cambiar si recibe otra persona. El operador puede corregirlos mientras el envío no haya salido.
 - **RF-33f** SI faltan datos de entrega, ENTONCES EL SISTEMA no dejará despachar el envío y mostrará qué falta. El operador puede completarlos si el cliente se los dicta por WhatsApp.
 - **RF-34** EL SISTEMA permitirá marcar un envío como «despachado a Venezuela».
 - **RF-35** EL SISTEMA permitirá registrar la transportista venezolana (MRW o Zoom), su número de guía y una foto de esa guía tomada desde el mismo sistema.
@@ -218,7 +223,11 @@ Nota: con estos tramos, 9,9 kg cuestan 94,05 $ y 10 kg cuestan 85 $. Es lo que d
 - Registro una prealerta desde la PC con nombre, teléfono, tracking y valor declarado.
 - Con el teléfono escaneo la etiqueta de ese paquete y aparece el cliente correcto, ya marcado como recibido.
 - Cargo 4,35 kg con valor declarado de 60 $ y el sistema muestra 44,33 $ y su equivalente en Bs con la tasa del día.
-- El cliente entra a su cuenta, ve el monto, sube un comprobante y el envío pasa a «pago por confirmar».
+- El cliente entra a su cuenta, ve el monto, sube un comprobante y el envío pasa a «Pago en revisión».
+- El cliente elige 3 paquetes en bodega, escoge MRW, escribe los datos de entrega y ve el valor declarado como la suma de los tres. El operador ve la solicitud, pesa, ajusta el valor o el seguro si hace falta y manda la cotización con el enlace.
+- Pago por Binance con ID de transacción y pago móvil con 6 dígitos: los dos se pueden registrar sin error.
+- Al aprobar el pago el envío dice «Enviando a Venezuela»; al registrar la guía con foto dice «En ruta»; el cliente pulsa «Ya lo recibí» y queda «Entregado».
+- En su cuenta, el cliente ve cada paquete con sus pasos y fechas.
 - Pulso «Avisar por WhatsApp» y se abre el chat del cliente con el mensaje listo.
 - Registro el pago en Bs con su referencia y el envío pasa a «pagado».
 - Registro la guía de MRW, tomo la foto, pulso «Enviar guía» y el cliente recibe texto y foto.

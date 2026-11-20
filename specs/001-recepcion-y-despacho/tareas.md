@@ -341,3 +341,14 @@ Hecho cuando: la página abre con candado, la cámara funciona en un teléfono r
 - **T-81** Botón «Tomar o subir foto» que lee el código de la imagen. Cubre: RF-15d. Hecho cuando: una foto de etiqueta devuelve el tracking y una foto sin código muestra el aviso. `[ ] Hecha y probada`
 - **T-82** Coincidencia de trackings con más dígitos (caso Coordinadora), con aviso si coincide con varios. Cubre: RF-15f. Hecho cuando: escanear el código de barras de Coordinadora recibe el paquete prealertado con el número impreso. `[ ] Hecha y probada`
 - **T-83** Escaneo que se apaga tras leer, botón «Escanear siguiente paquete» y resultado arriba en el teléfono. Cubre: RF-15c, RF-15g. Hecho cuando: un QR se lee una sola vez, la cámara se apaga y el resultado se ve sin bajar. `[ ] Hecha y probada`
+
+## Lote: flujo completo de consolidación a entrega
+
+- **T-84** Valor declarado por guía en la prealerta (formulario, datos guardados) y suma automática al consolidar. Cubre: RF-10, RF-66. Hecho cuando: consolido 2 de 3 paquetes de una alerta y el valor del envío es la suma de esos 2. `[ ] Hecha y probada`
+- **T-85** Datos de entrega en la solicitud de consolidación (formulario del cliente, corregibles por el operador). Cubre: RF-33e, RF-66. Hecho cuando: el cliente no puede enviar la solicitud sin los datos y el operador los corrige. `[ ] Hecha y probada`
+- **T-86** Cotización editable: el operador edita valor declarado y seguro con motivo e historial antes del pago; solo el administrador después. Cubre: RF-21, RF-67, RF-67b. Hecho cuando: el total se recalcula, el historial guarda el valor anterior y el operador recibe «prohibido» tras el pago. `[ ] Hecha y probada`
+- **T-87** Pago con Binance: monto en dólares, captura e ID de la transacción; pago móvil y transferencia siguen con 6 dígitos. Cubre: RF-72, RF-72b. Hecho cuando: un ID largo de Binance se acepta y uno de 6 dígitos en Binance se rechaza si es demasiado corto. `[ ] Hecha y probada`
+- **T-88** Nombres cortos de estado («Por pagar», «Pago en revisión», «Enviando a Venezuela», «En ruta», «Entregado») y mensaje de pago verificado sin pedir datos. Cubre: RF-33d, RF-88. Hecho cuando: cliente y personal ven los nombres nuevos. `[ ] Hecha y probada`
+- **T-89** El cliente pulsa «Ya lo recibí»; el operador puede marcar «Entregado» con confirmación en pantalla. Cubre: RF-74, RF-74b. Hecho cuando: las dos vías cierran el envío y quedan en el historial. `[ ] Hecha y probada`
+- **T-90** Seguimiento por paquete en la cuenta del cliente y del personal, con pasos cortos y fechas. Cubre: RF-89. Hecho cuando: un paquete consolidado muestra su recorrido completo aunque haya cambiado de envío. `[ ] Hecha y probada`
+- **T-91** Pantallas del operador para el flujo: solicitudes de consolidación, cotizar, pagos por revisar, enviando y en ruta. Cubre: RF-67, RF-88. Hecho cuando: el operador recorre el flujo completo sin salir del panel. `[ ] Hecha y probada`
