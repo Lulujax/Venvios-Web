@@ -58,10 +58,23 @@ export function datosOperadorDesdeEntorno(): DatosPersonalInicial | null {
   };
 }
 
-export async function sembrarCuentasDePersonal(contexto: Contexto): Promise<void> {
+export interface OpcionesSiembraPersonal {
+  tolerante: boolean;
+}
+
+async function sembrarOpcional(contexto: Contexto, datos: DatosPersonalInicial, rol: RolPersonal, opciones: OpcionesSiembraPersonal): Promise<void> {
+  try {
+    await sembrarPersonal(contexto, datos, rol);
+  } catch (error) {
+    if (!opciones.tolerante) throw error;
+    logger.warn('No se creó la cuenta de prueba: revisa su clave en .env', { rol, motivo: error instanceof Error ? error.message : 'desconocido' });
+  }
+}
+
+export async function sembrarCuentasDePersonal(contexto: Contexto, opciones: OpcionesSiembraPersonal = { tolerante: false }): Promise<void> {
   const admin = datosAdminDesdeEntorno();
-  if (admin) await sembrarPersonal(contexto, admin, 'ADMIN');
+  if (admin) await sembrarOpcional(contexto, admin, 'ADMIN', opciones);
   else logger.warn('Sin ADMIN_PASSWORD en .env: no se creó la cuenta de administrador');
   const operador = datosOperadorDesdeEntorno();
-  if (operador) await sembrarPersonal(contexto, operador, 'OPERADOR');
+  if (operador) await sembrarOpcional(contexto, operador, 'OPERADOR', opciones);
 }

@@ -7,7 +7,7 @@ import { logger } from './utils/logger';
 async function iniciar(): Promise<void> {
   const contexto = await crearContextoDesdeEntorno();
   await sembrarConfiguracion(contexto);
-  await sembrarCuentasDePersonal(contexto);
+  await sembrarCuentasDePersonal(contexto, { tolerante: true });
   const puerto = Number(process.env.PORT ?? 4000);
   crearApp(contexto).listen(puerto, () => logger.info(`API lista en http://localhost:${puerto}/api/salud`));
 }

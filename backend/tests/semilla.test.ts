@@ -31,6 +31,15 @@ describe('cuentas de prueba desde el entorno', () => {
     expect(await entorno.contexto.repos.usuarios.listar(['ADMIN', 'OPERADOR'])).toHaveLength(0);
   });
 
+  it('tolerante: una clave que no cumple reglas no tumba el arranque; la semilla estricta sí falla', async () => {
+    const entorno = await crearEntorno();
+    process.env.ADMIN_PASSWORD = 'cambiar-en-el-primer-ingreso';
+    delete process.env.OPERADOR_PASSWORD;
+    await expect(sembrarCuentasDePersonal(entorno.contexto, { tolerante: true })).resolves.toBeUndefined();
+    expect(await entorno.contexto.repos.usuarios.listar(['ADMIN'])).toHaveLength(0);
+    await expect(sembrarCuentasDePersonal(entorno.contexto)).rejects.toThrow();
+  });
+
   it('error: sin ADMIN_PASSWORD no hay datos de administrador', () => {
     sinCuentasDePrueba();
     expect(datosAdminDesdeEntorno()).toBeNull();
