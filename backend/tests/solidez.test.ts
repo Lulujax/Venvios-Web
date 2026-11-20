@@ -133,28 +133,6 @@ describe('cifrado', () => {
   });
 });
 
-describe('referencias repetidas', () => {
-  it('el segundo pago con la misma referencia queda marcado, pero se acepta', async () => {
-    const uno = await cotizado();
-    const dos = await cotizado();
-    const primero = await pagar(uno.cliente.agente, uno.envioId, uno.total, '123456');
-    expect(primero.status).toBe(201);
-    expect(primero.body.envio.pagos[0].referenciaRepetida).toBe(false);
-    const segundo = await pagar(dos.cliente.agente, dos.envioId, dos.total, '123456');
-    expect(segundo.status).toBe(201);
-    expect(segundo.body.envio.pagos[0].referenciaRepetida).toBe(true);
-  });
-
-  it('una referencia de un pago rechazado no cuenta como repetida', async () => {
-    const uno = await cotizado();
-    const dos = await cotizado();
-    const primero = await pagar(uno.cliente.agente, uno.envioId, uno.total, '654321');
-    await uno.operador.post(`/api/staff/pagos/${primero.body.envio.pagos[0].id}/rechazar`).send({ motivo: 'No llegó' });
-    const segundo = await pagar(dos.cliente.agente, dos.envioId, dos.total, '654321');
-    expect(segundo.body.envio.pagos[0].referenciaRepetida).toBe(false);
-  });
-});
-
 describe('cambios simultáneos', () => {
   it('confirmar dos veces el mismo pago aplica solo la primera', async () => {
     const { cliente, operador, envioId, total } = await cotizado();

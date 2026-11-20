@@ -50,7 +50,6 @@ export interface PagoVista {
   montoOriginalCentavos: number;
   montoUsdCentavos: number;
   referencia: string | null;
-  referenciaRepetida: boolean;
   tieneComprobante: boolean;
   comprobanteRuta: string | null;
   motivoRechazo: string | null;
@@ -261,7 +260,6 @@ export class EnvioService {
         montoOriginalCentavos: p.montoOriginalCentavos,
         montoUsdCentavos: p.montoUsdCentavos,
         referencia: p.referencia,
-        referenciaRepetida: p.referenciaRepetida,
         tieneComprobante: Boolean(p.comprobantePath),
         comprobanteRuta: p.comprobantePath,
         motivoRechazo: p.motivoRechazo,

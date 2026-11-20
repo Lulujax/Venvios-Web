@@ -17,25 +17,21 @@ const TRANSPORTISTAS: TransportistaPublico[] = [
 ];
 
 describe('Rastreador', () => {
-  it('caso feliz: abre la página de la transportista elegida y copia la guía', async () => {
+  it('caso feliz: abre la página oficial de la transportista elegida, sin pedir guía', async () => {
     const abrir = vi.spyOn(window, 'open').mockReturnValue(null);
-    const copiar = vi.fn(async () => undefined);
-    Object.assign(navigator, { clipboard: { writeText: copiar } });
     render(<Rastreador transportistas={TRANSPORTISTAS} />);
+    expect(screen.queryByLabelText('Número de guía')).toBeNull();
     fireEvent.click(screen.getByLabelText('Zoom'));
-    fireEvent.change(screen.getByLabelText('Número de guía'), { target: { value: '4012345678' } });
     fireEvent.click(screen.getByRole('button', { name: /Rastrear/ }));
     await waitFor(() => expect(abrir).toHaveBeenCalled());
     expect(abrir.mock.calls[0]![0]).toBe('https://zoom.red/tracking-de-envios-personas/');
-    expect(copiar).toHaveBeenCalledWith('4012345678');
-    expect(await screen.findByText(/Pégala en la página de Zoom/)).toBeInTheDocument();
   });
 
-  it('error: guía vacía no abre nada y avisa', async () => {
+  it('límite: sin transportistas cargadas avisa y no abre nada', async () => {
     const abrir = vi.spyOn(window, 'open').mockReturnValue(null);
-    render(<Rastreador transportistas={TRANSPORTISTAS} />);
+    render(<Rastreador transportistas={[]} />);
     fireEvent.click(screen.getByRole('button', { name: /Rastrear/ }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('número de guía');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Elige la transportista');
     expect(abrir).not.toHaveBeenCalled();
   });
 });

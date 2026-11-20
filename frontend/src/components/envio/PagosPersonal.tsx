@@ -106,7 +106,6 @@ export function PagosPersonal({ envio, alCambiar }: { envio: Envio; alCambiar: (
                 <p className="text-lg font-bold">{formatearUsd(pago.montoUsdCentavos)} <span className="text-base font-normal text-suave">· {NOMBRE_METODO[pago.metodo] ?? pago.metodo}</span></p>
                 {pago.moneda === 'BS' && <p className="text-suave">Pagó {formatearBs(pago.montoOriginalCentavos)}</p>}
                 <p className="text-suave">{formatearFecha(pago.creadoEn)}{pago.referencia ? ` · Ref. ${pago.referencia}` : ''}</p>
-                {pago.referenciaRepetida && <p className="font-semibold text-rojo-700">Referencia repetida: ya se usó en otro pago. Revísala en el banco.</p>}
                 {pago.motivoRechazo && <p className="font-semibold text-rojo-700">Motivo: {pago.motivoRechazo}</p>}
               </div>
               <span className={`insignia ${TONO_PAGO[pago.estado]}`}>{TEXTO_PAGO[pago.estado]}</span>

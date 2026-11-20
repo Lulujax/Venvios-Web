@@ -63,12 +63,6 @@ export class PagoService {
     return { usd: Math.round(original / tasa.bolivaresPorUsd), original, tasa: tasa.bolivaresPorUsd };
   }
 
-  private async esReferenciaRepetida(referencia: string | null, metodo: MetodoPago): Promise<boolean> {
-    if (!referencia) return false;
-    const anteriores = await this.repos.pagos.conReferencia(referencia);
-    return anteriores.some((p) => p.metodo === metodo && p.estado !== 'RECHAZADO');
-  }
-
   private validarEnvioCobrable(envio: Envio): void {
     if (envio.totalCentavos === null) throw AppError.badRequest('Aún no se calcula el total de este envío.', 'SIN_TOTAL');
     if (!ESTADOS_COBRABLES.includes(envio.estado)) {
@@ -101,8 +95,6 @@ export class PagoService {
     }
     const usd = saldo;
     const tasa = datos.moneda === 'BS' ? tasaVigente.bolivaresPorUsd : null;
-    const referenciaRepetida = await this.esReferenciaRepetida(referencia, datos.metodo);
-    if (referenciaRepetida) logger.warn('Comprobante con una referencia ya usada en otro pago', { envio: envioId, metodo: datos.metodo });
 
     const ruta = rutaArchivo('comprobantes', envioId, comprobante.mime);
     await this.almacenamiento.subir(ruta, comprobante);
@@ -113,7 +105,6 @@ export class PagoService {
       montoOriginalCentavos: original,
       metodo: datos.metodo,
       referencia,
-      referenciaRepetida,
       comprobantePath: ruta,
       estado: 'POR_CONFIRMAR',
       motivoRechazo: null,
@@ -125,8 +116,7 @@ export class PagoService {
       validarTransicion(envio.estado, 'POR_CONFIRMAR');
       await this.repos.envios.actualizar(envioId, { estado: 'POR_CONFIRMAR' }, 'POR_PAGAR');
     }
-    const aviso = referenciaRepetida ? ' · referencia repetida, revisar en el banco' : '';
-    await this.repos.envios.agregarEvento({ envioId, actorId: actor.id, tipo: 'PAGO_SUBIDO', detalle: `Comprobante subido (${datos.metodo})${aviso}`, datos: null });
+    await this.repos.envios.agregarEvento({ envioId, actorId: actor.id, tipo: 'PAGO_SUBIDO', detalle: `Comprobante subido (${datos.metodo})`, datos: null });
     logger.info('Comprobante subido', { envio: envioId, metodo: datos.metodo });
     return this.envios.detalle(actor, envioId);
   }
@@ -150,7 +140,6 @@ export class PagoService {
       montoOriginalCentavos: original,
       metodo: datos.metodo,
       referencia,
-      referenciaRepetida: await this.esReferenciaRepetida(referencia, datos.metodo),
       comprobantePath: null,
       estado: 'POR_CONFIRMAR',
       motivoRechazo: null,

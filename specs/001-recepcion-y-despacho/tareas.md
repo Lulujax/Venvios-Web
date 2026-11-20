@@ -327,7 +327,9 @@ Hecho cuando: la página abre con candado, la cámara funciona en un teléfono r
 - **T-70** Intentos de ingreso guardados en la base de datos. Cubre: RF-77. Hecho cuando: el bloqueo sigue aunque se cree otro servicio de acceso. `[ ] Hecha y probada`
 - **T-71** Cifrar nombre y teléfono de quien recibe; huella con HMAC; protección por filas en Supabase. Cubre: RF-78, RF-79. Hecho cuando: la migración inicial y la de protección existen y las pruebas pasan. `[ ] Hecha y probada`
 - **T-72** No arrancar en producción sin almacén de fotos. Cubre: RF-80. `[ ] Hecha y probada`
-- **T-73** Marcar referencias repetidas al personal. Cubre: RF-81. Hecho cuando: el segundo pago con la misma referencia muestra el aviso. `[ ] Hecha y probada`
+- **T-73** Cancelada: no se marcan referencias repetidas (RF-81 eliminado).
 - **T-74** Consultas directas a la base de datos (paquete por id, foto, bodega, resumen) y lista del personal de 200 con búsqueda en todos. Cubre: RF-82, RF-83. Hecho cuando: con más de 200 envíos se asigna el paquete más viejo. `[ ] Hecha y probada`
 - **T-75** Transacciones por petición y control de cambios simultáneos. Cubre: RF-84, RF-85. Hecho cuando: un fallo a la mitad no deja envíos vacíos y dos confirmaciones del mismo pago dan una sola. `[ ] Hecha y probada`
 - **T-76** Tasa BCV en caché y vistas cargadas en bloque. Cubre: RF-86. Hecho cuando: una lista de envíos consulta la tasa una sola vez. `[ ] Hecha y probada`
+- **T-77** Cuentas de prueba (admin y operador) desde variables de entorno, sin claves en el código. Cubre: RF-87. Hecho cuando: el admin entra con ADMIN_PASSWORD y el operador con OPERADOR_PASSWORD. `[ ] Hecha y probada`
+- **T-78** Rastreador sin campo de guía: elegir transportista y abrir su página oficial. Cubre: RF-2, RF-3. Hecho cuando: el botón abre la página sin pedir número. `[ ] Hecha y probada`

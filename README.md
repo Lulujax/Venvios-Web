@@ -14,7 +14,7 @@ npm run dev
 - Web: http://localhost:5173
 - API: http://localhost:4000/api/salud
 - Sin `DATABASE_URL` la API usa datos en memoria (se pierden al reiniciar). Es lo ideal para probar.
-- Administrador de desarrollo: correo `admin@venvios.local`, contraseña `AdminDev2026!`. Solo existe cuando no hay `ADMIN_PASSWORD`.
+- Cuentas de prueba: se crean desde `backend/.env` (`ADMIN_PASSWORD` para el administrador y `OPERADOR_PASSWORD` para un operador). Sin esas variables no existen. Ninguna clave va en el repositorio.
 - Cada cliente recibe un número de casillero `VENV-123456` y entra con su correo o con ese número.
 - Cada día el servidor consulta la tasa BCV a `ve.dolarapi.com`. Sin internet, el administrador la carga a mano en Admin → Tasa BCV.
 - La cámara solo funciona con candado (https) o en `localhost`. Para probar con el teléfono real hay que desplegar (ver abajo).
@@ -34,7 +34,7 @@ npm run dev
 
 1. En Supabase crea un proyecto. Copia la cadena de conexión con pooler (`DATABASE_URL`) y la directa (`DIRECT_URL`). En Storage crea un bucket **privado** llamado `venvios-privado` y copia la clave de servicio.
 2. Genera dos secretos: `JWT_SECRET` (cadena larga aleatoria) y `CEDULA_KEY` (64 caracteres hexadecimales, por ejemplo `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
-3. Crea `backend/.env` con las variables de `.env.example` y corre `npm run db:migrate`, `npm run db:proteger` y `npm run db:seed` una vez. Si ya habías migrado antes, vuelve a correr `db:migrate` (cambió el esquema: nombre y teléfono de entrega cifrados, sesiones y intentos de ingreso) y luego `db:proteger`. Define `ADMIN_PASSWORD` antes de sembrar.
+3. Crea `backend/.env` con las variables de `.env.example` y corre `npm run db:migrate`, `npm run db:proteger` y `npm run db:seed` una vez. Si ya habías migrado antes, vuelve a correr `db:migrate` (cambió el esquema: nombre y teléfono de entrega cifrados, sesiones y intentos de ingreso) y luego `db:proteger`. Define `ADMIN_PASSWORD` y `OPERADOR_PASSWORD` en `backend/.env` antes de sembrar.
 4. En Netlify conecta el repositorio y carga las mismas variables (`DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `CEDULA_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_BUCKET`). El build ya está definido en `netlify.toml`.
 5. Entra como administrador → Admin → Datos de pago, carga los datos reales (Binance y pago móvil) y desmarca «datos de prueba».
 

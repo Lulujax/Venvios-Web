@@ -333,10 +333,6 @@ export class PagoPrisma implements PagoRepository {
     return this.bd.pago.findMany({ where: { estado }, orderBy: { creadoEn: 'asc' } });
   }
 
-  conReferencia(referencia: string): Promise<Pago[]> {
-    return this.bd.pago.findMany({ where: { referencia }, orderBy: { creadoEn: 'asc' } });
-  }
-
   actualizar(id: string, cambios: CambiosPago, estadoEsperado?: EstadoPago): Promise<Pago> {
     const where: Prisma.PagoWhereUniqueInput = estadoEsperado === undefined ? { id } : { id, estado: estadoEsperado };
     return conGuardia(() => this.bd.pago.update({ where, data: cambios }), estadoEsperado !== undefined, 'pago', id);

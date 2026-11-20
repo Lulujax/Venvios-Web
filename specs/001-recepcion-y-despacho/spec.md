@@ -30,8 +30,8 @@ Además hay una página pública con la información de la empresa, las tarifas 
 ### Página pública
 
 - **RF-1** EL SISTEMA mostrará una página pública, sin detalles de cómo trabaja la oficina por dentro (no se explica el escaneo ni los medios de pago concretos; se dice solo «realiza tu pago en bolívares»), con: quiénes son, la tabla de tarifas vigente, la nota «Pagos en Bs a tasa BCV», la dirección de la oficina, el WhatsApp de atención y las redes sociales (@venviosexpress en Instagram, Facebook y TikTok).
-- **RF-2** EL SISTEMA mostrará un rastreador donde el visitante elige una transportista de una lista y escribe su número de guía.
-- **RF-3** CUANDO el visitante pulse «Rastrear», EL SISTEMA abrirá en otra pestaña la página oficial de rastreo de esa transportista. Si la página de la transportista acepta el número en el enlace, se lo pasa; si no, copia el número para que el visitante solo lo pegue.
+- **RF-2** EL SISTEMA mostrará un rastreador donde el visitante elige una transportista de una lista. No pedirá número de guía.
+- **RF-3** CUANDO el visitante pulse «Rastrear», EL SISTEMA abrirá en otra pestaña la página oficial de rastreo de esa transportista. El visitante escribe su número de guía allí.
 - **RF-4** EL SISTEMA no consultará a las transportistas por su cuenta: solo redirige.
 - **RF-5** CUANDO el visitante pulse el botón de WhatsApp, EL SISTEMA abrirá un chat con el número de atención y un mensaje inicial ya escrito.
 - **RF-6** EL SISTEMA mostrará en la página pública una calculadora donde el visitante escribe los kilos y el valor declarado, y ve el precio estimado en $ y en Bs.
@@ -159,7 +159,8 @@ Estos requisitos reemplazan: el cálculo del precio con la suma de los pesos de 
 - **RF-78** EL SISTEMA guardará cifrados la cédula, el nombre y el teléfono de quien recibe el envío, y la cédula del cliente. La huella para detectar cédulas repetidas usará HMAC con la llave del servidor.
 - **RF-79** EL SISTEMA bloqueará la lectura directa de las tablas desde internet (protección por filas de Supabase); solo el servidor de Venvios las lee.
 - **RF-80** SI en producción falta la configuración del almacén de fotos, la base de datos o las llaves, ENTONCES EL SISTEMA no arrancará, en vez de guardar datos donde se pierden.
-- **RF-81** CUANDO un comprobante trae una referencia que ya se usó en otro pago con el mismo método, EL SISTEMA lo aceptará pero se lo marcará al personal como «referencia repetida» para revisarlo en el banco.
+- **RF-81** Eliminado: EL SISTEMA no marca referencias repetidas. El personal revisa cada comprobante a mano y, si hace falta, escribe al cliente por WhatsApp.
+- **RF-87** EL SISTEMA creará, al sembrar la base, una cuenta de administrador y una de operador de prueba tomadas de las variables de entorno. Sus claves nunca van en el código ni en el repositorio.
 
 ### Solidez con muchos datos y varios usuarios a la vez
 

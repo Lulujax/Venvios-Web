@@ -77,7 +77,6 @@ export interface Pago {
   montoOriginalCentavos: number;
   metodo: MetodoPago;
   referencia: string | null;
-  referenciaRepetida: boolean;
   comprobantePath: string | null;
   estado: EstadoPago;
   motivoRechazo: string | null;
@@ -172,7 +171,6 @@ export interface PagoRepository {
   deEnvio(envioId: string): Promise<Pago[]>;
   deEnvios(envioIds: string[]): Promise<Pago[]>;
   porEstado(estado: EstadoPago): Promise<Pago[]>;
-  conReferencia(referencia: string): Promise<Pago[]>;
   actualizar(id: string, cambios: CambiosPago, estadoEsperado?: EstadoPago): Promise<Pago>;
 }
 

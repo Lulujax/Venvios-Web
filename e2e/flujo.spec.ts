@@ -2,7 +2,8 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const ADMIN = { correo: 'admin@venvios.local', contrasena: 'AdminDev2026!' };
+const ADMIN = { correo: process.env.ADMIN_EMAIL ?? 'admin@venvios.local', contrasena: process.env.ADMIN_PASSWORD ?? '' };
+if (!ADMIN.contrasena) throw new Error('Define ADMIN_PASSWORD en backend/.env para correr la prueba de punta a punta.');
 const sufijo = String(Date.now()).slice(-6);
 const CLIENTE = { nombre: 'Maria Gonzalez', cedula: `2${sufijo}1`, correo: `maria${sufijo}@correo.com`, telefono: `424${sufijo}`, contrasena: 'ClavePrueba2026!' };
 const TRACKINGS = [`XC${sufijo}001`, `XC${sufijo}002`];

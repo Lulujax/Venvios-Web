@@ -1,15 +1,14 @@
 import 'dotenv/config';
 import { crearContextoDesdeEntorno } from '../src/config/contexto';
-import { datosAdminDesdeEntorno, sembrarAdministrador, sembrarConfiguracion } from '../src/services/Semilla';
+import { datosAdminDesdeEntorno, sembrarConfiguracion, sembrarCuentasDePersonal } from '../src/services/Semilla';
 import { logger } from '../src/utils/logger';
 
 async function sembrar(): Promise<void> {
   if (!process.env.DATABASE_URL) throw new Error('Define DATABASE_URL en .env antes de sembrar.');
+  if (!datosAdminDesdeEntorno()) throw new Error('Define ADMIN_PASSWORD en .env antes de sembrar.');
   const contexto = await crearContextoDesdeEntorno();
   await sembrarConfiguracion(contexto);
-  const admin = datosAdminDesdeEntorno(true);
-  if (!admin) throw new Error('Define ADMIN_PASSWORD (y opcionalmente ADMIN_NOMBRE, ADMIN_CEDULA, ADMIN_TELEFONO) en .env.');
-  await sembrarAdministrador(contexto, admin);
+  await sembrarCuentasDePersonal(contexto);
   logger.info('Semilla terminada');
   process.exit(0);
 }

@@ -360,10 +360,6 @@ export class PagoMemoria implements PagoRepository, ConInstantanea {
     return this.filtrar((p) => p.estado === estado);
   }
 
-  async conReferencia(referencia: string): Promise<Pago[]> {
-    return this.filtrar((p) => p.referencia === referencia);
-  }
-
   async actualizar(id: string, cambios: CambiosPago, estadoEsperado?: EstadoPago): Promise<Pago> {
     const actual = this.datos.get(id);
     if (!actual) throw AppError.notFound('El pago no existe.');
