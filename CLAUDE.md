@@ -2,7 +2,7 @@
 
 Casillero internacional Colombia a Venezuela. Compras de Shein, AliExpress y Amazon llegan a Cúcuta, se pesan, se cobran en dólares (pago en Bs a tasa BCV) y se despachan por MRW o Zoom. Sin bot de WhatsApp: el sistema deja el mensaje listo y una persona lo envía.
 
-Specs en `specs/001-recepcion-y-despacho/` (spec, plan, tareas). Antes de programar, leer la spec.
+Specs en `specs/002-venvios-express-v2/` (spec, plan, tareas). Antes de programar, leer la spec.
 
 ## Estructura
 - `backend/`: TypeScript. `src/domain` reglas puras, `src/services` casos de uso, `src/repositories` acceso a datos (Prisma y memoria), `src/http` rutas Express.

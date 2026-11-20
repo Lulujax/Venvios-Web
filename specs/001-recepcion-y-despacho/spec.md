@@ -1,6 +1,6 @@
 # 001 · Recepción, cobro y despacho de paquetes (Venvios Express)
 
-Estado: BORRADOR. Falta que Luis responda las aclaraciones marcadas antes de hacer el plan.
+Estado: ARCHIVADA. La reemplaza `specs/002-venvios-express-v2/`; se conserva solo como historia.
 
 ## Qué es y por qué
 

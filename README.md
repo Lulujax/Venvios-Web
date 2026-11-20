@@ -2,7 +2,7 @@
 
 Casillero internacional Colombia a Venezuela. Las compras de Shein, AliExpress y Amazon llegan a la oficina de Cúcuta, se escanean con el teléfono, se pesan, se cobran en dólares (pago en Bs a tasa BCV) y se despachan por MRW o Zoom. No hay bot de WhatsApp: el sistema deja el mensaje listo y una persona lo envía.
 
-Specs en `specs/001-recepcion-y-despacho/` (spec, plan y tareas).
+Specs en `specs/002-venvios-express-v2/` (spec, plan y tareas).
 
 ## Probar en tu computadora
 

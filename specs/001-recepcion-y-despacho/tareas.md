@@ -1,5 +1,7 @@
 # Tareas 001 · Recepción, cobro y despacho
 
+ARCHIVADO: lo reemplaza `specs/002-venvios-express-v2/`. Se conserva solo como historia.
+
 Una tarea a la vez. Cada una incluye sus pruebas unitarias. La casilla se marca solo cuando Luis confirma que la prueba manual pasó.
 
 ## Estado (19-11-2026)

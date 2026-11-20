@@ -1,5 +1,7 @@
 # Plan 001: Recepción, cobro y despacho (Venvios Express)
 
+ARCHIVADO: lo reemplaza `specs/002-venvios-express-v2/`. Se conserva solo como historia.
+
 ## Contexto
 
 Venvios Express es un casillero internacional Cúcuta → Venezuela. Hoy todo va por WhatsApp. El proyecto actual (hecho con Gemini) tiene la moneda equivocada (COP), un bot de Twilio que el cliente no pagará, un flujo de cliente distinto y cero pruebas. La spec `specs/001-recepcion-y-despacho/spec.md` está completa y sin preguntas abiertas. Se reestructura el proyecto: se borra lo que no sirve, se rescata lo útil y se construye lo nuevo con pruebas.
