@@ -138,7 +138,7 @@ En todo el recorrido, el cliente ve el **seguimiento de cada paquete** con sus p
 
 - **RF-75** EL SISTEMA usará estos nombres cortos para el estado de un envío consolidado: «Por consolidar», «Por pagar», «Pago en revisión», «Enviando a Venezuela», «En ruta» y «Entregado». No habrá un paso extra entre «Enviando a Venezuela» y «En ruta».
 - **RF-76** EL SISTEMA usará para las alertas: «Prealertado», «Recibido parcial» y «En bodega», además de «Archivado» y «Descartado» cuando corresponda.
-- **RF-77** EL SISTEMA mostrará al personal una lista de envíos que se puede filtrar por estado y buscar por nombre del cliente, teléfono, número de prealerta o guía venezolana. Mostrará los 200 más recientes; el buscador buscará en todos.
+- **RF-77** EL SISTEMA mostrará al personal una lista de envíos que se puede filtrar por estado y buscar por nombre del cliente, teléfono, número de prealerta o guía venezolana, mostrada de 10 en 10 (RF-111). El buscador busca en todos los envíos, no solo en los que se ven.
 - **RF-78** EL SISTEMA mostrará al cliente, por cada paquete, un seguimiento corto con sus pasos y la fecha de cada uno: «Prealertado», «En oficina», «Consolidando», «Por pagar», «Pago en revisión», «Enviando a Venezuela», «En ruta» (con la guía de la transportista) y «Entregado». El personal ve el mismo seguimiento. El seguimiento de cada paquete sigue a su envío aunque el paquete cambie de consolidado.
 - **RF-79** SI un paquete sale de un consolidado y vuelve a la bodega, ENTONCES EL SISTEMA mostrará su seguimiento otra vez desde «En oficina».
 - **RF-80** EL SISTEMA mostrará al personal, al entrar, un resumen de los pendientes de hoy: por recibir, por cotizar, por cobrar, por revisar pagos y por despachar.
@@ -191,6 +191,12 @@ En todo el recorrido, el cliente ve el **seguimiento de cada paquete** con sus p
 - **RF-109** EN un envío que aún no salió, EL SISTEMA permitirá al cliente pulsar «Actualizar con mi perfil» para copiar de nuevo sus datos de entrega actuales. Para cualquier otro cambio, el cliente escribe al operador por WhatsApp y el operador corrige (RF-51). El cliente ya no edita la dirección dentro del envío.
 - **RF-110** EL SISTEMA permitirá al administrador corregir la cédula de un cliente, buscándolo por nombre, correo, casillero o cédula, con un motivo obligatorio. El operador no puede. SI la cédula nueva ya pertenece a otra cuenta, ENTONCES EL SISTEMA no hará el cambio y lo explicará (RF-13). Queda en el historial de la cuenta quién la cambió, cuándo y por qué, sin guardar la cédula anterior completa (RF-93, RF-94).
 
+### Listas largas
+
+- **RF-111** CUANDO una lista tenga más de 10 elementos (bodega, envíos, paquetes de un consolidado, paquetes para agregar o consolidar, pedidos, alertas e historial), EL SISTEMA mostrará solo los 10 primeros, el total («Mostrando 10 de 240») y un botón «Ver 10 más» que agrega los siguientes sin perder lo que ya se ve ni mover la pantalla. SI la lista tiene 10 elementos o menos, ENTONCES EL SISTEMA no muestra el contador ni el botón.
+- **RF-112** EN las listas donde se eligen paquetes (agregar de la bodega del cliente y Consolidar del cliente), EL SISTEMA tendrá un buscador por número de tracking que filtra entre todos los paquetes, no solo entre los que se ven.
+- **RF-113** EN esas mismas listas, EL SISTEMA ofrecerá «Elegir todos», que marca todos los paquetes que coinciden con el buscador (no solo los 10 visibles) y muestra cuántos quedan elegidos antes de enviar la solicitud o agregarlos.
+
 ## Tarifa
 
 Los precios están en dólares a tasa BCV del día; el pago puede hacerse en Bs.
@@ -235,6 +241,7 @@ Nota: con estos tramos, 9,9 kg cuestan 94,05 $ y 10 kg cuestan 85 $. Es lo que d
 - Apruebo el pago y el envío dice «Enviando a Venezuela». Registro la guía de MRW con foto, pulso «Enviar guía» y el envío dice «En ruta».
 - El cliente pulsa «Ya lo recibí» y el envío queda «Entregado». También puedo cerrarlo yo confirmando en pantalla.
 - En su cuenta, el cliente ve cada paquete con sus pasos y fechas.
+- Con 240 paquetes en la bodega de un cliente veo 10, el contador «Mostrando 10 de 240» y «Ver 10 más»; busco una guía sin bajar y elijo todos los que coinciden con un solo toque.
 - Todo funciona igual en un teléfono Android y en una PC con Chrome.
 - Las pruebas automáticas del cálculo de precios, los cambios de estado, el escaneo y las validaciones pasan.
 

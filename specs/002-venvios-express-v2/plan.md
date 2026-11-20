@@ -117,6 +117,7 @@ Los valores internos no cambian; solo las etiquetas.
 | Auditoría de ediciones | `Evento` con `datos` (campo, valor anterior, valor nuevo, motivo, quién), como ya hace el ajuste del administrador | Tabla nueva `AjusteManual` |
 | Datos de entrega | Viven en el perfil del cliente (quién recibe, más agencia, ciudad y estado para MRW y para Zoom), cifrados y con las validaciones de `guardarEntrega`. Al solicitar la consolidación se copian al envío (copia fija). Si el perfil está incompleto, no se envía la solicitud. El cliente ya no edita la dirección dentro del envío; el operador sí puede corregirla | Pedirlos en cada solicitud (repite formulario y pantalla); pedirlos en la prealerta (aún no se sabe la transportista); libreta con varias direcciones (más diseño; se puede agregar después) |
 | Corrección de cédula | Solo el administrador, con motivo. Se vuelve a cifrar la cédula y se recalcula su huella HMAC para seguir detectando repetidas. El historial de la cuenta guarda quién, cuándo, el motivo y la cédula anterior enmascarada (`V-***678`) | Permitirla al cliente (cambia la identidad de la cuenta sin control); permitirla al operador; guardar la cédula anterior completa (dato sensible en el historial) |
+| Listas largas | El servidor entrega las listas por tandas: la ruta recibe `limite` (10 por defecto) y `desde`, y devuelve también el `total`. La pantalla pide la siguiente tanda con «Ver 10 más» y conserva lo ya mostrado. Un solo componente de lista se reutiliza en bodega, envíos, paquetes del consolidado, agregar de bodega, Consolidar, Pedidos, Alertas e historial | Cargar todo y recortar en pantalla (no aguanta miles); páginas numeradas (más difíciles para quien no tiene práctica); scroll infinito (el operador pierde dónde estaba y no llega al menú) |
 | Referencia de pago | Validación según método, sin columna nueva | Columna `idTransaccion` |
 | Nombres de estado | Solo etiquetas (backend `ETIQUETAS_ESTADO`, frontend `formato.ts`, plantillas) | Renombrar valores en la base de datos |
 | Cierre por el cliente | Ruta `POST /api/envios/:id/recibido`, solo del dueño y solo desde «En ruta»; la ruta del operador se queda y la pantalla pide confirmar | Cierre automático por días; un solo botón para ambos |
@@ -134,7 +135,7 @@ Los valores internos no cambian; solo las etiquetas.
 Una tarea a la vez, cada una con sus pruebas (`tareas.md`):
 
 1. Verificación manual de lo ya construido (V-1 a V-9), en paralelo.
-2. T-1 nombres de estado → T-2 pago con Binance → T-3 valor por guía → T-4a perfil (Mis datos) → T-4b datos de entrega en el perfil → T-4c consolidar y envío usan el perfil → T-4d corrección de cédula por el administrador → T-5 cotización editable → T-6 registro de pasos por paquete → T-7 seguimiento visible → T-8 cierre → T-9 pantallas del operador → T-10 preparar producción.
+2. T-1 nombres de estado → T-1b pantalla del envío por pasos → T-1c listas de 10 en 10 → T-2 pago con Binance → T-3 valor por guía → T-4a perfil (Mis datos) → T-4b datos de entrega en el perfil → T-4c consolidar y envío usan el perfil → T-4d corrección de cédula por el administrador → T-5 cotización editable → T-6 registro de pasos por paquete → T-7 seguimiento visible → T-8 cierre → T-9 pantallas del operador → T-10 preparar producción.
 
 ## Verificación
 
@@ -151,6 +152,7 @@ Una tarea a la vez, cada una con sus pruebas (`tareas.md`):
 - Las plantillas de mensajes guardadas en la base no se actualizan solas con las nuevas; hay que reemplazar las que sigan iguales a las de fábrica.
 - El reparto del valor en envíos viejos puede quedar aproximado hasta que el operador lo corrija.
 - Hay dos repositorios que deben quedar iguales; una diferencia entre memoria y Prisma solo se vería en producción.
+- Pasar las listas a tandas obliga a cambiar la bodega, los envíos y la búsqueda en los dos repositorios, con su total; el conteo debe ser exacto aunque haya miles de paquetes (RF-97).
 - Los paquetes que ya estaban más allá de «En oficina» no tendrán fecha en los pasos siguientes.
 - Los clientes que ya tienen envíos con datos de entrega: la migración copia los del último envío a su perfil para que no los tengan que escribir otra vez.
 - Los enlaces de rastreo de MRW y Zoom no se verificaron para saber si aceptan el número en la URL.
