@@ -4,6 +4,7 @@ import {
   Escaner,
   MENSAJE_FALLO_FOTO,
   MENSAJE_FOTO_PESADA,
+  MENSAJE_LECTOR,
   MENSAJE_NO_IMAGEN,
   MENSAJE_SIN_CODIGO,
   describirErrorCamara,
@@ -172,5 +173,37 @@ describe('Escaner: cámara', () => {
     await waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(1));
     fireEvent.click(await screen.findByRole('button', { name: /Apagar cámara/ }));
     await waitFor(() => expect(detener).toHaveBeenCalled());
+  });
+});
+
+describe('Escaner: el lector no bloquea la cámara', () => {
+  function prepararCamaraConPlay() {
+    const detener = vi.fn();
+    const pista = { stop: detener, getSettings: () => ({ width: 1280, height: 720 }), getCapabilities: () => ({}) };
+    const flujo = { getTracks: () => [pista], getVideoTracks: () => [pista] };
+    const getUserMedia = vi.fn().mockResolvedValue(flujo);
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia }, configurable: true });
+    Object.defineProperty(HTMLVideoElement.prototype, 'videoWidth', { get: () => 640, configurable: true });
+    return { detener, getUserMedia, play };
+  }
+
+  it('caso feliz: la cámara se muestra aunque el lector todavía no cargó', async () => {
+    const { getUserMedia, play } = prepararCamaraConPlay();
+    const lectorNunca = new Promise<LectorCodigos>(() => undefined);
+    render(<Escaner onLeido={vi.fn()} obtenerLector={() => lectorNunca} />);
+    fireEvent.click(screen.getByRole('button', { name: /Encender cámara/ }));
+    await waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(play).toHaveBeenCalled());
+  });
+
+  it('error: si el lector no carga, la cámara se apaga y el mensaje dice que escriba el número', async () => {
+    const { detener } = prepararCamaraConPlay();
+    const lectorRoto = Promise.reject(new Error('wasm no cargó'));
+    lectorRoto.catch(() => undefined);
+    render(<Escaner onLeido={vi.fn()} obtenerLector={() => lectorRoto} />);
+    fireEvent.click(screen.getByRole('button', { name: /Encender cámara/ }));
+    expect(await screen.findByText(MENSAJE_LECTOR)).toBeInTheDocument();
+    expect(detener).toHaveBeenCalled();
   });
 });

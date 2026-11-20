@@ -12,6 +12,16 @@ export const MENSAJE_SIN_CODIGO = 'No encontramos un código en la foto. Acérca
 export const MENSAJE_FOTO_PESADA = 'La foto pesa más de 15 MB. Toma otra más liviana.';
 export const MENSAJE_NO_IMAGEN = 'Ese archivo no es una imagen. Elige una foto de la etiqueta.';
 export const MENSAJE_FALLO_FOTO = 'No pudimos leer la foto. Intenta con otra o escribe el número a mano.';
+export const MENSAJE_LECTOR = 'No pudimos cargar el lector de códigos. Escribe el número a mano.';
+
+export async function esperarLector(promesa: Promise<LectorCodigos>): Promise<LectorCodigos | null> {
+  try {
+    return await promesa;
+  } catch (falla) {
+    registro.error('No se pudo cargar el lector de códigos', { motivo: falla instanceof Error ? falla.message : 'desconocido' });
+    return null;
+  }
+}
 
 export function describirErrorCamara(error: unknown): string {
   const nombre = error instanceof Error ? error.name : '';
@@ -113,7 +123,6 @@ export function Escaner({ onLeido, pausado = false, obtenerLector = crearLectorD
         const promesaLector = pedirLector.current();
         promesaLector.catch(() => undefined);
         flujo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
-        const lector = await promesaLector;
         if (!vivo || !video.current) {
           detener();
           return;
@@ -122,7 +131,15 @@ export function Escaner({ onLeido, pausado = false, obtenerLector = crearLectorD
         video.current.srcObject = flujo;
         await video.current.play();
         const medidas = flujo.getVideoTracks()[0]?.getSettings();
-        registro.info('Cámara encendida', { ancho: medidas?.width, alto: medidas?.height, motor: lector.nombre });
+        registro.info('Cámara encendida', { ancho: medidas?.width, alto: medidas?.height });
+        const lector = await esperarLector(promesaLector);
+        if (!vivo) return;
+        if (!lector) {
+          detener();
+          setError(MENSAJE_LECTOR);
+          setActivo(false);
+          return;
+        }
         setMotor(`${lector.nombre}${medidas?.width ? ` · ${medidas.width}x${medidas.height}` : ''}`);
         temporizador = window.setInterval(() => {
           const elemento = video.current;
