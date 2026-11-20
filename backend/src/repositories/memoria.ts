@@ -118,14 +118,16 @@ export class EnvioMemoria implements EnvioRepository {
     this.verificarTrackingLibre(datos.paquetes.map((p) => p.trackingNormalizado));
     const id = randomUUID();
     const ahora = new Date();
+    const tipo = datos.tipo ?? 'ALERTA';
     const envio: Envio = {
       id,
+      tipo,
       clienteId: datos.clienteId,
       modalidad: datos.modalidad,
       transportista: datos.transportista,
       tienda: datos.tienda,
       valorDeclaradoCentavos: datos.valorDeclaradoCentavos,
-      estado: 'PREALERTADO',
+      estado: datos.estado ?? (tipo === 'CONSOLIDADO' ? 'POR_CONSOLIDAR' : 'PREALERTADO'),
       pesoTotalCentesimas: null,
       pesoCobrableCentesimas: null,
       fleteCentavos: null,

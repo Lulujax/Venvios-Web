@@ -10,6 +10,7 @@ export interface DatosPago {
 
 export interface Plantillas {
   llegada: string;
+  cotizacion: string;
   pagoVerificado: string;
   pagoRechazado: string;
   despacho: string;
@@ -46,10 +47,15 @@ export const PLANTILLAS_INICIALES: Plantillas = {
     'Hola {nombre}, te escribe Venvios Express.',
     'Llegó tu paquete {tracking} a nuestra oficina en Cúcuta.',
     '{resumen_paquetes}',
+    'Cuando quieras enviarlo, entra a tu cuenta y elige qué paquetes van juntos: {enlace_consolidar}',
+  ].join('\n'),
+  cotizacion: [
+    'Hola {nombre}, ya pesamos tu envío. 📦',
+    '{resumen_paquetes}',
     '{linea_peso}',
     '{linea_total}',
     '{nota_modalidad}',
-    'Entra a tu cuenta para ver el detalle y pagar: {enlace_cuenta}',
+    'Paga desde tu cuenta: {enlace_cuenta}',
   ].join('\n'),
   pagoVerificado: [
     '🧾 *Tu pago fue verificado*',

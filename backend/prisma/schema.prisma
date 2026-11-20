@@ -24,10 +24,18 @@ enum Transportista {
   ZOOM
 }
 
+enum TipoEnvio {
+  ALERTA
+  CONSOLIDADO
+}
+
 enum EstadoEnvio {
   PREALERTADO
   RECIBIDO_PARCIAL
   RECIBIDO_COMPLETO
+  ARCHIVADO
+  POR_CONSOLIDAR
+  POR_PAGAR
   POR_CONFIRMAR
   PAGADO
   DESPACHADO
@@ -84,6 +92,7 @@ model Usuario {
 
 model Envio {
   id                     String        @id @default(cuid())
+  tipo                   TipoEnvio     @default(ALERTA)
   clienteId              String
   modalidad              Modalidad
   transportista          Transportista

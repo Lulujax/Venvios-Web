@@ -55,8 +55,17 @@ const esquemaPrealerta = z.object({
   trackings: z.array(z.string()).min(1),
   tienda: z.string().default(''),
   valorDeclaradoUsd: z.coerce.number(),
+  modalidad: z.enum(['M1', 'M2']).optional(),
+  transportista: z.enum(['MRW', 'ZOOM']).optional(),
+});
+
+const esquemaConsolidado = z.object({
+  clienteId: z.string().optional(),
+  paqueteIds: z.array(z.string()).min(1),
   modalidad: z.enum(['M1', 'M2']),
   transportista: z.enum(['MRW', 'ZOOM']),
+  valorDeclaradoUsd: z.coerce.number(),
+  pesoKg: z.coerce.number().optional(),
 });
 
 const esquemaEntrega = z.object({
@@ -204,7 +213,9 @@ export function crearApp(contexto: Contexto): express.Express {
     }),
   );
 
-  api.post('/envios/:id/cerrar-recepcion', exigirSesion, ruta(async (req, res) => res.json({ envio: await contexto.envios.cerrarRecepcion(actorDe(req), req.params.id!) })));
+  api.post('/envios/consolidar', exigirSesion, ruta(async (req, res) => res.status(201).json({ envio: await contexto.envios.crearConsolidado(actorDe(req), esquemaConsolidado.parse(req.body)) })));
+  api.post('/envios/:id/deshacer', exigirSesion, ruta(async (req, res) => res.json({ envio: await contexto.envios.desarmar(actorDe(req), req.params.id!, z.object({ motivo: z.string().optional() }).parse(req.body ?? {}).motivo) })));
+  api.post('/paquetes/:id/eliminar-alerta', exigirSesion, ruta(async (req, res) => res.json({ envio: await contexto.envios.eliminarAlertaPendiente(actorDe(req), req.params.id!) })));
 
   api.put(
     '/envios/:id/entrega',
@@ -251,8 +262,31 @@ export function crearApp(contexto: Contexto): express.Express {
 
   staff.get('/resumen', ruta(async (req, res) => res.json(await contexto.envios.resumen(actorDe(req)))));
   staff.post('/escaneo', ruta(async (req, res) => res.json(await contexto.envios.escanear(actorDe(req), z.object({ texto: z.string() }).parse(req.body).texto))));
-  staff.post('/sin-prealerta', ruta(async (req, res) => res.status(201).json({ envio: await contexto.envios.registrarSinPrealerta(actorDe(req), z.object({ texto: z.string() }).parse(req.body).texto) })));
-  staff.post('/envios/:id/asignar-cliente', ruta(async (req, res) => res.json({ envio: await contexto.envios.asignarCliente(actorDe(req), req.params.id!, z.object({ clienteId: z.string() }).parse(req.body).clienteId) })));
+  staff.post(
+    '/sin-prealerta',
+    ruta(async (req, res) => {
+      const c = z.object({ texto: z.string(), clienteId: z.string().optional() }).parse(req.body);
+      res.status(201).json({ envio: await contexto.envios.registrarSinPrealerta(actorDe(req), c.texto, c.clienteId) });
+    }),
+  );
+  staff.get(
+    '/bodega',
+    ruta(async (req, res) => {
+      const q = typeof req.query.q === 'string' ? req.query.q : undefined;
+      res.json({ paquetes: await contexto.envios.bodega(actorDe(req), { q, sinDueno: req.query.sinDueno === '1' }) });
+    }),
+  );
+  staff.post(
+    '/paquetes/:id/asignar',
+    ruta(async (req, res) => {
+      const c = z.object({ clienteId: z.string().nullable(), motivo: z.string().optional() }).parse(req.body);
+      res.json({ envio: await contexto.envios.asignarPaquete(actorDe(req), req.params.id!, c.clienteId, c.motivo) });
+    }),
+  );
+  staff.post('/paquetes/:id/descartar', ruta(async (req, res) => res.json({ envio: await contexto.envios.descartarPaquete(actorDe(req), req.params.id!, z.object({ motivo: z.string() }).parse(req.body).motivo) })));
+  staff.post('/envios/:id/cotizar', ruta(async (req, res) => res.json({ envio: await contexto.envios.cotizar(actorDe(req), req.params.id!, numero(req.body?.pesoKg)) })));
+  staff.post('/envios/:id/paquetes', ruta(async (req, res) => res.json({ envio: await contexto.envios.agregarAlConsolidado(actorDe(req), req.params.id!, z.object({ paqueteIds: z.array(z.string()).min(1) }).parse(req.body).paqueteIds) })));
+  staff.post('/envios/:id/quitar-paquete', ruta(async (req, res) => res.json({ envio: await contexto.envios.quitarDelConsolidado(actorDe(req), req.params.id!, z.object({ paqueteId: z.string() }).parse(req.body).paqueteId) })));
   staff.post('/paquetes/:id/peso', ruta(async (req, res) => res.json({ envio: await contexto.envios.registrarPeso(actorDe(req), req.params.id!, numero(req.body?.pesoKg)) })));
   staff.post('/paquetes/:id/foto', subida.single('archivo'), ruta(async (req, res) => res.json({ envio: await contexto.envios.registrarFotoPaquete(actorDe(req), req.params.id!, archivoDe(req)) })));
   staff.post('/paquetes/:id/avisado', ruta(async (req, res) => res.json({ envio: await contexto.envios.marcarAvisado(actorDe(req), req.params.id!) })));

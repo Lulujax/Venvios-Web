@@ -5,11 +5,15 @@ export type EstadoEnvio =
   | 'PREALERTADO'
   | 'RECIBIDO_PARCIAL'
   | 'RECIBIDO_COMPLETO'
+  | 'ARCHIVADO'
+  | 'POR_CONSOLIDAR'
+  | 'POR_PAGAR'
   | 'POR_CONFIRMAR'
   | 'PAGADO'
   | 'DESPACHADO'
   | 'CERRADO'
   | 'CANCELADO';
+export type TipoEnvio = 'ALERTA' | 'CONSOLIDADO';
 
 export interface Usuario {
   id: string;
@@ -31,6 +35,7 @@ export interface PaqueteVista {
   tieneFoto: boolean;
   fotoRuta: string | null;
   avisado: boolean;
+  recibidoEn: string | null;
 }
 
 export interface PagoVista {
@@ -64,6 +69,8 @@ export interface Entrega {
 
 export interface Envio {
   id: string;
+  tipo: TipoEnvio;
+  sinDueno: boolean;
   estado: EstadoEnvio;
   etiquetaEstado: string;
   modalidad: Modalidad;
@@ -71,7 +78,7 @@ export interface Envio {
   transportista: Transportista;
   tienda: string;
   valorDeclaradoCentavos: number;
-  cliente: { id: string; nombre: string; telefono: string; cedulaEnmascarada: string };
+  cliente: { id: string; nombre: string; telefono: string; codigo: string; cedulaEnmascarada: string };
   paquetes: PaqueteVista[];
   faltan: number;
   pesoTotalKg: number | null;
@@ -103,16 +110,32 @@ export interface MensajeWhatsApp {
 }
 
 export type ResultadoEscaneo =
-  | { resultado: 'RECIBIDO' | 'YA_REGISTRADO'; envioId: string; paqueteId: string; cliente: string; faltan: number; texto: string }
+  | { resultado: 'RECIBIDO' | 'YA_REGISTRADO'; envioId: string; paqueteId: string; cliente: string; sinDueno: boolean; faltan: number; texto: string }
   | { resultado: 'SIN_PREALERTA'; texto: string };
 
 export interface Resumen {
   porRecibir: number;
   porAvisar: number;
+  sinDueno: number;
+  porConsolidar: number;
   porCobrar: number;
   pagosPorConfirmar: number;
   porDespachar: number;
-  sinAsignar: number;
+  enBodega: number;
+}
+
+export interface ItemBodega {
+  paqueteId: string;
+  tracking: string;
+  pesoKg: number | null;
+  tieneFoto: boolean;
+  fotoRuta: string | null;
+  recibidoEn: string | null;
+  envioId: string;
+  tipoEnvio: TipoEnvio;
+  estadoEnvio: EstadoEnvio;
+  sinDueno: boolean;
+  cliente: { id: string; nombre: string; codigo: string };
 }
 
 export interface TramoPrecio {

@@ -57,6 +57,26 @@ Además hay una página pública con la información de la empresa, las tarifas 
 - **RF-9m** EL SISTEMA mostrará en el panel del cliente un botón flotante de WhatsApp hacia la atención. No mostrará rastreador dentro de la cuenta.
 - **RF-9n** AL pagar, EL SISTEMA ligará método y moneda: Binance solo en dólares; pago móvil y transferencia solo en bolívares. El cambio de un campo ajustará el otro, y el servidor rechazará combinaciones inválidas.
 
+### Bodega, consolidación y casos especiales
+
+Estos requisitos reemplazan: el cálculo del precio con la suma de los pesos de una prealerta (RF-20: ahora se cobra el peso del consolidado), el total dentro del aviso de llegada (RF-25), el pago parcial del cliente (RF-31) y «pagar con lo que ya llegó».
+
+- **RF-60** EL SISTEMA guardará cada paquete escaneado en la bodega, con su dueño o como «sin dueño», y mostrará al personal todo lo que está físicamente en la oficina (recibido y aún no despachado), con su antigüedad. Se podrá filtrar «sin dueño» y buscar por tracking, cliente o número de casillero.
+- **RF-61** CUANDO un paquete llegue sin prealerta, EL SISTEMA permitirá al operador asignarlo en el momento con el número de casillero `VENV-` o buscando al cliente por nombre, correo o cédula, o dejarlo sin dueño.
+- **RF-62** EL SISTEMA no sugerirá dueños por parecido de tracking. Si no hay coincidencia exacta, el paquete queda sin dueño hasta que alguien lo reclame. No se publica una lista de paquetes sin dueño a los clientes.
+- **RF-63** CUANDO un cliente registre una alerta con un tracking igual al de un paquete sin dueño, EL SISTEMA lo unirá a su alerta como ya recibido y lo dejará en el historial.
+- **RF-64** EL SISTEMA permitirá al operador o al administrador cambiar el dueño de un paquete en bodega (o devolverlo a sin dueño), con un motivo opcional que queda en el historial.
+- **RF-65** EL SISTEMA permitirá al operador o al administrador descartar un paquete o un envío con un motivo obligatorio. Los casos especiales (paquete dañado, equivocado, devoluciones, pagos de más) se acuerdan con el cliente por WhatsApp y el sistema solo registra la decisión.
+- **RF-66** EL SISTEMA permitirá al cliente elegir, entre sus paquetes en bodega, cuáles se envían juntos (consolidar), con la modalidad, la transportista y el valor declarado. El envío queda «Por consolidar».
+- **RF-67** EL SISTEMA permitirá al operador consolidar en nombre del cliente cuando lo acuerdan por WhatsApp, agregar o quitar paquetes de un consolidado antes del pago y registrar el peso total del consolidado. CUANDO registre el peso, EL SISTEMA calculará el total y el envío pasará a «Listo para pagar».
+- **RF-68** SI cambian los paquetes de un consolidado ya pesado, ENTONCES EL SISTEMA borrará el total y lo devolverá a «Por consolidar» hasta pesarlo de nuevo.
+- **RF-69** EL SISTEMA permitirá al cliente o al personal deshacer un consolidado que aún no tiene pagos; sus paquetes vuelven a la bodega del cliente.
+- **RF-70** El aviso de llegada por paquete dice que llegó y que el cliente entre a su cuenta a consolidar. El total se avisa con un mensaje de cotización cuando se pesa el consolidado.
+- **RF-71** EL SISTEMA solo aceptará del cliente un comprobante por el monto exacto pendiente: en dólares para Binance, y en bolívares a la tasa BCV del día para pago móvil y transferencia. El monto viene escrito y no se edita. SI el cliente pagó otro monto, ENTONCES EL SISTEMA le indicará escribir a administración por WhatsApp.
+- **RF-72** EL SISTEMA pedirá como referencia del pago los últimos 6 dígitos, solo números.
+- **RF-73** EL SISTEMA permitirá al cliente eliminar la alerta de un paquete que aún no llegó. Las alertas pendientes no vencen.
+- **RF-74** El operador marca como «Entregado» un envío despachado. No hay seguimiento después de eso.
+
 ### Prealertas
 
 - **RF-10** EL SISTEMA permitirá registrar una prealerta con: nombre del cliente, teléfono de WhatsApp con código de país, número de tracking (el que trae el paquete de la tienda o de la transportista, el mismo del código de barras), tienda de origen y valor declarado en dólares. El valor declarado lo da el cliente en la prealerta.

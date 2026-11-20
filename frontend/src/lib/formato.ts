@@ -21,6 +21,21 @@ export function formatearFecha(iso: string): string {
   return fecha.toLocaleString('es-VE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
+const MS_POR_DIA = 24 * 60 * 60 * 1000;
+
+export function diasEnBodega(iso: string | null, ahora: Date = new Date()): number | null {
+  if (!iso) return null;
+  const fecha = new Date(iso);
+  if (Number.isNaN(fecha.getTime())) return null;
+  return Math.max(0, Math.floor((ahora.getTime() - fecha.getTime()) / MS_POR_DIA));
+}
+
+export function textoAntiguedad(dias: number | null): string {
+  if (dias === null) return 'Sin fecha';
+  if (dias === 0) return 'Llegó hoy';
+  return dias === 1 ? 'Hace 1 día' : `Hace ${dias} días`;
+}
+
 export function aNumero(texto: string): number {
   return Number(texto.replace(',', '.').trim());
 }
@@ -28,18 +43,24 @@ export function aNumero(texto: string): number {
 export const ETIQUETAS_ESTADO: Record<EstadoEnvio, string> = {
   PREALERTADO: 'Esperando paquetes',
   RECIBIDO_PARCIAL: 'Llegada parcial',
-  RECIBIDO_COMPLETO: 'Listo para pagar',
+  RECIBIDO_COMPLETO: 'En bodega',
+  ARCHIVADO: 'Archivado',
+  POR_CONSOLIDAR: 'Por consolidar',
+  POR_PAGAR: 'Listo para pagar',
   POR_CONFIRMAR: 'Pago en revisión',
   PAGADO: 'Pagado',
   DESPACHADO: 'En camino a Venezuela',
   CERRADO: 'Entregado',
-  CANCELADO: 'Cancelado',
+  CANCELADO: 'Descartado',
 };
 
 export const TONO_ESTADO: Record<EstadoEnvio, string> = {
   PREALERTADO: 'bg-marino-100 text-marino',
   RECIBIDO_PARCIAL: 'bg-oro-100 text-oro-600',
-  RECIBIDO_COMPLETO: 'bg-oro text-marino-900',
+  RECIBIDO_COMPLETO: 'bg-verde-100 text-verde',
+  ARCHIVADO: 'bg-linea text-suave',
+  POR_CONSOLIDAR: 'bg-marino-100 text-marino',
+  POR_PAGAR: 'bg-oro text-marino-900',
   POR_CONFIRMAR: 'bg-oro-100 text-marino-900',
   PAGADO: 'bg-verde-100 text-verde',
   DESPACHADO: 'bg-marino text-white',
@@ -47,11 +68,9 @@ export const TONO_ESTADO: Record<EstadoEnvio, string> = {
   CANCELADO: 'bg-rojo-100 text-rojo-700',
 };
 
-export const PASOS_ENVIO: EstadoEnvio[] = ['PREALERTADO', 'RECIBIDO_COMPLETO', 'POR_CONFIRMAR', 'PAGADO', 'DESPACHADO', 'CERRADO'];
+export const PASOS_ENVIO: EstadoEnvio[] = ['POR_CONSOLIDAR', 'POR_PAGAR', 'POR_CONFIRMAR', 'PAGADO', 'DESPACHADO', 'CERRADO'];
 
 export function pasoActual(estado: EstadoEnvio): number {
-  if (estado === 'RECIBIDO_PARCIAL') return 0;
-  if (estado === 'CANCELADO') return -1;
   return PASOS_ENVIO.indexOf(estado);
 }
 

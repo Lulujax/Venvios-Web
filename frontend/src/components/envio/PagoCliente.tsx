@@ -3,11 +3,11 @@ import { FiCopy } from 'react-icons/fi';
 import { FotoInput } from '../FotoInput';
 import { Alerta, Campo, Seleccion, useAviso } from '../ui';
 import { api, mensajeDeError } from '../../lib/api';
-import { aNumero, formatearBs, formatearUsd } from '../../lib/formato';
+import { formatearBs, formatearUsd } from '../../lib/formato';
 import { monedaDelMetodo, TEXTO_MONEDA } from '../../lib/pago';
 import type { Envio, InfoPago } from '../../lib/tipos';
 import { useCarga } from '../../lib/useCarga';
-import { validarMonto, validarReferencia } from '../../lib/validar';
+import { validarReferencia } from '../../lib/validar';
 
 function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   const avisar = useAviso();
@@ -29,10 +29,9 @@ export function PagoCliente({ envio, alCambiar }: { envio: Envio; alCambiar: (en
   const { datos: info, error: errorInfo } = useCarga(() => api.get<InfoPago>(`/envios/${envio.id}/pago`), [envio.id, envio.pagadoCentavos]);
   const [metodo, setMetodo] = useState('PAGO_MOVIL');
   const moneda = monedaDelMetodo(metodo);
-  const [monto, setMonto] = useState('');
   const [referencia, setReferencia] = useState('');
   const [archivo, setArchivo] = useState<File | null>(null);
-  const [errores, setErrores] = useState<{ monto?: string; referencia?: string; archivo?: string }>({});
+  const [errores, setErrores] = useState<{ referencia?: string; archivo?: string }>({});
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
@@ -40,21 +39,21 @@ export function PagoCliente({ envio, alCambiar }: { envio: Envio; alCambiar: (en
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
-    const nuevos = { monto: validarMonto(monto) ?? undefined, referencia: validarReferencia(referencia) ?? undefined, archivo: archivo ? undefined : 'Sube la captura de tu pago.' };
+    const nuevos = { referencia: validarReferencia(referencia) ?? undefined, archivo: archivo ? undefined : 'Sube la captura de tu pago.' };
     setErrores(nuevos);
-    if (Object.values(nuevos).some(Boolean) || !archivo) return;
+    if (Object.values(nuevos).some(Boolean) || !archivo || !info) return;
+    const montoExacto = moneda === 'USD' ? info.saldoCentavos : info.saldoBsCentavos;
     setEnviando(true);
     setError(null);
     try {
       const formulario = new FormData();
       formulario.set('metodo', metodo);
       formulario.set('moneda', moneda);
-      formulario.set('monto', String(aNumero(monto)));
-      formulario.set('referencia', referencia.trim());
+      formulario.set('monto', (montoExacto / 100).toFixed(2));
+      formulario.set('referencia', referencia.replace(/\s/g, ''));
       formulario.set('archivo', archivo);
       const respuesta = await api.post<{ envio: Envio }>(`/envios/${envio.id}/pagos`, formulario);
       alCambiar(respuesta.envio);
-      setMonto('');
       setReferencia('');
       setArchivo(null);
       avisar('Recibimos tu comprobante. Lo estamos verificando.');
@@ -109,19 +108,22 @@ export function PagoCliente({ envio, alCambiar }: { envio: Envio; alCambiar: (en
 
       {enRevision && <Alerta tono="info">Tienes un comprobante en revisión. Te avisamos por WhatsApp cuando lo verifiquemos.</Alerta>}
 
+      {!enRevision && (
       <form onSubmit={enviar} className="space-y-4 rounded-2xl border border-linea bg-white p-4" noValidate>
         <h3 className="text-base">Subir comprobante</h3>
         <div className="grid gap-4 sm:grid-cols-2">
           <Seleccion etiqueta="Pagaste por" value={metodo} onChange={(e) => setMetodo(e.target.value)} opciones={[{ valor: 'PAGO_MOVIL', texto: 'Pago móvil' }, { valor: 'TRANSFERENCIA', texto: 'Transferencia' }, { valor: 'BINANCE', texto: 'Binance' }]} />
           <Seleccion etiqueta="Moneda" value={moneda} onChange={() => undefined} disabled opciones={[{ valor: moneda, texto: TEXTO_MONEDA[moneda] }]} />
-          <Campo etiqueta={`Monto pagado (${moneda === 'USD' ? '$' : 'Bs'})`} inputMode="decimal" value={monto} onChange={(e) => setMonto(e.target.value)} error={errores.monto} />
-          <Campo etiqueta="Número de referencia" value={referencia} onChange={(e) => setReferencia(e.target.value)} error={errores.referencia} />
+          <Campo etiqueta={`Monto a pagar (${moneda === 'USD' ? '$' : 'Bs'})`} value={moneda === 'USD' ? formatearUsd(info.saldoCentavos) : formatearBs(info.saldoBsCentavos)} readOnly aria-readonly="true" className="[&_input]:bg-papel [&_input]:font-bold" ayuda="Paga exactamente este monto." />
+          <Campo etiqueta="Últimos 6 dígitos de la referencia" inputMode="numeric" maxLength={6} autoComplete="off" value={referencia} onChange={(e) => setReferencia(e.target.value.replace(/\D/g, '').slice(0, 6))} error={errores.referencia} placeholder="123456" />
         </div>
+        <Alerta tono="aviso">Paga el monto exacto. Si pagaste un monto distinto, escríbele a administración por WhatsApp antes de subir el comprobante.</Alerta>
         <FotoInput etiqueta="Captura del pago" archivo={archivo} onChange={setArchivo} />
         {errores.archivo && <p className="ayuda font-semibold text-rojo">{errores.archivo}</p>}
         {error && <Alerta tono="error">{error}</Alerta>}
         <button type="submit" className="btn btn-primario w-full" disabled={enviando}>{enviando ? 'Enviando…' : 'Enviar comprobante'}</button>
       </form>
+      )}
     </div>
   );
 }

@@ -31,6 +31,7 @@ type FilaEnvio = Prisma.EnvioGetPayload<{ include: { paquetes: true } }>;
 function aEnvio(fila: FilaEnvio): Envio {
   return {
     id: fila.id,
+    tipo: fila.tipo,
     clienteId: fila.clienteId,
     modalidad: fila.modalidad,
     transportista: fila.transportista,
@@ -116,6 +117,8 @@ export class EnvioPrisma implements EnvioRepository {
   async crear(datos: NuevoEnvio): Promise<Envio> {
     const fila = await this.db.envio.create({
       data: {
+        tipo: datos.tipo ?? 'ALERTA',
+        estado: datos.estado ?? (datos.tipo === 'CONSOLIDADO' ? 'POR_CONSOLIDAR' : 'PREALERTADO'),
         clienteId: datos.clienteId,
         modalidad: datos.modalidad,
         transportista: datos.transportista,

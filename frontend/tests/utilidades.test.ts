@@ -37,10 +37,11 @@ describe('formato', () => {
   });
 
   it('pasos del envío y primer nombre', () => {
-    expect(pasoActual('PREALERTADO')).toBe(0);
-    expect(pasoActual('RECIBIDO_PARCIAL')).toBe(0);
+    expect(pasoActual('POR_CONSOLIDAR')).toBe(0);
+    expect(pasoActual('POR_PAGAR')).toBe(1);
     expect(pasoActual('DESPACHADO')).toBe(4);
     expect(pasoActual('CANCELADO')).toBe(-1);
+    expect(pasoActual('PREALERTADO')).toBe(-1);
     expect(primerNombre('  María Fernanda Rangel ')).toBe('María');
   });
 });
@@ -67,8 +68,9 @@ describe('validaciones del formulario', () => {
     expect(validarMonto('44,33')).toBeNull();
     expect(validarMonto('0')).not.toBeNull();
     expect(validarMonto('abc')).not.toBeNull();
-    expect(validarReferencia('BIN-1')).toBeNull();
-    expect(validarReferencia('1')).not.toBeNull();
+    expect(validarReferencia('123456')).toBeNull();
+    expect(validarReferencia('12345')).not.toBeNull();
+    expect(validarReferencia('BIN-12')).not.toBeNull();
     expect(validarTracking('XC-0001')).toBeNull();
     expect(validarTracking('--')).not.toBeNull();
   });

@@ -133,79 +133,113 @@ describe('permisos', () => {
   });
 });
 
+type Agente = Awaited<ReturnType<typeof registrarCliente>>['agente'];
+
+async function recibir(operador: Agente, trackings: string[]) {
+  for (const texto of trackings) {
+    const respuesta = await operador.post('/api/staff/escaneo').send({ texto });
+    if (respuesta.status !== 200) throw new Error(`Escaneo falló: ${JSON.stringify(respuesta.body)}`);
+  }
+}
+
+async function consolidar(agente: Agente, paqueteIds: string[], extra: Record<string, unknown> = {}) {
+  const respuesta = await agente.post('/api/envios/consolidar').send({ paqueteIds, modalidad: 'M1', transportista: 'MRW', valorDeclaradoUsd: 60, ...extra });
+  if (respuesta.status !== 201) throw new Error(`Consolidar falló: ${JSON.stringify(respuesta.body)}`);
+  return respuesta.body.envio as { id: string; estado: string; paquetes: Array<{ id: string; tracking: string }> };
+}
+
+async function subirPago(agente: Agente, envioId: string, campos: { metodo: string; moneda: string; monto: string; referencia: string }) {
+  return agente
+    .post(`/api/envios/${envioId}/pagos`)
+    .field('metodo', campos.metodo)
+    .field('moneda', campos.moneda)
+    .field('monto', campos.monto)
+    .field('referencia', campos.referencia)
+    .attach('archivo', PNG_MINIMO, { filename: 'p.png', contentType: 'image/png' });
+}
+
+async function consolidadoCotizado(pesoKg = 4, valorDeclaradoUsd = 0) {
+  const cliente = await registrarCliente(entorno);
+  const operador = await crearPersonalYEntrar(entorno, 'OPERADOR');
+  const tracking = `PAG-${Math.floor(Math.random() * 1e8)}`;
+  const alerta = await prealertar(cliente.agente, [tracking], { valorDeclaradoUsd: 0 });
+  await recibir(operador.agente, [tracking]);
+  const consolidado = await consolidar(cliente.agente, [alerta.paquetes[0]!.id], { valorDeclaradoUsd });
+  const cotizado = await operador.agente.post(`/api/staff/envios/${consolidado.id}/cotizar`).send({ pesoKg });
+  if (cotizado.status !== 200) throw new Error(`Cotizar falló: ${JSON.stringify(cotizado.body)}`);
+  return { cliente, operador: operador.agente, envioId: consolidado.id, total: cotizado.body.envio.precio.totalCentavos as number };
+}
+
 describe('flujo completo de un envío', () => {
-  it('prealerta, escaneo, peso, pago, entrega y despacho con M1', async () => {
+  it('alerta, escaneo, bodega, consolidación, peso, pago exacto, entrega, despacho y entregado', async () => {
     const cliente = await registrarCliente(entorno);
     const { agente: operador } = await crearPersonalYEntrar(entorno, 'OPERADOR');
-    const envio = await prealertar(cliente.agente, ['XC-000111222', 'XC-000111223', 'XC-000111224']);
+    const alerta = await prealertar(cliente.agente, ['XC-000111222', 'XC-000111223', 'XC-000111224']);
 
     const escaneo = await operador.post('/api/staff/escaneo').send({ texto: ' xc000111222 ' });
     expect(escaneo.body.resultado).toBe('RECIBIDO');
     expect(escaneo.body.faltan).toBe(2);
+    expect((await operador.post('/api/staff/escaneo').send({ texto: 'XC-000111222' })).body.resultado).toBe('YA_REGISTRADO');
+    await recibir(operador, ['XC-000111223', 'XC-000111224']);
 
-    const repetido = await operador.post('/api/staff/escaneo').send({ texto: 'XC-000111222' });
-    expect(repetido.body.resultado).toBe('YA_REGISTRADO');
+    const enBodega = await operador.get(`/api/envios/${alerta.id}`);
+    expect(enBodega.body.envio.estado).toBe('RECIBIDO_COMPLETO');
+    expect(enBodega.body.envio.precio).toBeNull();
+    const conPeso = await operador.post(`/api/staff/paquetes/${alerta.paquetes[0]!.id}/peso`).send({ pesoKg: 2.4 });
+    expect(conPeso.status).toBe(200);
+    expect(conPeso.body.envio.precio).toBeNull();
 
-    await operador.post('/api/staff/escaneo').send({ texto: 'XC-000111223' });
-    const ultimo = await operador.post('/api/staff/escaneo').send({ texto: 'XC-000111224' });
-    expect(ultimo.body.faltan).toBe(0);
+    const llegada = await operador.get(`/api/staff/envios/${alerta.id}/mensaje/llegada?paqueteId=${alerta.paquetes[0]!.id}`);
+    expect(llegada.status).toBe(200);
+    expect(llegada.body.movil).toContain('https://wa.me/57');
+    expect(llegada.body.web).toContain('web.whatsapp.com/send?phone=');
+    expect(llegada.body.texto).toContain('Han llegado 3 de 3');
+    expect(llegada.body.texto).toContain('/cuenta/consolidar');
+    expect(llegada.body.texto).not.toContain('$');
+    expect((await operador.get(`/api/staff/envios/${alerta.id}/mensaje/cotizacion`)).status).toBe(400);
 
-    const parcial = await operador.get(`/api/envios/${envio.id}`);
-    expect(parcial.body.envio.estado).toBe('RECIBIDO_COMPLETO');
-    expect(parcial.body.envio.precio).toBeNull();
+    const consolidado = await consolidar(cliente.agente, alerta.paquetes.map((p) => p.id));
+    expect(consolidado.estado).toBe('POR_CONSOLIDAR');
+    expect(consolidado.paquetes).toHaveLength(3);
+    expect((await cliente.agente.get(`/api/envios/${alerta.id}`)).body.envio.estado).toBe('ARCHIVADO');
+    expect((await cliente.agente.get(`/api/envios/${consolidado.id}/pago`)).status).toBe(400);
 
-    const pesos = [2.4, 1.15, 0.8];
-    let vista: { precio: { totalCentavos: number; totalBsCentavos: number } | null; estado: string } | undefined;
-    for (const [indice, paquete] of envio.paquetes.entries()) {
-      const respuesta = await operador.post(`/api/staff/paquetes/${paquete.id}/peso`).send({ pesoKg: pesos[indice] });
-      expect(respuesta.status).toBe(200);
-      vista = respuesta.body.envio;
-    }
-    expect(vista?.precio?.totalCentavos).toBe(4433);
-    expect(vista?.precio?.totalBsCentavos).toBe(Math.round(4433 * 900));
+    const cotizado = await operador.post(`/api/staff/envios/${consolidado.id}/cotizar`).send({ pesoKg: 4.35 });
+    expect(cotizado.body.envio.estado).toBe('POR_PAGAR');
+    expect(cotizado.body.envio.precio.totalCentavos).toBe(4433);
+    expect(cotizado.body.envio.precio.totalBsCentavos).toBe(Math.round(4433 * 900));
+    const cotizacion = await operador.get(`/api/staff/envios/${consolidado.id}/mensaje/cotizacion`);
+    expect(cotizacion.body.texto).toContain('44.33 $');
+    expect(cotizacion.body.texto).toContain('Peso total del envío: 4.35 kg');
 
-    const mensaje = await operador.get(`/api/staff/envios/${envio.id}/mensaje/llegada?paqueteId=${envio.paquetes[0]!.id}`);
-    expect(mensaje.status).toBe(200);
-    expect(mensaje.body.movil).toContain('https://wa.me/57');
-    expect(mensaje.body.web).toContain('web.whatsapp.com/send?phone=');
-    expect(mensaje.body.texto).toContain('44.33 $');
-    expect(mensaje.body.texto).toContain('Han llegado 3 de 3');
-
-    const sinPagar = await operador.post(`/api/staff/envios/${envio.id}/despachar`).field('guia', 'MRW123456');
-    expect(sinPagar.status).toBe(400);
+    const sinPagar = await operador.post(`/api/staff/envios/${consolidado.id}/despachar`).field('guia', 'MRW123456');
     expect(sinPagar.body.error.codigo).toBe('DESPACHO_SIN_PAGO');
 
-    const info = await cliente.agente.get(`/api/envios/${envio.id}/pago`);
+    const info = await cliente.agente.get(`/api/envios/${consolidado.id}/pago`);
     expect(info.body.saldoCentavos).toBe(4433);
     expect(info.body.datosPago.esPrueba).toBe(true);
 
-    const sinComprobante = await cliente.agente
-      .post(`/api/envios/${envio.id}/pagos`)
-      .field('metodo', 'BINANCE')
-      .field('moneda', 'USD')
-      .field('monto', '44.33')
-      .field('referencia', 'BIN-998877');
+    const deMas = await subirPago(cliente.agente, consolidado.id, { metodo: 'BINANCE', moneda: 'USD', monto: '50', referencia: '998877' });
+    expect(deMas.status).toBe(400);
+    expect(deMas.body.error.codigo).toBe('MONTO_NO_EXACTO');
+    expect(deMas.body.error.mensaje).toContain('WhatsApp');
+    const referenciaMala = await subirPago(cliente.agente, consolidado.id, { metodo: 'BINANCE', moneda: 'USD', monto: '44.33', referencia: 'BIN-998877' });
+    expect(referenciaMala.body.error.codigo).toBe('REFERENCIA_INVALIDA');
+    const sinComprobante = await cliente.agente.post(`/api/envios/${consolidado.id}/pagos`).field('metodo', 'BINANCE').field('moneda', 'USD').field('monto', '44.33').field('referencia', '998877');
     expect(sinComprobante.status).toBe(400);
 
-    const subido = await cliente.agente
-      .post(`/api/envios/${envio.id}/pagos`)
-      .field('metodo', 'BINANCE')
-      .field('moneda', 'USD')
-      .field('monto', '44.33')
-      .field('referencia', 'BIN-998877')
-      .attach('archivo', PNG_MINIMO, { filename: 'pago.png', contentType: 'image/png' });
+    const subido = await subirPago(cliente.agente, consolidado.id, { metodo: 'BINANCE', moneda: 'USD', monto: '44.33', referencia: '998877' });
     expect(subido.status).toBe(201);
     expect(subido.body.envio.estado).toBe('POR_CONFIRMAR');
-    const pagoId = subido.body.envio.pagos[0].id as string;
+    const otraVez = await subirPago(cliente.agente, consolidado.id, { metodo: 'BINANCE', moneda: 'USD', monto: '44.33', referencia: '998877' });
+    expect(otraVez.body.error.codigo).toBe('PAGO_EN_REVISION');
 
-    const confirmado = await operador.post(`/api/staff/pagos/${pagoId}/confirmar`);
+    const confirmado = await operador.post(`/api/staff/pagos/${subido.body.envio.pagos[0].id}/confirmar`);
     expect(confirmado.body.envio.estado).toBe('PAGADO');
 
-    const sinEntrega = await operador.post(`/api/staff/envios/${envio.id}/despachar`).field('guia', 'MRW123456');
-    expect(sinEntrega.status).toBe(400);
+    const sinEntrega = await operador.post(`/api/staff/envios/${consolidado.id}/despachar`).field('guia', 'MRW123456');
     expect(sinEntrega.body.error.codigo).toBe('DESPACHO_INCOMPLETO');
-
-    const entrega = await cliente.agente.put(`/api/envios/${envio.id}/entrega`).send({
+    const entrega = await cliente.agente.put(`/api/envios/${consolidado.id}/entrega`).send({
       nombre: 'Ana Pérez',
       cedula: '12345678',
       telefono: '584141234567',
@@ -213,18 +247,14 @@ describe('flujo completo de un envío', () => {
       ciudad: 'Caracas',
       estado: 'Miranda',
     });
-    expect(entrega.status).toBe(200);
     expect(entrega.body.envio.entrega.cedula).toBe('12345678');
 
     const despacho = await operador
-      .post(`/api/staff/envios/${envio.id}/despachar`)
+      .post(`/api/staff/envios/${consolidado.id}/despachar`)
       .field('guia', 'MRW-778899')
       .attach('archivo', PNG_MINIMO, { filename: 'guia.png', contentType: 'image/png' });
-    expect(despacho.status).toBe(200);
     expect(despacho.body.envio.estado).toBe('DESPACHADO');
-    expect(despacho.body.envio.guia.tieneFoto).toBe(true);
-
-    const aviso = await operador.get(`/api/staff/envios/${envio.id}/mensaje/despacho`);
+    const aviso = await operador.get(`/api/staff/envios/${consolidado.id}/mensaje/despacho`);
     expect(aviso.body.texto).toContain('MRW-778899');
     expect(aviso.body.tieneFotoGuia).toBe(true);
 
@@ -233,164 +263,259 @@ describe('flujo completo de un envío', () => {
     const ajeno = await registrarCliente(entorno);
     expect((await ajeno.agente.get(`/api/archivos/${foto}`)).status).toBe(404);
 
-    const historial = await operador.get(`/api/staff/envios/${envio.id}/historial`);
-    expect(historial.body.eventos.length).toBeGreaterThanOrEqual(8);
+    const entregado = await operador.post(`/api/staff/envios/${consolidado.id}/cerrar`);
+    expect(entregado.body.envio.estado).toBe('CERRADO');
+
+    const historial = await operador.get(`/api/staff/envios/${consolidado.id}/historial`);
+    expect(historial.body.eventos.length).toBeGreaterThanOrEqual(6);
     expect(JSON.stringify(historial.body)).not.toContain('12345678');
   });
 
-  it('modalidad 2: menos de 2 kg, mínimo de 1 kg y nota de cobro a destino', async () => {
+  it('modalidad 2 con menos de 2 kg; el cliente cambia a modalidad 1 y paga como 2 kg', async () => {
     const cliente = await registrarCliente(entorno);
     const { agente: operador } = await crearPersonalYEntrar(entorno, 'OPERADOR');
-    const envio = await prealertar(cliente.agente, ['SHE-55501234'], { modalidad: 'M2', transportista: 'ZOOM' });
-    await operador.post('/api/staff/escaneo').send({ texto: 'SHE-55501234' });
-    const pesado = await operador.post(`/api/staff/paquetes/${envio.paquetes[0]!.id}/peso`).send({ pesoKg: 0.6 });
-    expect(pesado.body.envio.precio.totalCentavos).toBe(600 + 180);
-    expect(pesado.body.envio.modalidadSugerida).toBe('M2');
-    const mensaje = await operador.get(`/api/staff/envios/${envio.id}/mensaje/llegada`);
+    const alerta = await prealertar(cliente.agente, ['SHE-55501234']);
+    await recibir(operador, ['SHE-55501234']);
+    const consolidado = await consolidar(cliente.agente, [alerta.paquetes[0]!.id], { modalidad: 'M2', transportista: 'ZOOM' });
+    const cotizado = await operador.post(`/api/staff/envios/${consolidado.id}/cotizar`).send({ pesoKg: 0.6 });
+    expect(cotizado.body.envio.precio.totalCentavos).toBe(600 + 180);
+    expect(cotizado.body.envio.modalidadSugerida).toBe('M2');
+    const mensaje = await operador.get(`/api/staff/envios/${consolidado.id}/mensaje/cotizacion`);
     expect(mensaje.body.texto).toContain('cobro a destino');
     expect(mensaje.body.texto).toContain('Zoom');
-  });
-
-  it('el cliente pasa a modalidad 1 con menos de 2 kg y paga como 2 kg', async () => {
-    const cliente = await registrarCliente(entorno);
-    const { agente: operador } = await crearPersonalYEntrar(entorno, 'OPERADOR');
-    const envio = await prealertar(cliente.agente, ['SHE-66601234'], { modalidad: 'M2' });
-    await operador.post('/api/staff/escaneo').send({ texto: 'SHE-66601234' });
-    await operador.post(`/api/staff/paquetes/${envio.paquetes[0]!.id}/peso`).send({ pesoKg: 1 });
-    const cambio = await cliente.agente.patch(`/api/envios/${envio.id}`).send({ modalidad: 'M1' });
-    expect(cambio.status).toBe(200);
+    const cambio = await cliente.agente.patch(`/api/envios/${consolidado.id}`).send({ modalidad: 'M1' });
     expect(cambio.body.envio.precio.pesoCobrableKg).toBe(2);
     expect(cambio.body.envio.precio.totalCentavos).toBe(1900 + 300);
   });
 });
 
-describe('recepción especial', () => {
-  it('sin prealerta: se registra, se asigna a un cliente y se puede cobrar', async () => {
+describe('bodega y casos especiales', () => {
+  it('sin prealerta queda sin dueño, aparece en bodega y se asigna por número de casillero', async () => {
     const cliente = await registrarCliente(entorno);
     const { agente: operador } = await crearPersonalYEntrar(entorno, 'OPERADOR');
-    const escaneo = await operador.post('/api/staff/escaneo').send({ texto: 'JD014600099999' });
-    expect(escaneo.body.resultado).toBe('SIN_PREALERTA');
+    expect((await operador.post('/api/staff/escaneo').send({ texto: 'JD014600099999' })).body.resultado).toBe('SIN_PREALERTA');
     const creado = await operador.post('/api/staff/sin-prealerta').send({ texto: 'JD014600099999' });
     expect(creado.status).toBe(201);
+    expect(creado.body.envio.sinDueno).toBe(true);
     expect(creado.body.envio.estado).toBe('RECIBIDO_COMPLETO');
-    const clientes = await operador.get(`/api/staff/clientes?q=${encodeURIComponent('Maria')}`);
-    expect(clientes.body.clientes.length).toBeGreaterThan(0);
-    const asignado = await operador.post(`/api/staff/envios/${creado.body.envio.id}/asignar-cliente`).send({ clienteId: cliente.usuario.id });
+
+    const bodega = await operador.get('/api/staff/bodega?sinDueno=1');
+    expect(bodega.body.paquetes.map((p: { tracking: string }) => p.tracking)).toContain('JD014600099999');
+    expect((await operador.get(`/api/staff/envios/${creado.body.envio.id}/mensaje/llegada`)).body.error.codigo).toBe('SIN_DUENO');
+
+    const codigo = (await cliente.agente.get('/api/auth/yo')).body.usuario.codigo as string;
+    const encontrados = await operador.get(`/api/staff/clientes?q=${encodeURIComponent(codigo)}`);
+    expect(encontrados.body.clientes.map((c: { id: string }) => c.id)).toEqual([cliente.usuario.id]);
+    const sinDuenoBuscado = await operador.get(`/api/staff/clientes?q=${encodeURIComponent('VENV-000000')}`);
+    expect(sinDuenoBuscado.body.clientes).toHaveLength(0);
+
+    const asignado = await operador.post(`/api/staff/paquetes/${creado.body.envio.paquetes[0].id}/asignar`).send({ clienteId: cliente.usuario.id });
     expect(asignado.body.envio.cliente.id).toBe(cliente.usuario.id);
+    expect(asignado.body.envio.sinDueno).toBe(false);
+    expect((await operador.get('/api/staff/bodega?sinDueno=1')).body.paquetes).toHaveLength(0);
+    const delCliente = await cliente.agente.get('/api/envios');
+    expect(JSON.stringify(delCliente.body)).toContain('JD014600099999');
   });
 
-  it('cerrar recepción separa los paquetes que faltan en otro envío', async () => {
+  it('sin prealerta se puede asignar al cliente en el momento de recibirlo', async () => {
     const cliente = await registrarCliente(entorno);
     const { agente: operador } = await crearPersonalYEntrar(entorno, 'OPERADOR');
-    const envio = await prealertar(cliente.agente, ['AAA-11112222', 'BBB-33334444']);
-    await operador.post('/api/staff/escaneo').send({ texto: 'AAA-11112222' });
-    const cierre = await cliente.agente.post(`/api/envios/${envio.id}/cerrar-recepcion`);
-    expect(cierre.status).toBe(200);
-    expect(cierre.body.envio.paquetes).toHaveLength(1);
-    expect(cierre.body.envio.estado).toBe('RECIBIDO_COMPLETO');
-    const lista = await cliente.agente.get('/api/envios');
-    expect(lista.body.envios).toHaveLength(2);
-    const pendiente = lista.body.envios.find((e: { id: string }) => e.id !== envio.id);
-    expect(pendiente.estado).toBe('PREALERTADO');
-    expect(pendiente.paquetes[0].tracking).toBe('BBB-33334444');
+    const creado = await operador.post('/api/staff/sin-prealerta').send({ texto: 'VEN-44556677', clienteId: cliente.usuario.id });
+    expect(creado.body.envio.cliente.id).toBe(cliente.usuario.id);
+    expect(creado.body.envio.sinDueno).toBe(false);
   });
 
-  it('tracking repetido avisa y no duplica; cerrar sin paquetes recibidos falla', async () => {
+  it('el cliente reclama un paquete sin dueño con el tracking exacto; un tracking parecido no lo reclama', async () => {
+    const cliente = await registrarCliente(entorno);
+    const { agente: operador } = await crearPersonalYEntrar(entorno, 'OPERADOR');
+    await operador.post('/api/staff/sin-prealerta').send({ texto: 'JD0146000777' });
+    await operador.post('/api/staff/sin-prealerta').send({ texto: 'JD0146000888' });
+    const alerta = await prealertar(cliente.agente, ['JD0146000777', 'JD0146000889']);
+    expect(alerta.paquetes).toHaveLength(2);
+    const vista = (await cliente.agente.get(`/api/envios/${alerta.id}`)).body.envio;
+    expect(vista.estado).toBe('RECIBIDO_PARCIAL');
+    expect(vista.paquetes.find((p: { tracking: string }) => p.tracking === 'JD0146000777').recibido).toBe(true);
+    const sinDueno = await operador.get('/api/staff/bodega?sinDueno=1');
+    expect(sinDueno.body.paquetes.map((p: { tracking: string }) => p.tracking)).toEqual(['JD0146000888']);
+    const historial = await operador.get(`/api/staff/envios/${alerta.id}/historial`);
+    expect(historial.body.eventos.some((e: { tipo: string }) => e.tipo === 'RECLAMO')).toBe(true);
+  });
+
+  it('el operador cambia el dueño con motivo opcional y puede devolverlo a sin dueño', async () => {
+    const equivocado = await registrarCliente(entorno);
+    const correcto = await registrarCliente(entorno);
+    const { agente: operador } = await crearPersonalYEntrar(entorno, 'OPERADOR');
+    const alerta = await prealertar(equivocado.agente, ['CAM-12345678']);
+    await recibir(operador, ['CAM-12345678']);
+    const cambio = await operador.post(`/api/staff/paquetes/${alerta.paquetes[0]!.id}/asignar`).send({ clienteId: correcto.usuario.id, motivo: 'La etiqueta decía otro nombre' });
+    expect(cambio.status).toBe(200);
+    expect(cambio.body.envio.cliente.id).toBe(correcto.usuario.id);
+    expect((await operador.get(`/api/envios/${alerta.id}`)).body.envio.estado).toBe('ARCHIVADO');
+    const historial = await operador.get(`/api/staff/envios/${alerta.id}/historial`);
+    expect(JSON.stringify(historial.body)).toContain('La etiqueta decía otro nombre');
+    const sinMotivo = await operador.post(`/api/staff/paquetes/${alerta.paquetes[0]!.id}/asignar`).send({ clienteId: null });
+    expect(sinMotivo.body.envio.sinDueno).toBe(true);
+    expect((await equivocado.agente.get('/api/envios')).body.envios.every((e: { estado: string }) => e.estado === 'ARCHIVADO')).toBe(true);
+  });
+
+  it('descartar un paquete exige motivo y queda en el historial', async () => {
+    const cliente = await registrarCliente(entorno);
+    const { agente: operador } = await crearPersonalYEntrar(entorno, 'OPERADOR');
+    const alerta = await prealertar(cliente.agente, ['DES-11112222', 'DES-33334444']);
+    await recibir(operador, ['DES-11112222']);
+    expect((await operador.post(`/api/staff/paquetes/${alerta.paquetes[0]!.id}/descartar`).send({ motivo: '' })).status).toBe(400);
+    const descartado = await operador.post(`/api/staff/paquetes/${alerta.paquetes[0]!.id}/descartar`).send({ motivo: 'Llegó roto, el cliente pidió desecharlo' });
+    expect(descartado.status).toBe(200);
+    expect(descartado.body.envio.paquetes).toHaveLength(1);
+    expect(descartado.body.envio.estado).toBe('PREALERTADO');
+    const historial = await operador.get(`/api/staff/envios/${alerta.id}/historial`);
+    expect(JSON.stringify(historial.body)).toContain('Llegó roto');
+    expect((await cliente.agente.post(`/api/paquetes/${alerta.paquetes[1]!.id}/eliminar-alerta`)).status).toBe(200);
+    expect((await operador.post(`/api/staff/envios/${alerta.id}/cancelar`).send({ motivo: 'no' })).status).toBe(400);
+  });
+
+  it('el cliente elimina una alerta pendiente, pero no una ya recibida ni la de otro', async () => {
+    const cliente = await registrarCliente(entorno);
+    const ajeno = await registrarCliente(entorno);
+    const { agente: operador } = await crearPersonalYEntrar(entorno, 'OPERADOR');
+    const alerta = await prealertar(cliente.agente, ['ELI-11112222', 'ELI-33334444']);
+    await recibir(operador, ['ELI-11112222']);
+    expect((await cliente.agente.post(`/api/paquetes/${alerta.paquetes[0]!.id}/eliminar-alerta`)).status).toBe(400);
+    expect((await ajeno.agente.post(`/api/paquetes/${alerta.paquetes[1]!.id}/eliminar-alerta`)).status).toBe(404);
+    const eliminada = await cliente.agente.post(`/api/paquetes/${alerta.paquetes[1]!.id}/eliminar-alerta`);
+    expect(eliminada.body.envio.estado).toBe('RECIBIDO_COMPLETO');
+    expect(eliminada.body.envio.paquetes).toHaveLength(1);
+  });
+
+  it('el operador consolida, agrega el paquete que llegó de más, quita uno y vuelve a pesar', async () => {
+    const cliente = await registrarCliente(entorno);
+    const { agente: operador } = await crearPersonalYEntrar(entorno, 'OPERADOR');
+    const alerta = await prealertar(cliente.agente, ['CON-00000001', 'CON-00000002', 'CON-00000003']);
+    await recibir(operador, ['CON-00000001', 'CON-00000002', 'CON-00000003']);
+    const extra = await operador.post('/api/staff/sin-prealerta').send({ texto: 'CON-00000004', clienteId: cliente.usuario.id });
+    const extraId = extra.body.envio.paquetes[0].id as string;
+
+    const consolidado = await consolidar(cliente.agente, alerta.paquetes.map((p) => p.id));
+    const primeraCotizacion = await operador.post(`/api/staff/envios/${consolidado.id}/cotizar`).send({ pesoKg: 3 });
+    expect(primeraCotizacion.body.envio.estado).toBe('POR_PAGAR');
+
+    const agregado = await operador.post(`/api/staff/envios/${consolidado.id}/paquetes`).send({ paqueteIds: [extraId] });
+    expect(agregado.body.envio.paquetes).toHaveLength(4);
+    expect(agregado.body.envio.estado).toBe('POR_CONSOLIDAR');
+    expect(agregado.body.envio.precio).toBeNull();
+
+    const recotizado = await operador.post(`/api/staff/envios/${consolidado.id}/cotizar`).send({ pesoKg: 4 });
+    expect(recotizado.body.envio.precio.totalCentavos).toBe(3800 + 300);
+
+    const quitado = await operador.post(`/api/staff/envios/${consolidado.id}/quitar-paquete`).send({ paqueteId: extraId });
+    expect(quitado.body.envio.paquetes).toHaveLength(3);
+    expect(quitado.body.envio.estado).toBe('POR_CONSOLIDAR');
+    const bodega = await operador.get(`/api/staff/bodega?q=${encodeURIComponent('CON-00000004')}`);
+    expect(bodega.body.paquetes[0].cliente.id).toBe(cliente.usuario.id);
+
+    const porPersonal = await operador.post('/api/envios/consolidar').send({ clienteId: cliente.usuario.id, paqueteIds: [extraId], modalidad: 'M2', transportista: 'ZOOM', valorDeclaradoUsd: 10, pesoKg: 1 });
+    expect(porPersonal.status).toBe(201);
+    expect(porPersonal.body.envio.estado).toBe('POR_PAGAR');
+    expect(porPersonal.body.envio.cliente.id).toBe(cliente.usuario.id);
+  });
+
+  it('no se consolidan paquetes de otro cliente ni paquetes que aún no llegan', async () => {
+    const cliente = await registrarCliente(entorno);
+    const otro = await registrarCliente(entorno);
+    const { agente: operador } = await crearPersonalYEntrar(entorno, 'OPERADOR');
+    const propia = await prealertar(cliente.agente, ['MIO-11112222', 'MIO-33334444']);
+    const ajena = await prealertar(otro.agente, ['TUYO-1111222']);
+    await recibir(operador, ['MIO-11112222', 'TUYO-1111222']);
+    const conAjeno = await cliente.agente.post('/api/envios/consolidar').send({ paqueteIds: [ajena.paquetes[0]!.id], modalidad: 'M1', transportista: 'MRW', valorDeclaradoUsd: 1 });
+    expect(conAjeno.body.error.codigo).toBe('PAQUETE_NO_DISPONIBLE');
+    const sinLlegar = await cliente.agente.post('/api/envios/consolidar').send({ paqueteIds: [propia.paquetes[1]!.id], modalidad: 'M1', transportista: 'MRW', valorDeclaradoUsd: 1 });
+    expect(sinLlegar.body.error.codigo).toBe('PAQUETE_NO_DISPONIBLE');
+    expect((await cliente.agente.post(`/api/staff/envios/${propia.id}/cotizar`).send({ pesoKg: 1 })).status).toBe(403);
+  });
+
+  it('deshacer un consolidado devuelve los paquetes a la bodega; con un pago en revisión no se puede', async () => {
+    const { cliente, envioId, total } = await consolidadoCotizado(4);
+    const subido = await subirPago(cliente.agente, envioId, { metodo: 'BINANCE', moneda: 'USD', monto: (total / 100).toFixed(2), referencia: '123456' });
+    expect(subido.status).toBe(201);
+    expect((await cliente.agente.post(`/api/envios/${envioId}/deshacer`).send({})).body.error.codigo).toBe('ENVIO_BLOQUEADO');
+
+    const segundo = await registrarCliente(entorno);
+    const { agente: operador } = await crearPersonalYEntrar(entorno, 'OPERADOR');
+    const alerta = await prealertar(segundo.agente, ['DSH-12345678']);
+    await recibir(operador, ['DSH-12345678']);
+    const consolidado = await consolidar(segundo.agente, [alerta.paquetes[0]!.id]);
+    const deshecho = await segundo.agente.post(`/api/envios/${consolidado.id}/deshacer`).send({});
+    expect(deshecho.body.envio.estado).toBe('CANCELADO');
+    const otraVez = await consolidar(segundo.agente, [alerta.paquetes[0]!.id]);
+    expect(otraVez.estado).toBe('POR_CONSOLIDAR');
+  });
+
+  it('tracking repetido avisa y no duplica', async () => {
     const cliente = await registrarCliente(entorno);
     const envio = await prealertar(cliente.agente, ['DUP-12345678']);
-    const repetido = await cliente.agente.post('/api/envios').send({ trackings: ['dup 12345678'], tienda: 'x', valorDeclaradoUsd: 1, modalidad: 'M1', transportista: 'MRW' });
+    const repetido = await cliente.agente.post('/api/envios').send({ trackings: ['dup 12345678'], tienda: 'x', valorDeclaradoUsd: 1 });
     expect(repetido.status).toBe(409);
     expect(repetido.body.error.datos.envioId).toBe(envio.id);
-    expect((await cliente.agente.post(`/api/envios/${envio.id}/cerrar-recepcion`)).status).toBe(400);
   });
 });
 
 describe('pagos', () => {
-  async function envioListoParaPagar() {
-    const cliente = await registrarCliente(entorno);
-    const operador = await crearPersonalYEntrar(entorno, 'OPERADOR');
-    const envio = await prealertar(cliente.agente, ['PAG-12345678'], { valorDeclaradoUsd: 0 });
-    await operador.agente.post('/api/staff/escaneo').send({ texto: 'PAG-12345678' });
-    await operador.agente.post(`/api/staff/paquetes/${envio.paquetes[0]!.id}/peso`).send({ pesoKg: 4 });
-    return { cliente, operador: operador.agente, envioId: envio.id };
-  }
-
   it('error: método y moneda deben coincidir (Binance en dólares, pago móvil en bolívares)', async () => {
-    const { cliente, envioId } = await envioListoParaPagar();
-    const intento = (metodo: string, moneda: string) =>
-      cliente.agente
-        .post(`/api/envios/${envioId}/pagos`)
-        .field('metodo', metodo)
-        .field('moneda', moneda)
-        .field('monto', '10')
-        .field('referencia', 'REF-0099')
-        .attach('archivo', PNG_MINIMO, { filename: 'p.png', contentType: 'image/png' });
-    expect((await intento('BINANCE', 'BS')).status).toBe(400);
-    expect((await intento('PAGO_MOVIL', 'USD')).status).toBe(400);
-    expect((await intento('TRANSFERENCIA', 'USD')).status).toBe(400);
+    const { cliente, envioId } = await consolidadoCotizado();
+    for (const [metodo, moneda] of [['BINANCE', 'BS'], ['PAGO_MOVIL', 'USD'], ['TRANSFERENCIA', 'USD']] as const) {
+      const respuesta = await subirPago(cliente.agente, envioId, { metodo, moneda, monto: '38', referencia: '000099' });
+      expect(respuesta.body.error.codigo).toBe('METODO_MONEDA');
+    }
   });
 
-  it('pago parcial deja saldo y no libera el envío; el segundo pago lo completa', async () => {
-    const { cliente, operador, envioId } = await envioListoParaPagar();
-    const subir = (monto: string, referencia: string) =>
-      cliente.agente
-        .post(`/api/envios/${envioId}/pagos`)
-        .field('metodo', 'BINANCE')
-        .field('moneda', 'USD')
-        .field('monto', monto)
-        .field('referencia', referencia)
-        .attach('archivo', PNG_MINIMO, { filename: 'p.png', contentType: 'image/png' });
-
-    const primero = await subir('20', 'REF-0001');
-    const confirmado1 = await operador.post(`/api/staff/pagos/${primero.body.envio.pagos[0].id}/confirmar`);
-    expect(confirmado1.body.envio.estado).toBe('RECIBIDO_COMPLETO');
-    expect(confirmado1.body.envio.pagadoCentavos).toBe(2000);
-
-    const segundo = await subir('18', 'REF-0002');
-    const pagoNuevo = segundo.body.envio.pagos.find((p: { estado: string }) => p.estado === 'POR_CONFIRMAR');
-    const confirmado2 = await operador.post(`/api/staff/pagos/${pagoNuevo.id}/confirmar`);
-    expect(confirmado2.body.envio.estado).toBe('PAGADO');
+  it('pago exacto en bolívares a la tasa del día; un monto distinto se rechaza', async () => {
+    const { cliente, envioId } = await consolidadoCotizado();
+    const distinto = await subirPago(cliente.agente, envioId, { metodo: 'PAGO_MOVIL', moneda: 'BS', monto: '34000', referencia: '778899' });
+    expect(distinto.body.error.codigo).toBe('MONTO_NO_EXACTO');
+    const exacto = await subirPago(cliente.agente, envioId, { metodo: 'PAGO_MOVIL', moneda: 'BS', monto: '34200', referencia: '778899' });
+    expect(exacto.status).toBe(201);
+    expect(exacto.body.envio.pagos[0].montoUsdCentavos).toBe(3800);
   });
 
-  it('pago en bolívares usa la tasa del día', async () => {
-    const { cliente, envioId } = await envioListoParaPagar();
-    const respuesta = await cliente.agente
-      .post(`/api/envios/${envioId}/pagos`)
-      .field('metodo', 'PAGO_MOVIL')
-      .field('moneda', 'BS')
-      .field('monto', '34200')
-      .field('referencia', 'BS-778899')
-      .attach('archivo', PNG_MINIMO, { filename: 'p.png', contentType: 'image/png' });
-    expect(respuesta.body.envio.pagos[0].montoUsdCentavos).toBe(3800);
-  });
-
-  it('rechazar devuelve el envío a cobro y deja el motivo para el aviso', async () => {
-    const { cliente, operador, envioId } = await envioListoParaPagar();
-    const subido = await cliente.agente
-      .post(`/api/envios/${envioId}/pagos`)
-      .field('metodo', 'BINANCE')
-      .field('moneda', 'USD')
-      .field('monto', '38')
-      .field('referencia', 'BIN-123456')
-      .attach('archivo', PNG_MINIMO, { filename: 'p.png', contentType: 'image/png' });
+  it('rechazar devuelve el envío a «listo para pagar» y deja el motivo para el aviso', async () => {
+    const { cliente, operador, envioId } = await consolidadoCotizado();
+    const subido = await subirPago(cliente.agente, envioId, { metodo: 'BINANCE', moneda: 'USD', monto: '38', referencia: '123456' });
     const rechazo = await operador.post(`/api/staff/pagos/${subido.body.envio.pagos[0].id}/rechazar`).send({ motivo: 'No aparece el depósito' });
-    expect(rechazo.body.envio.estado).toBe('RECIBIDO_COMPLETO');
+    expect(rechazo.body.envio.estado).toBe('POR_PAGAR');
     const aviso = await operador.get(`/api/staff/envios/${envioId}/mensaje/pagoRechazado?motivo=${encodeURIComponent('No aparece el depósito')}`);
     expect(aviso.body.texto).toContain('No aparece el depósito');
   });
 
-  it('pago manual del personal confirma de inmediato', async () => {
-    const { operador, envioId } = await envioListoParaPagar();
+  it('el personal registra un abono en oficina y el cliente paga el resto exacto', async () => {
+    const { cliente, operador, envioId } = await consolidadoCotizado();
+    expect((await operador.post(`/api/staff/envios/${envioId}/pago-manual`).send({ metodo: 'MANUAL', moneda: 'USD', monto: 50 })).body.error.codigo).toBe('MONTO_EXCEDIDO');
+    const abono = await operador.post(`/api/staff/envios/${envioId}/pago-manual`).send({ metodo: 'MANUAL', moneda: 'USD', monto: 20, referencia: 'efectivo' });
+    expect(abono.body.envio.estado).toBe('POR_PAGAR');
+    expect(abono.body.envio.pagadoCentavos).toBe(2000);
+    const resto = await subirPago(cliente.agente, envioId, { metodo: 'BINANCE', moneda: 'USD', monto: '18', referencia: '654321' });
+    expect(resto.status).toBe(201);
+    const pendiente = resto.body.envio.pagos.find((p: { estado: string }) => p.estado === 'POR_CONFIRMAR');
+    expect((await operador.post(`/api/staff/pagos/${pendiente.id}/confirmar`)).body.envio.estado).toBe('PAGADO');
+  });
+
+  it('pago manual por el total confirma de inmediato', async () => {
+    const { operador, envioId } = await consolidadoCotizado();
     const respuesta = await operador.post(`/api/staff/envios/${envioId}/pago-manual`).send({ metodo: 'MANUAL', moneda: 'USD', monto: 38, referencia: 'efectivo' });
     expect(respuesta.status).toBe(201);
     expect(respuesta.body.envio.estado).toBe('PAGADO');
   });
 
   it('errores: monto cero, imagen inválida y envío sin total', async () => {
-    const { cliente, envioId } = await envioListoParaPagar();
-    const base = () => cliente.agente.post(`/api/envios/${envioId}/pagos`).field('metodo', 'BINANCE').field('moneda', 'USD').field('referencia', 'BIN-000111');
-    expect((await base().field('monto', '0').attach('archivo', PNG_MINIMO, { filename: 'p.png', contentType: 'image/png' })).status).toBe(400);
-    expect((await base().field('monto', '38').attach('archivo', Buffer.from('no soy imagen'), { filename: 'p.txt', contentType: 'text/plain' })).status).toBe(400);
+    const { cliente, envioId } = await consolidadoCotizado();
+    expect((await subirPago(cliente.agente, envioId, { metodo: 'BINANCE', moneda: 'USD', monto: '0', referencia: '000111' })).status).toBe(400);
+    const imagenMala = await cliente.agente
+      .post(`/api/envios/${envioId}/pagos`)
+      .field('metodo', 'BINANCE')
+      .field('moneda', 'USD')
+      .field('monto', '38')
+      .field('referencia', '000111')
+      .attach('archivo', Buffer.from('no soy imagen'), { filename: 'p.txt', contentType: 'text/plain' });
+    expect(imagenMala.status).toBe(400);
     const otro = await prealertar(cliente.agente, ['SIN-12345678']);
     expect((await cliente.agente.get(`/api/envios/${otro.id}/pago`)).status).toBe(400);
   });
@@ -398,19 +523,14 @@ describe('pagos', () => {
 
 describe('administración', () => {
   it('el admin corrige el precio con motivo y queda registrado; sin motivo falla', async () => {
-    const cliente = await registrarCliente(entorno);
-    const operador = await crearPersonalYEntrar(entorno, 'OPERADOR');
+    const { envioId } = await consolidadoCotizado(3);
     const admin = await crearPersonalYEntrar(entorno, 'ADMIN');
-    const envio = await prealertar(cliente.agente, ['ADM-12345678']);
-    await operador.agente.post('/api/staff/escaneo').send({ texto: 'ADM-12345678' });
-    await operador.agente.post(`/api/staff/paquetes/${envio.paquetes[0]!.id}/peso`).send({ pesoKg: 3 });
-
-    const sinMotivo = await admin.agente.post(`/api/admin/envios/${envio.id}/ajuste`).send({ totalUsd: 20, motivo: 'x' });
+    const sinMotivo = await admin.agente.post(`/api/admin/envios/${envioId}/ajuste`).send({ totalUsd: 20, motivo: 'x' });
     expect(sinMotivo.status).toBe(400);
-    const ajuste = await admin.agente.post(`/api/admin/envios/${envio.id}/ajuste`).send({ totalUsd: 20, motivo: 'Descuento por cliente frecuente' });
+    const ajuste = await admin.agente.post(`/api/admin/envios/${envioId}/ajuste`).send({ totalUsd: 20, motivo: 'Descuento por cliente frecuente' });
     expect(ajuste.status).toBe(200);
     expect(ajuste.body.envio.precio.totalCentavos).toBe(2000);
-    const historial = await admin.agente.get(`/api/staff/envios/${envio.id}/historial`);
+    const historial = await admin.agente.get(`/api/staff/envios/${envioId}/historial`);
     const registro = historial.body.eventos.find((e: { tipo: string }) => e.tipo === 'AJUSTE');
     expect(registro.detalle).toContain('Descuento');
   });

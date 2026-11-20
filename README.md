@@ -23,7 +23,7 @@ npm run dev
 
 | Comando | Qué hace |
 | --- | --- |
-| `npm test` | Pruebas del backend (71) y del frontend (41) |
+| `npm test` | Pruebas del backend (82) y del frontend (43) |
 | `npm run e2e` | Flujo completo en Chrome real (registro, prealerta, escaneo, pago, entrega, despacho) |
 | `npm run typecheck` | Revisa los tipos de TypeScript |
 | `npm run build` | Compila para producción |
@@ -41,11 +41,11 @@ Las claves nunca van en el código ni en Git.
 
 ## Pruebas manuales sugeridas (en este orden)
 
-1. Abre la página en el teléfono y en la PC: sin barras horizontales, menú usable.
-2. Crea una cuenta de cliente (correo, teléfono con país, contraseña con mayúscula y carácter especial). Revisa el menú Inicio, Pedidos, Alertas y Finanzas. En Alertas crea una alerta con 2 trackings, valor 60 $, modalidad «todo incluido».
-3. Entra como operador en otro navegador. En Escanear apunta la cámara a una etiqueta real de Shein/X-Cargo (o escribe el tracking). Verifica que reconoce al cliente.
-4. Pesa 2,40 y 1,95 kg. El total debe ser 44,33 $.
-5. Pulsa «Avisar por WhatsApp»: en el teléfono abre la app, en la PC abre WhatsApp Web con el mensaje.
-6. Como cliente, sube un comprobante. Como operador, confírmalo en Pagos.
-7. Como cliente, llena los datos de entrega. Como operador, despacha con una guía y una foto. Prueba «Enviar guía por WhatsApp».
-8. Instala la página en el teléfono («Agregar a pantalla de inicio»).
+1. Crea una cuenta de cliente y anota su casillero `VENV-…`. En Alertas crea una alerta con 2 trackings y valor 60 $.
+2. Como operador, en Escanear recibe los 2 trackings (el peso es opcional). Escanea un tercero que nadie alertó: búscalo por el casillero y guárdalo para ese cliente. Escanea un cuarto y déjalo sin dueño.
+3. En Bodega verifica los 4 paquetes, el filtro «Sin dueño» y la antigüedad. Asigna el sin dueño a otro cliente y luego cámbialo de dueño con un motivo.
+4. Como cliente, en Consolidar elige los 3 paquetes, modalidad y transportista. Debe quedar «Por consolidar».
+5. Como operador, abre el envío, escribe el peso total 4,35 y pulsa Calcular total: con 60 $ declarados da 44,33 $. Pulsa «Enviar total por WhatsApp».
+6. Como cliente, en Finanzas paga: el monto viene fijo; la referencia pide 6 dígitos. Intenta un segundo comprobante: debe decir que hay uno en revisión.
+7. Confirma el pago, llena los datos de entrega, despacha con guía y foto, y marca «Entregado».
+8. Extras: el cliente elimina una alerta pendiente; el operador descarta un paquete con motivo; el cliente deshace un consolidado sin pagos y sus paquetes vuelven a bodega; registra una alerta con el tracking exacto de un paquete sin dueño y verifica que se une solo.

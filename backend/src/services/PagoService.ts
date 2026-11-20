@@ -1,5 +1,6 @@
 import { dolaresABolivaresCentavos } from '../domain/dinero';
-import { validarTransicion } from '../domain/estados';
+import { ESTADOS_COBRABLES, validarTransicion } from '../domain/estados';
+import { esMontoExacto, validarReferenciaPago } from '../domain/pagos';
 import { limpiarTexto } from '../domain/validaciones';
 import type { Envio, MetodoPago, MonedaPago, Pago, Repositorios } from '../repositories/tipos';
 import { AppError } from '../utils/errors';
@@ -64,7 +65,7 @@ export class PagoService {
 
   private validarEnvioCobrable(envio: Envio): void {
     if (envio.totalCentavos === null) throw AppError.badRequest('Aún no se calcula el total de este envío.', 'SIN_TOTAL');
-    if (!['RECIBIDO_COMPLETO', 'POR_CONFIRMAR'].includes(envio.estado)) {
+    if (!ESTADOS_COBRABLES.includes(envio.estado)) {
       throw AppError.badRequest('Este envío todavía no está listo para pagar o ya fue pagado.', 'ENVIO_NO_COBRABLE');
     }
   }
@@ -76,10 +77,24 @@ export class PagoService {
     if (monedaDelMetodo(datos.metodo) !== datos.moneda) {
       throw AppError.badRequest('Ese método de pago no admite esa moneda: Binance es en dólares; pago móvil y transferencia, en bolívares.', 'METODO_MONEDA');
     }
-    const referencia = limpiarTexto(datos.referencia, 40);
-    if (referencia.length < 4) throw AppError.badRequest('Escribe el número de referencia del pago.');
+    const referencia = validarReferenciaPago(datos.referencia);
     const comprobante = validarImagen(datos.archivo);
-    const { usd, original, tasa } = await this.convertirAUsd(datos.moneda, datos.monto);
+    const previos = await this.repos.pagos.deEnvio(envioId);
+    if (previos.some((p) => p.estado === 'POR_CONFIRMAR')) {
+      throw AppError.badRequest('Ya tienes un comprobante en revisión. Espera la verificación o escríbenos por WhatsApp.', 'PAGO_EN_REVISION');
+    }
+    const confirmado = previos.filter((p) => p.estado === 'CONFIRMADO').reduce((s, p) => s + p.montoUsdCentavos, 0);
+    const saldo = Math.max((envio.totalCentavos ?? 0) - confirmado, 0);
+    const tasaVigente = await this.tasas.vigente();
+    const saldoBs = dolaresABolivaresCentavos(saldo, tasaVigente.bolivaresPorUsd);
+    const original = Math.round(Number(datos.monto) * 100);
+    if (!esMontoExacto(datos.moneda, original, saldo, saldoBs)) {
+      const exacto = datos.moneda === 'USD' ? `${(saldo / 100).toFixed(2)} $` : `${(saldoBs / 100).toFixed(2)} Bs`;
+      logger.warn('Comprobante con monto distinto al saldo', { envio: envioId, moneda: datos.moneda });
+      throw AppError.badRequest(`El pago debe ser exacto: ${exacto}. Si pagaste otro monto, escribe a administración por WhatsApp.`, 'MONTO_NO_EXACTO');
+    }
+    const usd = saldo;
+    const tasa = datos.moneda === 'BS' ? tasaVigente.bolivaresPorUsd : null;
 
     const ruta = rutaArchivo('comprobantes', envioId, comprobante.mime);
     await this.almacenamiento.subir(ruta, comprobante);
@@ -97,7 +112,7 @@ export class PagoService {
       registradoPorId: actor.id,
       confirmadoPorId: null,
     });
-    if (envio.estado === 'RECIBIDO_COMPLETO') {
+    if (envio.estado === 'POR_PAGAR') {
       validarTransicion(envio.estado, 'POR_CONFIRMAR');
       await this.repos.envios.actualizar(envioId, { estado: 'POR_CONFIRMAR' });
     }
@@ -112,6 +127,11 @@ export class PagoService {
     this.validarEnvioCobrable(envio);
     if (!METODOS.includes(datos.metodo)) throw AppError.badRequest('Método de pago inválido.');
     const { usd, original, tasa } = await this.convertirAUsd(datos.moneda, datos.monto);
+    const previos = await this.repos.pagos.deEnvio(envioId);
+    const confirmado = previos.filter((p) => p.estado === 'CONFIRMADO').reduce((s, p) => s + p.montoUsdCentavos, 0);
+    if (usd > (envio.totalCentavos ?? 0) - confirmado + TOLERANCIA_CENTAVOS) {
+      throw AppError.badRequest('El monto supera lo que falta por pagar. Revisa el monto o habla con administración.', 'MONTO_EXCEDIDO');
+    }
     const pago = await this.repos.pagos.crear({
       envioId,
       montoUsdCentavos: usd,
@@ -126,7 +146,7 @@ export class PagoService {
       registradoPorId: actor.id,
       confirmadoPorId: null,
     });
-    if (envio.estado === 'RECIBIDO_COMPLETO') {
+    if (envio.estado === 'POR_PAGAR') {
       await this.repos.envios.actualizar(envioId, { estado: 'POR_CONFIRMAR' });
     }
     return this.confirmar(actor, pago.id);
@@ -158,7 +178,7 @@ export class PagoService {
     } else if (!cubierto) {
       const quedanPendientes = pagos.some((p) => p.estado === 'POR_CONFIRMAR' && p.id !== pagoId);
       if (envio.estado === 'POR_CONFIRMAR' && !quedanPendientes) {
-        await this.repos.envios.actualizar(envio.id, { estado: 'RECIBIDO_COMPLETO' });
+        await this.repos.envios.actualizar(envio.id, { estado: 'POR_PAGAR' });
       }
       await this.repos.envios.agregarEvento({
         envioId: envio.id,
@@ -185,7 +205,7 @@ export class PagoService {
     const pagos = await this.repos.pagos.deEnvio(envio.id);
     const quedanPendientes = pagos.some((p) => p.estado === 'POR_CONFIRMAR');
     if (envio.estado === 'POR_CONFIRMAR' && !quedanPendientes) {
-      await this.repos.envios.actualizar(envio.id, { estado: 'RECIBIDO_COMPLETO' });
+      await this.repos.envios.actualizar(envio.id, { estado: 'POR_PAGAR' });
     }
     await this.repos.envios.agregarEvento({ envioId: envio.id, actorId: actor.id, tipo: 'PAGO_RECHAZADO', detalle: limpio, datos: null });
     logger.info('Pago rechazado', { envio: envio.id });

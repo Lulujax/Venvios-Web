@@ -10,15 +10,15 @@ import { PagoCliente } from '../components/envio/PagoCliente';
 import { ListaPagos, PagosPersonal } from '../components/envio/PagosPersonal';
 import { PaquetesCliente, PaquetesPersonal } from '../components/envio/PaquetesLista';
 import { PrecioCaja } from '../components/envio/PrecioCaja';
+import { AgregarDeBodega, CotizarConsolidado } from '../components/envio/Consolidado';
 import { Alerta, Campo, Cargando, ErrorCarga, ImagenPrivada, InsigniaEstado, Seccion, useAviso } from '../components/ui';
 import { api, mensajeDeError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { DESCRIPCION_MODALIDAD, NOMBRE_MODALIDAD, aNumero, formatearUsd, nombreTransportista } from '../lib/formato';
-import type { Envio, Modalidad, Usuario } from '../lib/tipos';
+import type { Envio, Modalidad } from '../lib/tipos';
 import { useCarga } from '../lib/useCarga';
 import { enlaceRastreo } from '../lib/whatsapp';
 
-const ESTADOS_EDITABLES = ['PREALERTADO', 'RECIBIDO_PARCIAL', 'RECIBIDO_COMPLETO'];
 
 function SelectorModalidad({ envio, alCambiar }: { envio: Envio; alCambiar: (envio: Envio) => void }) {
   const avisar = useAviso();
@@ -58,49 +58,6 @@ function SelectorModalidad({ envio, alCambiar }: { envio: Envio; alCambiar: (env
   );
 }
 
-function BuscarClienteAsignar({ envio, alCambiar }: { envio: Envio; alCambiar: (envio: Envio) => void }) {
-  const avisar = useAviso();
-  const [consulta, setConsulta] = useState('');
-  const [resultados, setResultados] = useState<Usuario[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  async function buscar(texto: string) {
-    setConsulta(texto);
-    if (texto.trim().length < 3) return setResultados([]);
-    try {
-      setResultados((await api.get<{ clientes: Usuario[] }>(`/staff/clientes?q=${encodeURIComponent(texto)}`)).clientes);
-    } catch (falla) {
-      setError(mensajeDeError(falla));
-    }
-  }
-
-  async function asignar(cliente: Usuario) {
-    try {
-      const r = await api.post<{ envio: Envio }>(`/staff/envios/${envio.id}/asignar-cliente`, { clienteId: cliente.id });
-      alCambiar(r.envio);
-      avisar(`Asignado a ${cliente.nombre}.`);
-    } catch (falla) {
-      setError(mensajeDeError(falla));
-    }
-  }
-
-  return (
-    <div className="space-y-3">
-      <Alerta tono="aviso">Este paquete llegó sin prealerta. Busca al cliente por nombre, teléfono o cédula para asignárselo.</Alerta>
-      <Campo etiqueta="Buscar cliente" value={consulta} onChange={(e) => void buscar(e.target.value)} />
-      {error && <Alerta tono="error">{error}</Alerta>}
-      <ul className="space-y-2">
-        {resultados.map((cliente) => (
-          <li key={cliente.id} className="flex items-center justify-between gap-3 rounded-2xl border border-linea px-4 py-3 text-sm">
-            <span><b>{cliente.nombre}</b> · {cliente.cedulaEnmascarada}</span>
-            <button type="button" className="btn btn-primario btn-chico" onClick={() => void asignar(cliente)}>Asignar</button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 function EditarDatosPersonal({ envio, alCambiar }: { envio: Envio; alCambiar: (envio: Envio) => void }) {
   const avisar = useAviso();
   const [valor, setValor] = useState((envio.valorDeclaradoCentavos / 100).toFixed(2));
@@ -136,95 +93,160 @@ function EditarDatosPersonal({ envio, alCambiar }: { envio: Envio; alCambiar: (e
   );
 }
 
+const ESTADOS_ALERTA_ACTIVOS = ['PREALERTADO', 'RECIBIDO_PARCIAL', 'RECIBIDO_COMPLETO'];
+const ESTADOS_CONSOLIDADO_ABIERTOS = ['POR_CONSOLIDAR', 'POR_PAGAR'];
+const ESTADOS_CERRADOS = ['DESPACHADO', 'CERRADO', 'CANCELADO', 'ARCHIVADO'];
+
+function tituloDe(envio: Envio): string {
+  if (envio.tipo === 'CONSOLIDADO') return 'Envío consolidado';
+  if (envio.tienda === 'Sin prealerta') return 'Paquete sin prealerta';
+  if (envio.tienda === 'Devuelto a bodega') return 'Paquete en bodega';
+  return `Alerta de ${envio.tienda}`;
+}
+
+function DescartarEnvio({ envio, alCambiar }: { envio: Envio; alCambiar: (envio: Envio) => void }) {
+  const avisar = useAviso();
+  const [abierto, setAbierto] = useState(false);
+  const [motivo, setMotivo] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const esConsolidado = envio.tipo === 'CONSOLIDADO';
+
+  async function confirmar() {
+    if (motivo.trim().length < 3) return setError('Escribe el motivo (mínimo 3 letras).');
+    setError(null);
+    try {
+      const r = await api.post<{ envio: Envio }>(`/staff/envios/${envio.id}/cancelar`, { motivo: motivo.trim() });
+      alCambiar(r.envio);
+      setAbierto(false);
+      avisar(esConsolidado ? 'Consolidado deshecho: los paquetes volvieron a la bodega.' : 'Alerta descartada.');
+    } catch (falla) {
+      setError(mensajeDeError(falla));
+    }
+  }
+
+  if (!abierto) {
+    return <button type="button" className="btn btn-fantasma text-rojo-700" onClick={() => setAbierto(true)}>{esConsolidado ? 'Deshacer este consolidado…' : 'Descartar esta alerta completa…'}</button>;
+  }
+  return (
+    <div className="space-y-3 rounded-2xl border border-rojo/30 bg-rojo-100/50 p-4">
+      <p className="text-sm font-semibold text-rojo-700">{esConsolidado ? 'Los paquetes vuelven a la bodega del cliente.' : 'Se descartan todos los paquetes de esta alerta.'}</p>
+      <Campo etiqueta="Motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} error={error} />
+      <div className="flex gap-2">
+        <button type="button" className="btn btn-peligro btn-chico" onClick={() => void confirmar()}>{esConsolidado ? 'Deshacer' : 'Descartar'}</button>
+        <button type="button" className="btn btn-suave btn-chico" onClick={() => setAbierto(false)}>Volver</button>
+      </div>
+    </div>
+  );
+}
+
+function DeshacerCliente({ envio, alCambiar }: { envio: Envio; alCambiar: (envio: Envio) => void }) {
+  const avisar = useAviso();
+  const [error, setError] = useState<string | null>(null);
+
+  async function deshacer() {
+    if (!window.confirm('¿Deshacer este envío? Tus paquetes vuelven a la bodega y puedes armarlo de nuevo.')) return;
+    setError(null);
+    try {
+      const r = await api.post<{ envio: Envio }>(`/envios/${envio.id}/deshacer`, {});
+      alCambiar(r.envio);
+      avisar('Listo: tus paquetes volvieron a la bodega.');
+    } catch (falla) {
+      setError(mensajeDeError(falla));
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <button type="button" className="btn btn-fantasma text-rojo-700" onClick={() => void deshacer()}>Deshacer este envío</button>
+      {error && <Alerta tono="error">{error}</Alerta>}
+    </div>
+  );
+}
+
 export default function DetalleEnvio({ personal }: { personal: boolean }) {
   const { id } = useParams();
   const { usuario } = useAuth();
-  const avisar = useAviso();
   const { datos, setDatos, cargando, error, recargar } = useCarga(() => api.get<{ envio: Envio }>(`/envios/${id}`).then((r) => r.envio), [id]);
-  const [errorAccion, setErrorAccion] = useState<string | null>(null);
-  const [cancelando, setCancelando] = useState(false);
-  const [motivoCancelar, setMotivoCancelar] = useState('');
-
-  const volver = personal ? '/panel/envios' : '/cuenta/pedidos';
 
   if (cargando && !datos) return <div className="contenedor py-8"><Cargando /></div>;
   if (error || !datos) return <div className="contenedor py-8"><ErrorCarga mensaje={error ?? 'No encontramos ese envío.'} reintentar={() => void recargar()} /></div>;
 
   const envio = datos;
   const alCambiar = (nuevo: Envio) => setDatos(nuevo);
-  const editable = ESTADOS_EDITABLES.includes(envio.estado);
-  const puedePagar = envio.precio !== null && ['RECIBIDO_COMPLETO', 'POR_CONFIRMAR'].includes(envio.estado);
-  const mostrarEntrega = ['POR_CONFIRMAR', 'PAGADO', 'DESPACHADO', 'CERRADO'].includes(envio.estado);
-  const puedeCerrarRecepcion = ['RECIBIDO_PARCIAL', 'RECIBIDO_COMPLETO'].includes(envio.estado) && envio.faltan > 0 && envio.paquetes.some((p) => p.recibido);
-  const sinAsignar = personal && envio.tienda === 'Sin prealerta' && envio.cliente.nombre === 'Sin asignar';
+  const esAlerta = envio.tipo === 'ALERTA';
+  const alertaActiva = esAlerta && ESTADOS_ALERTA_ACTIVOS.includes(envio.estado);
+  const consolidadoAbierto = !esAlerta && ESTADOS_CONSOLIDADO_ABIERTOS.includes(envio.estado);
+  const sinPagosVivos = envio.pagos.every((p) => p.estado === 'RECHAZADO');
+  const puedePagar = !esAlerta && envio.precio !== null && ['POR_PAGAR', 'POR_CONFIRMAR'].includes(envio.estado);
+  const mostrarEntrega = !esAlerta && envio.estado !== 'CANCELADO';
+  const hayEnBodega = alertaActiva && envio.paquetes.some((p) => p.recibido);
   const transportista = nombreTransportista(envio.transportista);
-
-  async function cerrarRecepcion() {
-    setErrorAccion(null);
-    try {
-      const r = await api.post<{ envio: Envio }>(`/envios/${envio.id}/cerrar-recepcion`);
-      alCambiar(r.envio);
-      avisar('Listo: este envío quedó con los paquetes que ya llegaron. Los demás pasaron a un envío nuevo.');
-    } catch (falla) {
-      setErrorAccion(mensajeDeError(falla));
-    }
-  }
-
-  async function cancelar() {
-    setErrorAccion(null);
-    try {
-      const r = await api.post<{ envio: Envio }>(`/staff/envios/${envio.id}/cancelar`, { motivo: motivoCancelar });
-      alCambiar(r.envio);
-      setCancelando(false);
-      avisar('Envío cancelado.');
-    } catch (falla) {
-      setErrorAccion(mensajeDeError(falla));
-    }
-  }
+  const volver = personal ? (esAlerta ? '/panel/bodega' : '/panel/envios') : esAlerta ? '/cuenta/alertas' : '/cuenta/pedidos';
 
   return (
     <div className="contenedor py-6 sm:py-8">
       <Link to={volver} className="mb-4 inline-flex items-center gap-2 text-sm font-bold text-marino"><FiArrowLeft aria-hidden /> Volver</Link>
 
       <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-3xl">{envio.tienda === 'Sin prealerta' ? 'Paquete sin prealerta' : `Envío de ${envio.tienda}`}</h1>
-          <p className="mt-1 text-sm text-suave">{envio.paquetes.length} paquete(s) · {transportista}{personal ? ` · ${envio.cliente.nombre}` : ''}</p>
+        <div className="min-w-0">
+          <h1 className="text-3xl">{tituloDe(envio)}</h1>
+          <p className="mt-1 text-sm text-suave">
+            {envio.paquetes.length} paquete(s)
+            {!esAlerta && ` · ${transportista}`}
+            {!esAlerta && envio.tienda !== 'Envío consolidado' && ` · ${envio.tienda}`}
+            {personal && !envio.sinDueno && ` · ${envio.cliente.nombre}`}
+          </p>
         </div>
-        <InsigniaEstado estado={envio.estado} />
+        <div className="flex flex-wrap gap-2">
+          {envio.sinDueno && <span className="insignia bg-rojo-100 text-rojo-700">Sin dueño</span>}
+          <InsigniaEstado estado={envio.estado} />
+        </div>
       </header>
 
-      <div className="mb-6 rounded-tarjeta border border-linea bg-white p-4"><LineaEstado estado={envio.estado} /></div>
-
-      {errorAccion && <Alerta tono="error" className="mb-4">{errorAccion}</Alerta>}
+      {!esAlerta && <div className="mb-6 rounded-tarjeta border border-linea bg-white p-4"><LineaEstado estado={envio.estado} /></div>}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6">
-          {personal && (
+          {personal && !envio.sinDueno && (
             <Seccion titulo="Cliente">
               <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
                 <div>
                   <p className="text-lg font-bold">{envio.cliente.nombre}</p>
-                  <p className="text-suave">Cédula {envio.cliente.cedulaEnmascarada}</p>
+                  <p className="text-suave"><span className="codigo">{envio.cliente.codigo}</span> · Cédula {envio.cliente.cedulaEnmascarada}</p>
                 </div>
                 <a href={`tel:+${envio.cliente.telefono}`} className="btn btn-suave btn-chico"><FiPhone aria-hidden /> +{envio.cliente.telefono}</a>
               </div>
-              {sinAsignar && <div className="mt-4"><BuscarClienteAsignar envio={envio} alCambiar={alCambiar} /></div>}
             </Seccion>
           )}
+          {personal && envio.sinDueno && <Alerta tono="aviso">Este paquete está en bodega sin dueño. Asígnalo cuando sepas de quién es, o espera a que el cliente lo reclame con su alerta.</Alerta>}
 
-          <Seccion titulo="Paquetes" derecha={envio.faltan > 0 ? <span className="insignia bg-oro-100 text-marino-900">Faltan {envio.faltan}</span> : <span className="insignia bg-verde-100 text-verde">Todos llegaron</span>}>
+          <Seccion
+            titulo="Paquetes"
+            derecha={esAlerta && envio.faltan > 0 ? <span className="insignia bg-oro-100 text-marino-900">Faltan {envio.faltan}</span> : esAlerta ? <span className="insignia bg-verde-100 text-verde">Todos llegaron</span> : undefined}
+          >
             {personal ? <PaquetesPersonal envio={envio} alCambiar={alCambiar} /> : <PaquetesCliente paquetes={envio.paquetes} />}
-            {puedeCerrarRecepcion && (
+            {!personal && hayEnBodega && (
               <div className="mt-4 rounded-2xl bg-oro-50 p-4">
-                <p className="text-sm font-semibold text-marino-900">¿No quieres esperar los {envio.faltan} paquete(s) que faltan?</p>
-                <p className="text-sm text-suave">Cierra este envío con lo que ya llegó y págalo ya. Los que faltan pasan a un envío nuevo.</p>
-                <button type="button" className="btn btn-acento btn-chico mt-3" onClick={() => void cerrarRecepcion()}>Pagar con lo que ya llegó</button>
+                <p className="text-sm font-semibold text-marino-900">Tienes paquetes en bodega.</p>
+                <p className="text-sm text-suave">Elige cuáles se envían juntos para que los pesemos y te demos el total.</p>
+                <Link to="/cuenta/consolidar" className="btn btn-acento btn-chico mt-3">Consolidar envío</Link>
               </div>
             )}
           </Seccion>
 
-          {editable && (
+          {personal && consolidadoAbierto && (
+            <Seccion titulo="Peso y total">
+              <CotizarConsolidado key={`${envio.id}-${envio.paquetes.length}`} envio={envio} alCambiar={alCambiar} />
+            </Seccion>
+          )}
+
+          {personal && consolidadoAbierto && (
+            <Seccion titulo="Agregar paquetes de la bodega del cliente">
+              <AgregarDeBodega envio={envio} alCambiar={alCambiar} />
+            </Seccion>
+          )}
+
+          {consolidadoAbierto && (
             <Seccion titulo="Modalidad de cobro">
               <SelectorModalidad envio={envio} alCambiar={alCambiar} />
               {personal && <div className="mt-4"><EditarDatosPersonal envio={envio} alCambiar={alCambiar} /></div>}
@@ -257,32 +279,23 @@ export default function DetalleEnvio({ personal }: { personal: boolean }) {
             <Seccion titulo="Despacho"><DespachoForm envio={envio} alCambiar={alCambiar} /></Seccion>
           )}
 
+          {!personal && consolidadoAbierto && sinPagosVivos && <DeshacerCliente envio={envio} alCambiar={alCambiar} />}
+
           {personal && (
             <div className="space-y-3">
-              {usuario?.rol === 'ADMIN' && !['DESPACHADO', 'CERRADO', 'CANCELADO'].includes(envio.estado) && <AjusteAdmin envio={envio} alCambiar={alCambiar} />}
+              {usuario?.rol === 'ADMIN' && !esAlerta && !ESTADOS_CERRADOS.includes(envio.estado) && <AjusteAdmin envio={envio} alCambiar={alCambiar} />}
               <Historial envioId={envio.id} />
-              {!['DESPACHADO', 'CERRADO', 'CANCELADO'].includes(envio.estado) && (
-                cancelando ? (
-                  <div className="space-y-3 rounded-2xl border border-rojo/30 bg-rojo-100/50 p-4">
-                    <Campo etiqueta="Motivo de la cancelación" value={motivoCancelar} onChange={(e) => setMotivoCancelar(e.target.value)} />
-                    <div className="flex gap-2">
-                      <button type="button" className="btn btn-peligro btn-chico" onClick={() => void cancelar()}>Cancelar envío</button>
-                      <button type="button" className="btn btn-suave btn-chico" onClick={() => setCancelando(false)}>Volver</button>
-                    </div>
-                  </div>
-                ) : (
-                  <button type="button" className="btn btn-fantasma text-rojo-700" onClick={() => setCancelando(true)}>Cancelar este envío…</button>
-                )
-              )}
+              {(alertaActiva || (consolidadoAbierto && sinPagosVivos)) && <DescartarEnvio envio={envio} alCambiar={alCambiar} />}
             </div>
           )}
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-          <PrecioCaja envio={envio} />
+          {!esAlerta && <PrecioCaja envio={envio} />}
           <div className="rounded-2xl border border-linea bg-white p-4 text-sm">
             <p className="flex justify-between"><span className="text-suave">Valor declarado</span><b>{formatearUsd(envio.valorDeclaradoCentavos)}</b></p>
-            <p className="mt-1 flex justify-between"><span className="text-suave">Transportista</span><b>{transportista}</b></p>
+            {!esAlerta && <p className="mt-1 flex justify-between"><span className="text-suave">Transportista</span><b>{transportista}</b></p>}
+            {esAlerta && <p className="mt-2 text-suave">El precio se calcula cuando los paquetes se consolidan y se pesan juntos.</p>}
           </div>
         </aside>
       </div>

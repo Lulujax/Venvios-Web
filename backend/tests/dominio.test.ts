@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { coincidenTrackings, normalizarTracking } from '../src/domain/tracking';
-import { faltantesParaDespachar, validarDespacho, validarTransicion } from '../src/domain/estados';
+import { estadoDeAlerta, faltantesParaDespachar, validarDespacho, validarTransicion } from '../src/domain/estados';
+import { esMontoExacto, validarReferenciaPago } from '../src/domain/pagos';
 import {
   validarCedula,
   normalizarCodigoCasillero,
@@ -33,8 +34,23 @@ describe('tracking', () => {
 });
 
 describe('estados y despacho', () => {
-  it('caso feliz: recibido completo puede pasar a por confirmar', () => {
-    expect(() => validarTransicion('RECIBIDO_COMPLETO', 'POR_CONFIRMAR')).not.toThrow();
+  it('caso feliz: un consolidado pesado pasa a pago por confirmar y vuelve a consolidar si cambian sus paquetes', () => {
+    expect(() => validarTransicion('POR_CONSOLIDAR', 'POR_PAGAR')).not.toThrow();
+    expect(() => validarTransicion('POR_PAGAR', 'POR_CONFIRMAR')).not.toThrow();
+    expect(() => validarTransicion('POR_PAGAR', 'POR_CONSOLIDAR')).not.toThrow();
+  });
+
+  it('error: una alerta en bodega no se cobra directo y un pagado no vuelve atrás', () => {
+    expect(() => validarTransicion('RECIBIDO_COMPLETO', 'POR_CONFIRMAR')).toThrow();
+    expect(() => validarTransicion('PAGADO', 'POR_PAGAR')).toThrow();
+    expect(() => validarTransicion('ARCHIVADO', 'PREALERTADO')).toThrow();
+  });
+
+  it('el estado de una alerta sale de sus paquetes; sin paquetes queda archivada', () => {
+    expect(estadoDeAlerta([{ estado: 'ESPERADO' }, { estado: 'ESPERADO' }])).toBe('PREALERTADO');
+    expect(estadoDeAlerta([{ estado: 'RECIBIDO' }, { estado: 'ESPERADO' }])).toBe('RECIBIDO_PARCIAL');
+    expect(estadoDeAlerta([{ estado: 'RECIBIDO' }])).toBe('RECIBIDO_COMPLETO');
+    expect(estadoDeAlerta([])).toBe('ARCHIVADO');
   });
 
   it('error: no se salta del recibido al despachado', () => {
@@ -142,5 +158,27 @@ describe('correo, casillero y contraseña', () => {
     expect(() => validarContrasena('clave2026!')).toThrow();
     expect(() => validarContrasena('Clave20260')).toThrow();
     expect(() => validarContrasena('Cl2026!')).toThrow();
+  });
+});
+
+describe('pago exacto y referencia', () => {
+  it('caso feliz: dólares exactos y bolívares dentro de 1 Bs de diferencia', () => {
+    expect(esMontoExacto('USD', 4433, 4433, 0)).toBe(true);
+    expect(esMontoExacto('BS', 3420000, 0, 3420000)).toBe(true);
+    expect(esMontoExacto('BS', 3420050, 0, 3420000)).toBe(true);
+  });
+
+  it('error: pagar de más, de menos o cero no es exacto', () => {
+    expect(esMontoExacto('USD', 4434, 4433, 0)).toBe(false);
+    expect(esMontoExacto('USD', 4000, 4433, 0)).toBe(false);
+    expect(esMontoExacto('BS', 3400000, 0, 3420000)).toBe(false);
+    expect(esMontoExacto('USD', 0, 0, 0)).toBe(false);
+  });
+
+  it('la referencia son los últimos 6 dígitos', () => {
+    expect(validarReferenciaPago(' 123 456 ')).toBe('123456');
+    expect(() => validarReferenciaPago('12345')).toThrow('6 dígitos');
+    expect(() => validarReferenciaPago('1234567')).toThrow();
+    expect(() => validarReferenciaPago('ABC123')).toThrow();
   });
 });

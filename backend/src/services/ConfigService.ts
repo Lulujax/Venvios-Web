@@ -9,6 +9,7 @@ import {
   type DatosPago,
   type Plantillas,
   type TransportistaConfig,
+  PLANTILLAS_INICIALES,
 } from '../config/predeterminados';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
@@ -39,6 +40,7 @@ const esquemaDatosPago = z.object({
 
 const esquemaPlantillas = z.object({
   llegada: z.string().min(10),
+  cotizacion: z.string().min(10),
   pagoVerificado: z.string().min(10),
   pagoRechazado: z.string().min(10),
   despacho: z.string().min(10),
@@ -91,8 +93,9 @@ export class ConfigService {
     return this.obtener<DatosPago>('datosPago');
   }
 
-  plantillas(): Promise<Plantillas> {
-    return this.obtener<Plantillas>('plantillas');
+  async plantillas(): Promise<Plantillas> {
+    const guardadas = await this.obtener<Partial<Plantillas>>('plantillas');
+    return { ...PLANTILLAS_INICIALES, ...guardadas };
   }
 
   transportistas(): Promise<TransportistaConfig[]> {

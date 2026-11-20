@@ -57,7 +57,7 @@ export function validarMonto(valor: string): string | null {
 }
 
 export function validarReferencia(valor: string): string | null {
-  return valor.trim().length < 4 ? 'Escribe el número de referencia del pago.' : null;
+  return /^\d{6}$/.test(valor.replace(/\s/g, '')) ? null : 'Escribe los últimos 6 dígitos de la referencia, solo números.';
 }
 
 export function validarTracking(valor: string): string | null {

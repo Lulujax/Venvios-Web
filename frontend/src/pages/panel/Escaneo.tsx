@@ -1,12 +1,13 @@
 import { useCallback, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { FaWhatsapp } from 'react-icons/fa';
 import { FiAlertTriangle, FiCheckCircle, FiSearch } from 'react-icons/fi';
+import { BuscadorCliente } from '../../components/BuscadorCliente';
 import { Escaner } from '../../components/Escaner';
 import { Alerta, useAviso } from '../../components/ui';
 import { api, mensajeDeError } from '../../lib/api';
 import { aNumero } from '../../lib/formato';
-import type { Envio, ResultadoEscaneo } from '../../lib/tipos';
+import type { Envio, ResultadoEscaneo, Usuario } from '../../lib/tipos';
 import { enviarPorWhatsApp, pedirMensaje } from '../../lib/whatsapp';
 
 interface Lectura {
@@ -71,26 +72,72 @@ function TarjetaRecibido({ lectura, alTerminar }: { lectura: Extract<ResultadoEs
       </div>
       <form onSubmit={guardarPeso} className="flex flex-wrap items-end gap-2">
         <div className="min-w-[140px] flex-1">
-          <label htmlFor="peso-rapido" className="etiqueta">Peso (kg)</label>
+          <label htmlFor="peso-rapido" className="etiqueta">Peso del paquete en kg (opcional)</label>
           <input id="peso-rapido" className="campo" inputMode="decimal" value={peso} onChange={(e) => setPeso(e.target.value)} placeholder="0.00" disabled={Boolean(guardado)} />
         </div>
         {!guardado && <button type="submit" className="btn btn-primario" disabled={ocupado}>Guardar peso</button>}
       </form>
-      {guardado?.precio && <p className="text-sm font-semibold text-marino-900">Total del envío hasta ahora: {(guardado.precio.totalCentavos / 100).toFixed(2)} $</p>}
       {error && <Alerta tono="error">{error}</Alerta>}
       <div className="flex flex-wrap gap-2">
-        <button type="button" className="btn bg-[#25D366] text-marino-900" disabled={ocupado || !guardado} onClick={() => void avisarWhatsApp()}><FaWhatsapp aria-hidden /> Avisar por WhatsApp</button>
+        <button type="button" className="btn bg-[#25D366] text-marino-900" disabled={ocupado || lectura.sinDueno} onClick={() => void avisarWhatsApp()}><FaWhatsapp aria-hidden /> Avisar por WhatsApp</button>
         {abierto && <button type="button" className="btn btn-acento" onClick={() => void confirmar()}>Ya lo envié</button>}
         <Link to={`/panel/envios/${lectura.envioId}`} className="btn btn-suave">Abrir envío</Link>
         <button type="button" className="btn btn-fantasma" onClick={alTerminar}>Siguiente paquete</button>
       </div>
-      {!guardado && <p className="ayuda">Pesa el paquete y guarda el peso para poder avisar al cliente.</p>}
+      <p className="ayuda">El total se calcula cuando el cliente consolida su envío y lo pesas completo.</p>
+    </div>
+  );
+}
+
+function TarjetaSinPrealerta({ texto, alTerminar }: { texto: string; alTerminar: () => void }) {
+  const avisar = useAviso();
+  const [cliente, setCliente] = useState<Usuario | null>(null);
+  const [registrado, setRegistrado] = useState<Envio | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+
+  async function registrar(clienteId?: string) {
+    setOcupado(true);
+    setError(null);
+    try {
+      const r = await api.post<{ envio: Envio }>('/staff/sin-prealerta', { texto, clienteId });
+      setRegistrado(r.envio);
+      avisar(clienteId ? `Guardado en la bodega de ${r.envio.cliente.nombre}.` : 'Guardado en bodega sin dueño.');
+    } catch (falla) {
+      setError(mensajeDeError(falla));
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  if (registrado) {
+    return (
+      <div className="space-y-3 rounded-tarjeta border-2 border-verde/50 bg-verde-100/50 p-5">
+        <p className="flex items-center gap-2 font-display text-xl font-bold text-marino-900"><FiCheckCircle className="text-verde" aria-hidden /> {registrado.sinDueno ? 'En bodega, sin dueño' : `En bodega de ${registrado.cliente.nombre}`}</p>
+        <p className="codigo text-suave">{texto}</p>
+        <div className="flex flex-wrap gap-2">
+          <Link to={`/panel/envios/${registrado.id}`} className="btn btn-suave btn-chico">Abrir</Link>
+          <button type="button" className="btn btn-primario btn-chico" onClick={alTerminar}>Siguiente paquete</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 rounded-tarjeta border-2 border-rojo/40 bg-rojo-100/50 p-5">
+      <p className="flex items-center gap-2 font-display text-xl font-bold"><FiAlertTriangle className="text-rojo" aria-hidden /> Sin prealerta</p>
+      <p className="text-sm">Nadie tiene una alerta con el tracking <span className="codigo">{texto}</span>. Si la etiqueta trae el casillero (VENV-…) o el nombre, búscalo; si no, déjalo sin dueño hasta que alguien lo reclame.</p>
+      <BuscadorCliente cliente={cliente} onElegir={setCliente} etiqueta="¿De quién es?" />
+      {error && <Alerta tono="error">{error}</Alerta>}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn btn-primario" disabled={ocupado || !cliente} onClick={() => cliente && void registrar(cliente.id)}>Guardar para este cliente</button>
+        <button type="button" className="btn btn-suave" disabled={ocupado} onClick={() => void registrar()}>Dejar sin dueño</button>
+      </div>
     </div>
   );
 }
 
 export default function Escaneo() {
-  const navegar = useNavigate();
   const [manual, setManual] = useState('');
   const [actual, setActual] = useState<ResultadoEscaneo | null>(null);
   const [recientes, setRecientes] = useState<Lectura[]>([]);
@@ -112,19 +159,6 @@ export default function Escaneo() {
       setBuscando(false);
     }
   }, []);
-
-  async function registrarSinPrealerta(texto: string) {
-    setBuscando(true);
-    setError(null);
-    try {
-      const r = await api.post<{ envio: Envio }>('/staff/sin-prealerta', { texto });
-      navegar(`/panel/envios/${r.envio.id}`);
-    } catch (falla) {
-      setError(mensajeDeError(falla));
-    } finally {
-      setBuscando(false);
-    }
-  }
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">
@@ -154,13 +188,7 @@ export default function Escaneo() {
               <Link to={`/panel/envios/${actual.envioId}`} className="btn btn-suave btn-chico">Abrir envío</Link>
             </div>
           )}
-          {actual?.resultado === 'SIN_PREALERTA' && (
-            <div className="space-y-3 rounded-tarjeta border-2 border-rojo/40 bg-rojo-100/50 p-5">
-              <p className="flex items-center gap-2 font-display text-xl font-bold"><FiAlertTriangle className="text-rojo" aria-hidden /> Sin prealerta</p>
-              <p className="text-sm">No hay ningún cliente con el tracking <span className="codigo">{actual.texto}</span>. Puedes registrarlo ahora y asignarle el cliente después.</p>
-              <button type="button" className="btn btn-primario" disabled={buscando} onClick={() => void registrarSinPrealerta(actual.texto)}>Registrar sin prealerta</button>
-            </div>
-          )}
+          {actual?.resultado === 'SIN_PREALERTA' && <TarjetaSinPrealerta key={actual.texto} texto={actual.texto} alTerminar={() => setActual(null)} />}
           {!actual && !error && !buscando && <p className="rounded-tarjeta border border-dashed border-linea p-6 text-sm text-suave">Aquí verás a quién pertenece el paquete que escanees.</p>}
 
           {recientes.length > 0 && (
@@ -170,7 +198,7 @@ export default function Escaneo() {
                 {recientes.map((lectura, indice) => (
                   <li key={indice} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
                     <span className="codigo truncate">{lectura.resultado.texto}</span>
-                    <span className="shrink-0 text-xs font-bold text-suave">{lectura.resultado.resultado === 'RECIBIDO' ? 'Recibido' : lectura.resultado.resultado === 'YA_REGISTRADO' ? 'Repetido' : 'Sin prealerta'} · {lectura.hora}</span>
+                    <span className="shrink-0 text-xs font-bold text-suave">{lectura.resultado.resultado === 'RECIBIDO' ? 'Recibido' : lectura.resultado.resultado === 'YA_REGISTRADO' ? 'Ya estaba' : 'Sin prealerta'} · {lectura.hora}</span>
                   </li>
                 ))}
               </ul>

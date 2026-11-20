@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { FiBell, FiCreditCard, FiHome, FiLogOut, FiPackage, FiPlus } from 'react-icons/fi';
+import { FiBell, FiCreditCard, FiHome, FiLayers, FiLogOut, FiPackage, FiPlus } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
 import { BotonWhatsAppFlotante } from '../../components/CuentaPiezas';
 import { Marca } from '../../components/ui';
@@ -16,6 +16,7 @@ const SECCIONES: Seccion[] = [
   { a: '/cuenta', texto: 'Inicio', icono: FiHome, fin: true },
   { a: '/cuenta/pedidos', texto: 'Pedidos', icono: FiPackage },
   { a: '/cuenta/alertas', texto: 'Alertas', icono: FiBell },
+  { a: '/cuenta/consolidar', texto: 'Consolidar', icono: FiLayers },
   { a: '/cuenta/finanzas', texto: 'Finanzas', icono: FiCreditCard },
 ];
 

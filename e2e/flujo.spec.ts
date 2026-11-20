@@ -58,11 +58,11 @@ test('flujo completo: registro, prealerta, recepción, pago, entrega y despacho'
   await cliente.getByLabel('Tracking del paquete 2').fill(TRACKINGS[1]!);
   await cliente.getByLabel('Tienda').fill('Shein');
   await cliente.getByLabel(/Valor declarado/).fill('60');
-  await cliente.getByText('Envío con todo incluido').click();
   await cliente.screenshot({ path: join(CARPETA, 'cliente-prealerta-movil.png'), fullPage: true });
   await cliente.getByRole('button', { name: 'Registrar paquetes' }).click();
-  await expect(cliente.getByRole('heading', { name: /Envío de Shein/ })).toBeVisible();
-  const urlEnvio = new URL(cliente.url()).pathname.split('/').pop()!;
+  await expect(cliente.getByRole('heading', { name: /Alerta de Shein/ })).toBeVisible();
+  await cliente.goto('/cuenta');
+  const casillero = ((await cliente.getByText(/Casillero VENV-\d{6}/).textContent()) ?? '').replace('Casillero', '').trim();
 
   const operadorCtx = await contextoNuevo(browser, true);
   const operador = await operadorCtx.newPage();
@@ -74,20 +74,45 @@ test('flujo completo: registro, prealerta, recepción, pago, entrega y despacho'
     await operador.getByLabel('O escríbelo a mano').fill(tracking.toLowerCase());
     await operador.getByRole('button', { name: 'Buscar' }).click();
     await expect(operador.getByText(/Recibido: Maria Gonzalez/)).toBeVisible();
-    await operador.getByLabel('Peso (kg)').fill(tracking.endsWith('001') ? '2.40' : '1.95');
+    await operador.getByLabel(/Peso del paquete/).fill(tracking.endsWith('001') ? '2.40' : '1.95');
     await operador.getByRole('button', { name: 'Guardar peso' }).click();
-    await expect(operador.getByText(/Total del envío hasta ahora/)).toBeVisible();
+    await expect(operador.getByLabel(/Peso del paquete/)).toBeDisabled();
+    await operador.getByRole('button', { name: 'Siguiente paquete' }).click();
   }
-  await operador.goto(`/panel/envios/${urlEnvio}`);
-  await expect(operador.getByText('Listo para pagar').first()).toBeVisible();
-  await operador.screenshot({ path: join(CARPETA, 'operador-envio-movil.png'), fullPage: true });
+  await operador.getByLabel('O escríbelo a mano').fill(`XC${sufijo}003`);
+  await operador.getByRole('button', { name: 'Buscar' }).click();
+  await expect(operador.getByText('Sin prealerta', { exact: true }).first()).toBeVisible();
+  await operador.getByLabel('¿De quién es?').fill(casillero);
+  await operador.getByRole('button', { name: /Elegir/ }).click();
+  await operador.screenshot({ path: join(CARPETA, 'operador-sin-prealerta-movil.png'), fullPage: true });
+  await operador.getByRole('button', { name: 'Guardar para este cliente' }).click();
+  await expect(operador.getByText('En bodega de Maria Gonzalez')).toBeVisible();
+
+  await cliente.goto('/cuenta/consolidar');
+  await expect(cliente.getByRole('heading', { name: 'Tus paquetes en bodega' })).toBeVisible();
+  await cliente.getByRole('button', { name: 'Elegir todos' }).click();
+  await cliente.getByText('Envío con todo incluido').click();
+  await expect(cliente.getByLabel(/Valor declarado total/)).toHaveValue('60.00');
+  await cliente.screenshot({ path: join(CARPETA, 'cliente-consolidar-movil.png'), fullPage: true });
+  await cliente.getByRole('button', { name: /Consolidar 3 paquete/ }).click();
+  await expect(cliente.getByRole('heading', { name: 'Envío consolidado' })).toBeVisible();
+  const urlEnvio = new URL(cliente.url()).pathname.split('/').pop()!;
+
+  await paginaAdmin.goto('/panel/bodega');
+  await expect(paginaAdmin.getByRole('heading', { name: 'Bodega' })).toBeVisible();
+  await paginaAdmin.screenshot({ path: join(CARPETA, 'panel-bodega-pc.png'), fullPage: true });
+  await paginaAdmin.goto(`/panel/envios/${urlEnvio}`);
+  await paginaAdmin.getByLabel('Peso total del envío (kg)').fill('4.35');
+  await paginaAdmin.getByRole('button', { name: 'Calcular total' }).click();
+  await expect(paginaAdmin.getByText('Listo para pagar').first()).toBeVisible();
+  await expect(paginaAdmin.getByText(/44,33/).first()).toBeVisible();
 
   await cliente.reload();
   await expect(cliente.getByText('Saldo a pagar')).toBeVisible();
   await cliente.getByLabel('Pagaste por').selectOption('BINANCE');
   await expect(cliente.getByLabel('Moneda')).toBeDisabled();
-  await cliente.getByLabel('Número de referencia').fill('BIN-998877');
-  await cliente.getByLabel(/Monto pagado/).fill('44.33');
+  await expect(cliente.getByLabel(/Monto a pagar/)).toHaveValue(/44,33/);
+  await cliente.getByLabel(/Últimos 6 dígitos/).fill('998877');
   await cliente.locator('input[type="file"]').first().setInputFiles(IMAGEN);
   await cliente.getByRole('button', { name: 'Enviar comprobante' }).click();
   await expect(cliente.getByText(/Recibimos tu comprobante|comprobante en revisión/).first()).toBeVisible();

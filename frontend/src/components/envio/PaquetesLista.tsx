@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { FaWhatsapp } from 'react-icons/fa';
 import { FiCamera, FiCheck, FiClock, FiPackage } from 'react-icons/fi';
+import { CambiarDueno, DescartarPaquete } from './AccionesPaquete';
 import { FotoInput } from '../FotoInput';
 import { Alerta, ImagenPrivada, useAviso } from '../ui';
 import { api, mensajeDeError } from '../../lib/api';
 import { aNumero, formatearKg } from '../../lib/formato';
 import type { Envio, PaqueteVista } from '../../lib/tipos';
 import { enviarPorWhatsApp, pedirMensaje } from '../../lib/whatsapp';
+
+const ESTADOS_ALERTA_ACTIVOS = ['PREALERTADO', 'RECIBIDO_PARCIAL', 'RECIBIDO_COMPLETO'];
 
 export function PaquetesCliente({ paquetes }: { paquetes: PaqueteVista[] }) {
   return (
@@ -17,7 +20,7 @@ export function PaquetesCliente({ paquetes }: { paquetes: PaqueteVista[] }) {
             {paquete.recibido ? <FiCheck className="shrink-0 text-xl text-verde" aria-hidden /> : <FiClock className="shrink-0 text-xl text-suave" aria-hidden />}
             <div className="min-w-0">
               <p className="codigo truncate">{paquete.tracking}</p>
-              <p className="text-xs text-suave">{paquete.recibido ? (paquete.pesoKg ? `Llegó · ${formatearKg(paquete.pesoKg)}` : 'Llegó · pendiente de pesar') : 'En camino a nuestra oficina'}</p>
+              <p className="text-xs text-suave">{paquete.recibido ? (paquete.pesoKg ? `En bodega · ${formatearKg(paquete.pesoKg)}` : 'En bodega') : 'En camino a nuestra oficina'}</p>
             </div>
           </div>
           {paquete.tieneFoto && <ImagenPrivada ruta={paquete.fotoRuta} alt={`Foto del paquete ${paquete.tracking}`} className="h-12 w-12" />}
@@ -31,17 +34,21 @@ interface PaqueteProps {
   envio: Envio;
   paquete: PaqueteVista;
   alCambiar: (envio: Envio) => void;
-  editable: boolean;
 }
 
-function PaquetePersonal({ envio, paquete, alCambiar, editable }: PaqueteProps) {
+function PaquetePersonal({ envio, paquete, alCambiar }: PaqueteProps) {
   const avisar = useAviso();
   const [peso, setPeso] = useState(paquete.pesoKg ? String(paquete.pesoKg) : '');
   const [foto, setFoto] = useState<File | null>(null);
   const [mostrarFoto, setMostrarFoto] = useState(false);
   const [abierto, setAbierto] = useState(false);
+  const [accion, setAccion] = useState<'dueno' | 'descartar' | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const alertaActiva = envio.tipo === 'ALERTA' && ESTADOS_ALERTA_ACTIVOS.includes(envio.estado);
+  const consolidadoAbierto = envio.tipo === 'CONSOLIDADO' && ['POR_CONSOLIDAR', 'POR_PAGAR'].includes(envio.estado);
+  const pesoEditable = alertaActiva || envio.estado === 'POR_CONSOLIDAR';
 
   async function hacer(tarea: () => Promise<void>) {
     setOcupado(true);
@@ -55,11 +62,13 @@ function PaquetePersonal({ envio, paquete, alCambiar, editable }: PaqueteProps) 
     }
   }
 
+  const recargarEnvio = async () => alCambiar(await api.get<{ envio: Envio }>(`/envios/${envio.id}`).then((x) => x.envio));
+
   const recibirManual = () =>
     hacer(async () => {
-      const r = await api.post<{ resultado: string; envioId: string }>('/staff/escaneo', { texto: paquete.tracking });
+      const r = await api.post<{ resultado: string }>('/staff/escaneo', { texto: paquete.tracking });
       if (r.resultado === 'RECIBIDO') {
-        alCambiar(await api.get<{ envio: Envio }>(`/envios/${envio.id}`).then((x) => x.envio));
+        await recargarEnvio();
         avisar('Paquete recibido.');
       }
     });
@@ -101,6 +110,13 @@ function PaquetePersonal({ envio, paquete, alCambiar, editable }: PaqueteProps) 
       avisar('Aviso registrado.');
     });
 
+  const quitar = () =>
+    hacer(async () => {
+      const r = await api.post<{ envio: Envio }>(`/staff/envios/${envio.id}/quitar-paquete`, { paqueteId: paquete.id });
+      alCambiar(r.envio);
+      avisar('Paquete devuelto a la bodega del cliente.');
+    });
+
   return (
     <li className="rounded-2xl border border-linea p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -108,10 +124,10 @@ function PaquetePersonal({ envio, paquete, alCambiar, editable }: PaqueteProps) 
           <FiPackage className={paquete.recibido ? 'text-verde' : 'text-suave'} aria-hidden />
           <p className="codigo truncate">{paquete.tracking}</p>
         </div>
-        {paquete.recibido ? <span className="insignia bg-verde-100 text-verde">Recibido</span> : <span className="insignia bg-marino-100 text-marino">Esperando</span>}
+        {paquete.recibido ? <span className="insignia bg-verde-100 text-verde">En bodega</span> : <span className="insignia bg-marino-100 text-marino">Esperando</span>}
       </div>
 
-      {!paquete.recibido && editable && (
+      {!paquete.recibido && alertaActiva && (
         <button type="button" className="btn btn-suave btn-chico mt-3" disabled={ocupado} onClick={() => void recibirManual()}>Marcar como recibido</button>
       )}
 
@@ -119,19 +135,29 @@ function PaquetePersonal({ envio, paquete, alCambiar, editable }: PaqueteProps) 
         <div className="mt-4 space-y-3">
           <div className="flex flex-wrap items-end gap-2">
             <div className="min-w-[140px] flex-1">
-              <label htmlFor={`peso-${paquete.id}`} className="etiqueta">Peso (kg)</label>
-              <input id={`peso-${paquete.id}`} className="campo" inputMode="decimal" value={peso} onChange={(e) => setPeso(e.target.value)} disabled={!editable} placeholder="0.00" />
+              <label htmlFor={`peso-${paquete.id}`} className="etiqueta">Peso del paquete (kg, opcional)</label>
+              <input id={`peso-${paquete.id}`} className="campo" inputMode="decimal" value={peso} onChange={(e) => setPeso(e.target.value)} disabled={!pesoEditable} placeholder="0.00" />
             </div>
-            {editable && <button type="button" className="btn btn-primario" disabled={ocupado} onClick={() => void guardarPeso()}>Guardar peso</button>}
+            {pesoEditable && <button type="button" className="btn btn-suave" disabled={ocupado} onClick={() => void guardarPeso()}>Guardar peso</button>}
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {editable && <button type="button" className="btn btn-suave btn-chico" onClick={() => setMostrarFoto((v) => !v)}><FiCamera aria-hidden /> {paquete.tieneFoto ? 'Cambiar foto' : 'Foto del paquete'}</button>}
-            <button type="button" className="btn btn-chico bg-[#25D366] text-marino-900" disabled={ocupado || !paquete.pesoKg} onClick={() => void avisarWhatsApp()}><FaWhatsapp aria-hidden /> Avisar por WhatsApp</button>
+            {pesoEditable && <button type="button" className="btn btn-suave btn-chico" onClick={() => setMostrarFoto((v) => !v)}><FiCamera aria-hidden /> {paquete.tieneFoto ? 'Cambiar foto' : 'Foto del paquete'}</button>}
+            {alertaActiva && (
+              <button type="button" className="btn btn-chico bg-[#25D366] text-marino-900" disabled={ocupado || envio.sinDueno} onClick={() => void avisarWhatsApp()}>
+                <FaWhatsapp aria-hidden /> Avisar llegada
+              </button>
+            )}
             {abierto && <button type="button" className="btn btn-acento btn-chico" onClick={() => void confirmarEnviado()}>Ya lo envié</button>}
             {paquete.avisado && !abierto && <span className="insignia bg-verde-100 text-verde"><FiCheck aria-hidden /> Cliente avisado</span>}
+            {alertaActiva && <button type="button" className="btn btn-suave btn-chico" onClick={() => setAccion(accion === 'dueno' ? null : 'dueno')}>{envio.sinDueno ? 'Asignar dueño' : 'Cambiar dueño'}</button>}
+            {alertaActiva && <button type="button" className="btn btn-fantasma btn-chico text-rojo-700" onClick={() => setAccion(accion === 'descartar' ? null : 'descartar')}>Descartar</button>}
+            {consolidadoAbierto && <button type="button" className="btn btn-fantasma btn-chico" disabled={ocupado} onClick={() => void quitar()}>Quitar del envío</button>}
           </div>
-          {!paquete.pesoKg && <p className="ayuda">Guarda el peso para poder avisar al cliente.</p>}
+          {envio.sinDueno && alertaActiva && <p className="ayuda">Asigna un dueño para poder avisar por WhatsApp.</p>}
+
+          {accion === 'dueno' && <CambiarDueno paqueteId={paquete.id} tracking={paquete.tracking} sinDueno={envio.sinDueno} alTerminar={() => { setAccion(null); void recargarEnvio(); }} alCancelar={() => setAccion(null)} />}
+          {accion === 'descartar' && <DescartarPaquete paqueteId={paquete.id} tracking={paquete.tracking} alTerminar={(r) => { setAccion(null); alCambiar(r); }} alCancelar={() => setAccion(null)} />}
 
           {mostrarFoto && (
             <div className="space-y-3 rounded-2xl bg-papel p-3">
@@ -148,11 +174,11 @@ function PaquetePersonal({ envio, paquete, alCambiar, editable }: PaqueteProps) 
 }
 
 export function PaquetesPersonal({ envio, alCambiar }: { envio: Envio; alCambiar: (envio: Envio) => void }) {
-  const editable = ['PREALERTADO', 'RECIBIDO_PARCIAL', 'RECIBIDO_COMPLETO'].includes(envio.estado);
+  if (envio.paquetes.length === 0) return <p className="text-sm text-suave">Este envío ya no tiene paquetes.</p>;
   return (
     <ul className="space-y-3">
       {envio.paquetes.map((paquete) => (
-        <PaquetePersonal key={paquete.id} envio={envio} paquete={paquete} alCambiar={alCambiar} editable={editable} />
+        <PaquetePersonal key={paquete.id} envio={envio} paquete={paquete} alCambiar={alCambiar} />
       ))}
     </ul>
   );

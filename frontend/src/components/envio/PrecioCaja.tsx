@@ -4,7 +4,7 @@ import type { Envio } from '../../lib/tipos';
 export function PrecioCaja({ envio }: { envio: Envio }) {
   const { precio, tasa } = envio;
   if (!precio) {
-    return <p className="rounded-2xl border border-dashed border-linea p-4 text-sm text-suave">El total se calcula cuando pesemos todos tus paquetes.</p>;
+    return <p className="rounded-2xl border border-dashed border-linea p-4 text-sm text-suave">El total se calcula cuando pesemos tu envío completo. Te avisamos por WhatsApp.</p>;
   }
   const saldo = Math.max(precio.totalCentavos - envio.pagadoCentavos, 0);
   return (

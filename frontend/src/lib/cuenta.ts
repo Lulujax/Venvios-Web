@@ -1,7 +1,9 @@
 import type { EstadoEnvio, Envio } from './tipos';
 
-const ESTADOS_PENDIENTES_PAGO: EstadoEnvio[] = ['RECIBIDO_COMPLETO', 'POR_CONFIRMAR'];
+const ESTADOS_ALERTA_ACTIVOS: EstadoEnvio[] = ['PREALERTADO', 'RECIBIDO_PARCIAL', 'RECIBIDO_COMPLETO'];
+const ESTADOS_PENDIENTES_PAGO: EstadoEnvio[] = ['POR_CONSOLIDAR', 'POR_PAGAR', 'POR_CONFIRMAR'];
 const ESTADOS_PAGADOS: EstadoEnvio[] = ['PAGADO', 'DESPACHADO', 'CERRADO'];
+const ESTADOS_COBRABLES: EstadoEnvio[] = ['POR_PAGAR', 'POR_CONFIRMAR'];
 
 export type FiltroPedidos = 'TODOS' | 'PENDIENTES' | 'PAGADOS';
 export type EstadoAlerta = 'PENDIENTE' | 'ATENDIDA';
@@ -9,22 +11,38 @@ export type EstadoAlerta = 'PENDIENTE' | 'ATENDIDA';
 export interface FilaAlerta {
   clave: string;
   envioId: string;
+  paqueteId: string;
   fecha: string;
   tienda: string;
   tracking: string;
   estado: EstadoAlerta;
+  eliminable: boolean;
+}
+
+export interface PaqueteEnBodega {
+  paqueteId: string;
+  envioId: string;
+  tracking: string;
+  tienda: string;
+  pesoKg: number | null;
+  recibidoEn: string | null;
+  valorDeclaradoCentavos: number;
+}
+
+export function esConsolidado(envio: Envio): boolean {
+  return envio.tipo === 'CONSOLIDADO';
 }
 
 export function esPendienteDePago(envio: Envio): boolean {
-  return ESTADOS_PENDIENTES_PAGO.includes(envio.estado);
+  return esConsolidado(envio) && ESTADOS_PENDIENTES_PAGO.includes(envio.estado);
 }
 
 export function esPagado(envio: Envio): boolean {
-  return ESTADOS_PAGADOS.includes(envio.estado);
+  return esConsolidado(envio) && ESTADOS_PAGADOS.includes(envio.estado);
 }
 
 export function esCobrable(envio: Envio): boolean {
-  return esPendienteDePago(envio) && envio.precio !== null;
+  return esConsolidado(envio) && ESTADOS_COBRABLES.includes(envio.estado) && envio.precio !== null;
 }
 
 export function saldoPendienteCentavos(envio: Envio): number {
@@ -42,15 +60,17 @@ export function filtrarPedidos(envios: Envio[], filtro: FiltroPedidos): Envio[] 
 export function construirAlertas(envios: Envio[]): FilaAlerta[] {
   const filas: FilaAlerta[] = [];
   for (const envio of envios) {
-    if (envio.estado === 'CANCELADO') continue;
+    if (envio.estado === 'CANCELADO' || envio.estado === 'ARCHIVADO') continue;
     for (const paquete of envio.paquetes) {
       filas.push({
         clave: `${envio.id}-${paquete.id}`,
         envioId: envio.id,
-        fecha: envio.creadoEn,
+        paqueteId: paquete.id,
+        fecha: paquete.recibidoEn ?? envio.creadoEn,
         tienda: envio.tienda,
         tracking: paquete.tracking,
         estado: paquete.recibido ? 'ATENDIDA' : 'PENDIENTE',
+        eliminable: !paquete.recibido && envio.tipo === 'ALERTA',
       });
     }
   }
@@ -66,9 +86,41 @@ export function filtrarAlertas(filas: FilaAlerta[], texto: string, estado: Estad
   });
 }
 
+export function paquetesEnBodega(envios: Envio[]): PaqueteEnBodega[] {
+  const lista: PaqueteEnBodega[] = [];
+  for (const envio of envios) {
+    if (envio.tipo !== 'ALERTA' || !ESTADOS_ALERTA_ACTIVOS.includes(envio.estado)) continue;
+    for (const paquete of envio.paquetes) {
+      if (!paquete.recibido) continue;
+      lista.push({
+        paqueteId: paquete.id,
+        envioId: envio.id,
+        tracking: paquete.tracking,
+        tienda: envio.tienda,
+        pesoKg: paquete.pesoKg,
+        recibidoEn: paquete.recibidoEn,
+        valorDeclaradoCentavos: envio.valorDeclaradoCentavos,
+      });
+    }
+  }
+  return lista.sort((a, b) => (a.recibidoEn ?? '').localeCompare(b.recibidoEn ?? ''));
+}
+
+export function valorSugeridoCentavos(elegidos: PaqueteEnBodega[], todos: PaqueteEnBodega[]): number {
+  const alertasCompletas = new Set<string>();
+  const porAlerta = new Map<string, number>();
+  for (const paquete of todos) porAlerta.set(paquete.envioId, (porAlerta.get(paquete.envioId) ?? 0) + 1);
+  const elegidosPorAlerta = new Map<string, number>();
+  for (const paquete of elegidos) elegidosPorAlerta.set(paquete.envioId, (elegidosPorAlerta.get(paquete.envioId) ?? 0) + 1);
+  for (const [envioId, cantidad] of elegidosPorAlerta) if (cantidad === porAlerta.get(envioId)) alertasCompletas.add(envioId);
+  let total = 0;
+  for (const envioId of alertasCompletas) total += todos.find((p) => p.envioId === envioId)?.valorDeclaradoCentavos ?? 0;
+  return total;
+}
+
 export interface ResumenCuenta {
   alertasPendientes: number;
-  alertasAtendidas: number;
+  enBodega: number;
   porPagar: number;
   saldoPorPagarCentavos: number;
   pagados: number;
@@ -79,7 +131,7 @@ export function resumirCuenta(envios: Envio[]): ResumenCuenta {
   const cobrables = envios.filter(esCobrable);
   return {
     alertasPendientes: alertas.filter((a) => a.estado === 'PENDIENTE').length,
-    alertasAtendidas: alertas.filter((a) => a.estado === 'ATENDIDA').length,
+    enBodega: paquetesEnBodega(envios).length,
     porPagar: cobrables.length,
     saldoPorPagarCentavos: cobrables.reduce((suma, envio) => suma + saldoPendienteCentavos(envio), 0),
     pagados: envios.filter(esPagado).length,

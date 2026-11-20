@@ -4,7 +4,7 @@ import type { EstadoEnvio } from '../../lib/tipos';
 
 export function LineaEstado({ estado }: { estado: EstadoEnvio }) {
   const actual = pasoActual(estado);
-  if (estado === 'CANCELADO') return <p className="rounded-2xl bg-rojo-100 px-4 py-3 text-sm font-bold text-rojo-700">Este envío fue cancelado.</p>;
+  if (estado === 'CANCELADO') return <p className="rounded-2xl bg-rojo-100 px-4 py-3 text-sm font-bold text-rojo-700">Este envío fue descartado o deshecho.</p>;
   return (
     <ol className="flex items-start gap-1 overflow-x-auto pb-1" aria-label="Progreso del envío">
       {PASOS_ENVIO.map((paso, indice) => {

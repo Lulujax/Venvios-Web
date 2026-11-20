@@ -1,4 +1,4 @@
-import type { EstadoEnvio } from '../domain/estados';
+import type { EstadoEnvio, TipoEnvio } from '../domain/estados';
 import type { Modalidad } from '../domain/tarifas';
 
 export type Rol = 'CLIENTE' | 'OPERADOR' | 'ADMIN';
@@ -48,6 +48,7 @@ export interface EntregaGuardada {
 
 export interface Envio {
   id: string;
+  tipo: TipoEnvio;
   clienteId: string;
   modalidad: Modalidad;
   transportista: Transportista;
@@ -108,6 +109,8 @@ export interface NuevoPaquete {
 }
 
 export interface NuevoEnvio {
+  tipo?: TipoEnvio;
+  estado?: EstadoEnvio;
   clienteId: string;
   modalidad: Modalidad;
   transportista: Transportista;

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FiBell, FiCopy, FiCreditCard, FiPackage, FiPlus } from 'react-icons/fi';
+import { FiBell, FiCopy, FiCreditCard, FiLayers, FiPackage, FiPlus } from 'react-icons/fi';
 import { ContenidoCuenta, EncabezadoCuenta, TarjetaCifra, useEnviosCliente } from '../../components/CuentaPiezas';
 import { Cargando, ErrorCarga, useAviso } from '../../components/ui';
 import { api } from '../../lib/api';
@@ -41,14 +41,22 @@ export function Inicio() {
         {cargando && <Cargando lineas={2} />}
         {error && <ErrorCarga mensaje={error} reintentar={() => void recargar()} />}
         {resumen && (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <TarjetaCifra
               titulo="Alertas pendientes"
               valor={String(resumen.alertasPendientes)}
               icono={FiBell}
-              detalle={<>{resumen.alertasAtendidas} ya llegaron</>}
+              detalle="Paquetes que aún no llegan"
               a="/cuenta/alertas"
               enlace="Ver alertas"
+            />
+            <TarjetaCifra
+              titulo="En bodega"
+              valor={String(resumen.enBodega)}
+              icono={FiLayers}
+              detalle="Listos para que elijas cuáles enviar"
+              a="/cuenta/consolidar"
+              enlace="Consolidar envío"
             />
             <TarjetaCifra
               titulo="Por pagar"

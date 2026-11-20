@@ -238,7 +238,7 @@ export class AuthService {
     const limpio = texto.trim().toLowerCase();
     if (limpio.length < 3) return [];
     const digitos = limpio.replace(/\D/g, '');
-    const clientes = await this.usuarios.listar(['CLIENTE']);
+    const clientes = (await this.usuarios.listar(['CLIENTE'])).filter((c) => c.codigo !== 'VENV-000000');
     const coincidencias = clientes.filter((c) => {
       if (c.nombre.toLowerCase().includes(limpio)) return true;
       if (c.codigo.toLowerCase().includes(limpio) || c.email.includes(limpio)) return true;

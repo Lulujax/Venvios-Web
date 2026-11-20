@@ -4,7 +4,7 @@ import { AppError } from '../utils/errors';
 import type { ConfigService } from './ConfigService';
 import { esPersonal, type Actor, type EnvioService, type EnvioVista } from './EnvioService';
 
-export type TipoMensaje = 'llegada' | 'pagoVerificado' | 'pagoRechazado' | 'despacho';
+export type TipoMensaje = 'llegada' | 'cotizacion' | 'pagoVerificado' | 'pagoRechazado' | 'despacho';
 
 export interface OpcionesMensaje {
   paqueteId?: string;
@@ -18,7 +18,7 @@ export interface MensajeGenerado extends EnlacesWhatsApp {
   tieneFotoGuia: boolean;
 }
 
-export const TIPOS_MENSAJE: TipoMensaje[] = ['llegada', 'pagoVerificado', 'pagoRechazado', 'despacho'];
+export const TIPOS_MENSAJE: TipoMensaje[] = ['llegada', 'cotizacion', 'pagoVerificado', 'pagoRechazado', 'despacho'];
 
 export class MensajeService {
   constructor(
@@ -28,7 +28,7 @@ export class MensajeService {
   ) {}
 
   private lineaPeso(envio: EnvioVista): string {
-    return envio.pesoTotalKg ? `Peso del envío hasta ahora: ${envio.pesoTotalKg.toFixed(2)} kg.` : 'Estamos pesando tu paquete; te avisamos el total.';
+    return envio.pesoTotalKg ? `Peso total del envío: ${envio.pesoTotalKg.toFixed(2)} kg.` : '';
   }
 
   private lineaTotal(envio: EnvioVista): string {
@@ -54,6 +54,8 @@ export class MensajeService {
     if (opciones.paqueteId && !paquete) throw AppError.notFound('El paquete no pertenece a este envío.');
     if (tipo === 'despacho' && !envio.guia.numero) throw AppError.badRequest('Primero registra la guía del despacho.');
     if (tipo === 'pagoRechazado' && !(opciones.motivo ?? '').trim()) throw AppError.badRequest('Indica el motivo del rechazo.');
+    if (envio.sinDueno) throw AppError.badRequest('Este paquete no tiene dueño. Asígnalo a un cliente antes de escribirle.', 'SIN_DUENO');
+    if (tipo === 'cotizacion' && !envio.precio) throw AppError.badRequest('Primero registra el peso del envío consolidado.');
 
     const recibidos = envio.paquetes.filter((p) => p.recibido).length;
     const nombreTransportista = transportista?.nombre ?? envio.transportista;
@@ -65,11 +67,15 @@ export class MensajeService {
     const texto = renderizarPlantilla(plantillas[tipo], {
       nombre: envio.cliente.nombre.split(' ')[0],
       tracking: paquete?.tracking ?? '',
-      resumen_paquetes: `Han llegado ${recibidos} de ${envio.paquetes.length} paquete(s) de este envío.`,
+      resumen_paquetes:
+        envio.tipo === 'CONSOLIDADO'
+          ? `Tu envío lleva ${envio.paquetes.length} paquete(s).`
+          : `Han llegado ${recibidos} de ${envio.paquetes.length} paquete(s) de esta alerta.`,
       linea_peso: this.lineaPeso(envio),
       linea_total: this.lineaTotal(envio),
       nota_modalidad: this.notaModalidad(envio, nombreTransportista),
       enlace_cuenta: `${this.urlApp}/cuenta/envios/${envio.id}`,
+      enlace_consolidar: `${this.urlApp}/cuenta/consolidar`,
       transportista: nombreTransportista,
       guia: envio.guia.numero,
       enlace_rastreo: enlaceRastreo,

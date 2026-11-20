@@ -8,6 +8,7 @@ import DetalleEnvio from './pages/DetalleEnvio';
 import Landing from './pages/Landing';
 import NuevaPrealerta from './pages/NuevaPrealerta';
 import { Alertas } from './pages/cliente/Alertas';
+import { Consolidar } from './pages/cliente/Consolidar';
 import { CuentaLayout } from './pages/cliente/Cuenta';
 import { Finanzas } from './pages/cliente/Finanzas';
 import { Inicio as InicioCuenta } from './pages/cliente/Inicio';
@@ -17,6 +18,7 @@ import PagosPendientes from './pages/panel/PagosPendientes';
 
 const Administracion = lazy(() => import('./pages/panel/Administracion'));
 const Escaneo = lazy(() => import('./pages/panel/Escaneo'));
+const Bodega = lazy(() => import('./pages/panel/Bodega'));
 
 function Protegida({ roles }: { roles: Rol[] }) {
   const { usuario, cargando } = useAuth();
@@ -59,6 +61,7 @@ export default function App() {
           <Route index element={<InicioCuenta />} />
           <Route path="pedidos" element={<Pedidos />} />
           <Route path="alertas" element={<Alertas />} />
+          <Route path="consolidar" element={<Consolidar />} />
           <Route path="finanzas" element={<Finanzas />} />
           <Route path="nuevo" element={<NuevaPrealerta personal={false} />} />
           <Route path="envios/:id" element={<DetalleEnvio personal={false} />} />
@@ -69,6 +72,7 @@ export default function App() {
         <Route path="/panel" element={<PanelLayout />}>
           <Route index element={<Inicio />} />
           <Route path="escanear" element={<Escaneo />} />
+          <Route path="bodega" element={<Bodega />} />
           <Route path="envios" element={<ListaEnvios />} />
           <Route path="envios/:id" element={<DetalleEnvio personal />} />
           <Route path="pagos" element={<PagosPendientes />} />

@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useNavigate, useSearchParams } from 'react-router-dom';
-import { FiCamera, FiCreditCard, FiHome, FiList, FiLogOut, FiPlus, FiSettings } from 'react-icons/fi';
+import { FiArchive, FiCamera, FiCreditCard, FiHome, FiList, FiLogOut, FiPlus, FiSettings } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
 import { Alerta, Cargando, ErrorCarga, InsigniaEstado, Marca, Vacio } from '../../components/ui';
 import { api } from '../../lib/api';
@@ -21,6 +21,7 @@ export function PanelLayout() {
   const secciones: Seccion[] = [
     { a: '/panel', texto: 'Inicio', icono: FiHome, fin: true },
     { a: '/panel/escanear', texto: 'Escanear', icono: FiCamera },
+    { a: '/panel/bodega', texto: 'Bodega', icono: FiArchive },
     { a: '/panel/envios', texto: 'Envíos', icono: FiList },
     { a: '/panel/pagos', texto: 'Pagos', icono: FiCreditCard },
   ];
@@ -75,13 +76,15 @@ export function PanelLayout() {
   );
 }
 
-const TARJETAS: Array<{ clave: keyof Resumen; texto: string; estado?: EstadoEnvio; a: string; tono: string }> = [
-  { clave: 'porRecibir', texto: 'Paquetes por recibir', estado: 'PREALERTADO', a: '/panel/envios?estado=PREALERTADO', tono: 'bg-marino-100 text-marino' },
-  { clave: 'porAvisar', texto: 'Llegados sin avisar', a: '/panel/envios?estado=RECIBIDO_COMPLETO', tono: 'bg-oro-100 text-marino-900' },
-  { clave: 'porCobrar', texto: 'Listos para cobrar', estado: 'RECIBIDO_COMPLETO', a: '/panel/envios?estado=RECIBIDO_COMPLETO', tono: 'bg-oro text-marino-900' },
+const TARJETAS: Array<{ clave: keyof Resumen; texto: string; a: string; tono: string }> = [
+  { clave: 'porRecibir', texto: 'Paquetes por recibir', a: '/panel/envios?estado=PREALERTADO', tono: 'bg-marino-100 text-marino' },
+  { clave: 'porAvisar', texto: 'Llegados sin avisar', a: '/panel/bodega', tono: 'bg-oro-100 text-marino-900' },
+  { clave: 'sinDueno', texto: 'Sin dueño en bodega', a: '/panel/bodega?sinDueno=1', tono: 'bg-rojo-100 text-rojo-700' },
+  { clave: 'porConsolidar', texto: 'Por pesar y cotizar', a: '/panel/envios?estado=POR_CONSOLIDAR', tono: 'bg-marino text-white' },
+  { clave: 'porCobrar', texto: 'Listos para cobrar', a: '/panel/envios?estado=POR_PAGAR', tono: 'bg-oro text-marino-900' },
   { clave: 'pagosPorConfirmar', texto: 'Pagos por confirmar', a: '/panel/pagos', tono: 'bg-rojo-100 text-rojo-700' },
-  { clave: 'porDespachar', texto: 'Pagados por despachar', estado: 'PAGADO', a: '/panel/envios?estado=PAGADO', tono: 'bg-verde-100 text-verde' },
-  { clave: 'sinAsignar', texto: 'Sin cliente asignado', a: '/panel/envios', tono: 'bg-white text-marino-900 border border-linea' },
+  { clave: 'porDespachar', texto: 'Pagados por despachar', a: '/panel/envios?estado=PAGADO', tono: 'bg-verde-100 text-verde' },
+  { clave: 'enBodega', texto: 'Paquetes en bodega', a: '/panel/bodega', tono: 'bg-white text-marino-900 border border-linea' },
 ];
 
 export function Inicio() {
@@ -109,7 +112,7 @@ export function Inicio() {
       {resumen.cargando && <Cargando />}
       {resumen.error && <ErrorCarga mensaje={resumen.error} reintentar={() => void resumen.recargar()} />}
       {resumen.datos && (
-        <ul className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {TARJETAS.map((t) => (
             <li key={t.clave}>
               <Link to={t.a} className={`block rounded-tarjeta p-4 transition active:scale-[0.98] sm:p-5 ${t.tono}`}>

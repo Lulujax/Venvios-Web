@@ -4,6 +4,9 @@ export const ESTADOS_ENVIO = [
   'PREALERTADO',
   'RECIBIDO_PARCIAL',
   'RECIBIDO_COMPLETO',
+  'ARCHIVADO',
+  'POR_CONSOLIDAR',
+  'POR_PAGAR',
   'POR_CONFIRMAR',
   'PAGADO',
   'DESPACHADO',
@@ -13,22 +16,36 @@ export const ESTADOS_ENVIO = [
 
 export type EstadoEnvio = (typeof ESTADOS_ENVIO)[number];
 
+export const TIPOS_ENVIO = ['ALERTA', 'CONSOLIDADO'] as const;
+export type TipoEnvio = (typeof TIPOS_ENVIO)[number];
+
+export const ESTADOS_ALERTA_ACTIVOS: EstadoEnvio[] = ['PREALERTADO', 'RECIBIDO_PARCIAL', 'RECIBIDO_COMPLETO'];
+export const ESTADOS_CONSOLIDADO_ABIERTOS: EstadoEnvio[] = ['POR_CONSOLIDAR', 'POR_PAGAR'];
+export const ESTADOS_COBRABLES: EstadoEnvio[] = ['POR_PAGAR', 'POR_CONFIRMAR'];
+export const ESTADOS_FUERA_DE_BODEGA: EstadoEnvio[] = ['DESPACHADO', 'CERRADO', 'CANCELADO', 'ARCHIVADO'];
+
 export const ETIQUETAS_ESTADO: Record<EstadoEnvio, string> = {
   PREALERTADO: 'Prealertado',
   RECIBIDO_PARCIAL: 'Recibido parcial',
-  RECIBIDO_COMPLETO: 'Recibido completo',
+  RECIBIDO_COMPLETO: 'En bodega',
+  ARCHIVADO: 'Archivado',
+  POR_CONSOLIDAR: 'Por consolidar',
+  POR_PAGAR: 'Listo para pagar',
   POR_CONFIRMAR: 'Pago por confirmar',
   PAGADO: 'Pagado',
   DESPACHADO: 'Despachado a Venezuela',
-  CERRADO: 'Cerrado',
-  CANCELADO: 'Cancelado',
+  CERRADO: 'Entregado',
+  CANCELADO: 'Descartado',
 };
 
 export const TRANSICIONES: Record<EstadoEnvio, EstadoEnvio[]> = {
-  PREALERTADO: ['RECIBIDO_PARCIAL', 'RECIBIDO_COMPLETO', 'CANCELADO'],
-  RECIBIDO_PARCIAL: ['RECIBIDO_COMPLETO', 'CANCELADO'],
-  RECIBIDO_COMPLETO: ['POR_CONFIRMAR', 'PAGADO', 'CANCELADO'],
-  POR_CONFIRMAR: ['PAGADO', 'RECIBIDO_COMPLETO'],
+  PREALERTADO: ['RECIBIDO_PARCIAL', 'RECIBIDO_COMPLETO', 'ARCHIVADO', 'CANCELADO'],
+  RECIBIDO_PARCIAL: ['PREALERTADO', 'RECIBIDO_COMPLETO', 'ARCHIVADO', 'CANCELADO'],
+  RECIBIDO_COMPLETO: ['PREALERTADO', 'RECIBIDO_PARCIAL', 'ARCHIVADO', 'CANCELADO'],
+  ARCHIVADO: [],
+  POR_CONSOLIDAR: ['POR_PAGAR', 'CANCELADO'],
+  POR_PAGAR: ['POR_CONSOLIDAR', 'POR_CONFIRMAR', 'PAGADO', 'CANCELADO'],
+  POR_CONFIRMAR: ['PAGADO', 'POR_PAGAR'],
   PAGADO: ['DESPACHADO'],
   DESPACHADO: ['CERRADO'],
   CERRADO: [],
@@ -45,6 +62,13 @@ export function validarTransicion(actual: EstadoEnvio, nuevo: EstadoEnvio): void
       'TRANSICION_INVALIDA',
     );
   }
+}
+
+export function estadoDeAlerta(paquetes: Array<{ estado: 'ESPERADO' | 'RECIBIDO' }>): EstadoEnvio {
+  if (paquetes.length === 0) return 'ARCHIVADO';
+  const recibidos = paquetes.filter((paquete) => paquete.estado === 'RECIBIDO').length;
+  if (recibidos === paquetes.length) return 'RECIBIDO_COMPLETO';
+  return recibidos > 0 ? 'RECIBIDO_PARCIAL' : 'PREALERTADO';
 }
 
 export interface DatosEntrega {

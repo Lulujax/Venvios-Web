@@ -308,3 +308,14 @@ Hecho cuando: la página abre con candado, la cámara funciona en un teléfono r
 - Panel del cliente con Inicio, Pedidos, Alertas, Finanzas y botón de WhatsApp (RF-9j a RF-9m).
 - Método y moneda de pago ligados (RF-9n). Textos públicos sin detalles internos (RF-1).
 - Pendiente de tu prueba manual; ninguna casilla marcada.
+
+## Lote: bodega, consolidación y casos especiales
+
+- **T-60** Estados y tipo de envío (alerta o consolidado), con transiciones nuevas. Cubre: RF-60, RF-66. Hecho cuando: las pruebas de estados pasan. `[ ] Hecha y probada`
+- **T-61** Sin prealerta: asignar al recibir por casillero o búsqueda, o dejar sin dueño; unir al reclamar con la alerta. Cubre: RF-61, RF-62, RF-63. Hecho cuando: las pruebas de flujo pasan. `[ ] Hecha y probada`
+- **T-62** Cambiar dueño y descartar paquetes o envíos. Cubre: RF-64, RF-65. Hecho cuando: queda en el historial y el paquete cambia de cliente. `[ ] Hecha y probada`
+- **T-63** Consolidar (cliente y operador), pesar, agregar y quitar paquetes, deshacer. Cubre: RF-66, RF-67, RF-68, RF-69. Hecho cuando: el total sale del peso del consolidado. `[ ] Hecha y probada`
+- **T-64** Mensaje de llegada sin total y mensaje de cotización. Cubre: RF-70. Hecho cuando: el operador abre ambos mensajes. `[ ] Hecha y probada`
+- **T-65** Pago exacto y referencia de 6 dígitos. Cubre: RF-71, RF-72. Hecho cuando: un monto distinto se rechaza. `[ ] Hecha y probada`
+- **T-66** El cliente elimina alertas pendientes; entregado por el operador. Cubre: RF-73, RF-74. `[ ] Hecha y probada`
+- **T-67** Pantallas: Bodega (panel), Consolidar (cliente), escaneo con asignación, detalle del envío. Cubre: RF-60 a RF-69. `[ ] Hecha y probada`

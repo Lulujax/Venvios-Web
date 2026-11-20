@@ -81,6 +81,6 @@ describe('piezas de interfaz', () => {
     const { rerender } = render(<LineaEstado estado="POR_CONFIRMAR" />);
     expect(screen.getByText('Pago en revisión').closest('li')).toHaveAttribute('aria-current', 'step');
     rerender(<LineaEstado estado="CANCELADO" />);
-    expect(screen.getByText(/fue cancelado/)).toBeInTheDocument();
+    expect(screen.getByText(/fue descartado/)).toBeInTheDocument();
   });
 });

@@ -3,36 +3,25 @@ import { hash } from '@node-rs/argon2';
 import type { CifradoCedula } from '../domain/cifrado';
 import { dolaresABolivaresCentavos } from '../domain/dinero';
 import {
+  ESTADOS_ALERTA_ACTIVOS,
+  ESTADOS_CONSOLIDADO_ABIERTOS,
+  ESTADOS_FUERA_DE_BODEGA,
   ETIQUETAS_ESTADO,
+  estadoDeAlerta,
   validarDespacho,
   validarTransicion,
   type DatosEntrega,
   type EstadoEnvio,
+  type TipoEnvio,
 } from '../domain/estados';
-import {
-  calcularPrecio,
-  kilosACentesimas,
-  modalidadPropuesta,
-  type Modalidad,
-} from '../domain/tarifas';
+import { calcularPrecio, kilosACentesimas, modalidadPropuesta, type Modalidad } from '../domain/tarifas';
 import { coincidenTrackings, normalizarTracking } from '../domain/tracking';
-import {
-  limpiarTexto,
-  validarCedula,
-  validarPesoKg,
-  validarTelefono,
-  validarValorDeclarado,
-} from '../domain/validaciones';
+import { limpiarTexto, validarCedula, validarPesoKg, validarTelefono, validarValorDeclarado } from '../domain/validaciones';
 import type { Envio, Paquete, Repositorios, Rol, Transportista, Usuario } from '../repositories/tipos';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { enmascararCedula } from '../utils/mask';
-import {
-  rutaArchivo,
-  validarImagen,
-  type Almacenamiento,
-  type ArchivoEntrada,
-} from './Almacenamiento';
+import { rutaArchivo, validarImagen, type Almacenamiento, type ArchivoEntrada } from './Almacenamiento';
 import type { ConfigService } from './ConfigService';
 import type { TasaService, TasaVigente } from './TasaService';
 
@@ -49,6 +38,7 @@ export interface PaqueteVista {
   tieneFoto: boolean;
   fotoRuta: string | null;
   avisado: boolean;
+  recibidoEn: string | null;
 }
 
 export interface PagoVista {
@@ -67,14 +57,16 @@ export interface PagoVista {
 
 export interface EnvioVista {
   id: string;
+  tipo: TipoEnvio;
   estado: EstadoEnvio;
   etiquetaEstado: string;
+  sinDueno: boolean;
   modalidad: Modalidad;
   modalidadSugerida: Modalidad | null;
   transportista: Transportista;
   tienda: string;
   valorDeclaradoCentavos: number;
-  cliente: { id: string; nombre: string; telefono: string; cedulaEnmascarada: string };
+  cliente: { id: string; nombre: string; telefono: string; codigo: string; cedulaEnmascarada: string };
   paquetes: PaqueteVista[];
   faltan: number;
   pesoTotalKg: number | null;
@@ -95,25 +87,68 @@ export interface EnvioVista {
   actualizadoEn: string;
 }
 
+export interface ItemBodega {
+  paqueteId: string;
+  tracking: string;
+  pesoKg: number | null;
+  tieneFoto: boolean;
+  fotoRuta: string | null;
+  recibidoEn: string | null;
+  envioId: string;
+  tipoEnvio: TipoEnvio;
+  estadoEnvio: EstadoEnvio;
+  sinDueno: boolean;
+  cliente: { id: string; nombre: string; codigo: string };
+}
+
 export interface NuevaPrealerta {
   clienteId?: string;
   trackings: string[];
   tienda: string;
   valorDeclaradoUsd: number;
+  modalidad?: Modalidad;
+  transportista?: Transportista;
+}
+
+export interface NuevoConsolidado {
+  clienteId?: string;
+  paqueteIds: string[];
   modalidad: Modalidad;
   transportista: Transportista;
+  valorDeclaradoUsd: number;
+  pesoKg?: number;
 }
 
 export type ResultadoEscaneo =
-  | { resultado: 'RECIBIDO' | 'YA_REGISTRADO'; envioId: string; paqueteId: string; cliente: string; faltan: number; texto: string }
+  | { resultado: 'RECIBIDO' | 'YA_REGISTRADO'; envioId: string; paqueteId: string; cliente: string; sinDueno: boolean; faltan: number; texto: string }
   | { resultado: 'SIN_PREALERTA'; texto: string };
 
 const MAX_TRACKINGS = 20;
-const TELEFONO_SIN_ASIGNAR = '0000000000';
-const ESTADOS_EDITABLES: EstadoEnvio[] = ['PREALERTADO', 'RECIBIDO_PARCIAL', 'RECIBIDO_COMPLETO'];
+const MAX_PAQUETES_CONSOLIDADO = 50;
+export const TELEFONO_SIN_ASIGNAR = '0000000000';
+export const CODIGO_SIN_ASIGNAR = 'VENV-000000';
+const TIENDA_SIN_PREALERTA = 'Sin prealerta';
+const TIENDA_DEVUELTO = 'Devuelto a bodega';
+const ESTADOS_CON_PAGO: EstadoEnvio[] = ['POR_CONFIRMAR', 'PAGADO', 'DESPACHADO', 'CERRADO'];
 
 export function esPersonal(actor: Actor): boolean {
   return actor.rol === 'OPERADOR' || actor.rol === 'ADMIN';
+}
+
+function exigirMotivo(motivo: unknown): string {
+  const limpio = limpiarTexto(motivo, 200);
+  if (limpio.length < 3) throw AppError.badRequest('Escribe el motivo (mínimo 3 letras).');
+  return limpio;
+}
+
+function validarModalidad(modalidad: unknown): Modalidad {
+  if (modalidad !== 'M1' && modalidad !== 'M2') throw AppError.badRequest('Elige una modalidad válida.');
+  return modalidad;
+}
+
+function validarTransportista(transportista: unknown): Transportista {
+  if (transportista !== 'MRW' && transportista !== 'ZOOM') throw AppError.badRequest('Elige MRW o Zoom.');
+  return transportista;
 }
 
 export class EnvioService {
@@ -138,6 +173,10 @@ export class EnvioService {
   private exigirAcceso(actor: Actor, envio: Envio): void {
     if (esPersonal(actor)) return;
     if (envio.clienteId !== actor.id) throw AppError.notFound('El envío no existe.');
+  }
+
+  private exigirPersonal(actor: Actor): void {
+    if (!esPersonal(actor)) throw AppError.forbidden();
   }
 
   private async tasaOpcional(): Promise<TasaVigente | null> {
@@ -165,8 +204,10 @@ export class EnvioService {
 
     return {
       id: envio.id,
+      tipo: envio.tipo,
       estado: envio.estado,
       etiquetaEstado: ETIQUETAS_ESTADO[envio.estado],
+      sinDueno: cliente.telefono === TELEFONO_SIN_ASIGNAR,
       modalidad: envio.modalidad,
       modalidadSugerida: pesoTotal ? modalidadPropuesta(pesoTotal) : null,
       transportista: envio.transportista,
@@ -176,6 +217,7 @@ export class EnvioService {
         id: cliente.id,
         nombre: cliente.nombre,
         telefono: cliente.telefono,
+        codigo: cliente.codigo,
         cedulaEnmascarada: enmascararCedula(this.cifrado.descifrar(cliente.cedulaCifrada)),
       },
       paquetes: envio.paquetes.map((p) => ({
@@ -186,6 +228,7 @@ export class EnvioService {
         tieneFoto: Boolean(p.fotoPath),
         fotoRuta: p.fotoPath,
         avisado: Boolean(p.avisadoEn),
+        recibidoEn: p.recibidoEn ? p.recibidoEn.toISOString() : null,
       })),
       faltan: envio.paquetes.length - recibidos.length,
       pesoTotalKg: pesoTotal ? pesoTotal / 100 : null,
@@ -234,7 +277,7 @@ export class EnvioService {
   }
 
   async historial(actor: Actor, envioId: string) {
-    if (!esPersonal(actor)) throw AppError.forbidden();
+    this.exigirPersonal(actor);
     await this.cargar(envioId);
     const eventos = await this.repos.envios.eventosDe(envioId);
     return eventos.map((e) => ({ tipo: e.tipo, detalle: e.detalle, actorId: e.actorId, fecha: e.creadoEn.toISOString() }));
@@ -245,166 +288,31 @@ export class EnvioService {
       clienteId: esPersonal(actor) ? undefined : actor.id,
       estados: filtro.estado ? [filtro.estado] : undefined,
     });
-    const vistas = await Promise.all(envios.map((e) => this.vista(e)));
+    const visibles = esPersonal(actor) && !filtro.estado ? envios.filter((e) => e.estado !== 'ARCHIVADO') : envios;
+    const vistas = await Promise.all(visibles.map((e) => this.vista(e)));
     const q = filtro.q?.trim().toLowerCase();
     if (!q || !esPersonal(actor)) return vistas;
     const digitos = q.replace(/\D/g, '');
     return vistas.filter(
       (v) =>
         v.cliente.nombre.toLowerCase().includes(q) ||
+        v.cliente.codigo.toLowerCase().includes(q) ||
         (digitos.length >= 4 && v.cliente.telefono.includes(digitos)) ||
         v.paquetes.some((p) => p.tracking.toLowerCase().includes(q)) ||
         (v.guia.numero?.toLowerCase().includes(q) ?? false),
     );
   }
 
-  async crearPrealerta(actor: Actor, datos: NuevaPrealerta): Promise<EnvioVista> {
-    logger.info('Creando prealerta', { actor: actor.id, paquetes: datos.trackings?.length });
-    const clienteId = esPersonal(actor) ? datos.clienteId : actor.id;
-    if (!clienteId) throw AppError.badRequest('Indica el cliente de la prealerta.');
-    const cliente = await this.repos.usuarios.porId(clienteId);
-    if (!cliente || cliente.rol !== 'CLIENTE' || !cliente.activo) throw AppError.notFound('El cliente no existe o no está activo.');
-    if (!['M1', 'M2'].includes(datos.modalidad)) throw AppError.badRequest('Elige una modalidad válida.');
-    if (!['MRW', 'ZOOM'].includes(datos.transportista)) throw AppError.badRequest('Elige MRW o Zoom.');
-    if (!Array.isArray(datos.trackings) || datos.trackings.length === 0) {
-      throw AppError.badRequest('Agrega al menos un número de tracking.');
-    }
-    if (datos.trackings.length > MAX_TRACKINGS) throw AppError.badRequest(`Máximo ${MAX_TRACKINGS} paquetes por envío.`);
-
-    const vistos = new Set<string>();
-    const paquetes = datos.trackings.map((texto) => {
-      const trackingNormalizado = normalizarTracking(limpiarTexto(texto, 80));
-      if (vistos.has(trackingNormalizado)) throw AppError.badRequest('Repetiste un tracking en la lista.');
-      vistos.add(trackingNormalizado);
-      return { trackingTexto: limpiarTexto(texto, 80), trackingNormalizado };
-    });
-
-    for (const paquete of paquetes) {
-      const existente = await this.repos.envios.porTracking(paquete.trackingNormalizado);
-      if (existente) {
-        const puedeVer = esPersonal(actor) || existente.clienteId === actor.id;
-        throw AppError.conflict(
-          `El tracking ${paquete.trackingTexto} ya está registrado.`,
-          puedeVer ? { envioId: existente.id } : undefined,
-        );
-      }
-    }
-
-    const envio = await this.repos.envios.crear({
-      clienteId,
-      modalidad: datos.modalidad,
-      transportista: datos.transportista,
-      tienda: limpiarTexto(datos.tienda, 80) || 'Sin indicar',
-      valorDeclaradoCentavos: validarValorDeclarado(Number(datos.valorDeclaradoUsd)),
-      paquetes,
-    });
-    await this.evento(envio.id, actor, 'PREALERTA', `Prealerta con ${paquetes.length} paquete(s)`);
-    logger.info('Prealerta creada', { envio: envio.id, paquetes: paquetes.length });
-    return this.vista(envio);
-  }
-
-  async editarDatos(
-    actor: Actor,
-    envioId: string,
-    cambios: { modalidad?: Modalidad; transportista?: Transportista; valorDeclaradoUsd?: number; tienda?: string },
-  ): Promise<EnvioVista> {
-    const envio = await this.obtenerEnvio(actor, envioId);
-    if (!ESTADOS_EDITABLES.includes(envio.estado)) {
-      throw AppError.badRequest('Este envío ya no admite cambios. Pide ayuda en la oficina.', 'ENVIO_BLOQUEADO');
-    }
-    if (!esPersonal(actor) && (cambios.valorDeclaradoUsd !== undefined || cambios.tienda !== undefined)) {
-      if (envio.estado !== 'PREALERTADO') throw AppError.forbidden('El valor declarado solo se cambia antes de recibir el paquete.');
-    }
-    const parcial: Parameters<typeof this.repos.envios.actualizar>[1] = {};
-    if (cambios.modalidad) {
-      if (!['M1', 'M2'].includes(cambios.modalidad)) throw AppError.badRequest('Modalidad inválida.');
-      parcial.modalidad = cambios.modalidad;
-    }
-    if (cambios.transportista) {
-      if (!['MRW', 'ZOOM'].includes(cambios.transportista)) throw AppError.badRequest('Transportista inválido.');
-      parcial.transportista = cambios.transportista;
-    }
-    if (cambios.valorDeclaradoUsd !== undefined) parcial.valorDeclaradoCentavos = validarValorDeclarado(cambios.valorDeclaradoUsd);
-    if (cambios.tienda !== undefined) parcial.tienda = limpiarTexto(cambios.tienda, 80) || 'Sin indicar';
-    const actualizado = await this.repos.envios.actualizar(envioId, parcial);
-    await this.evento(envioId, actor, 'EDICION', `Datos del envío editados: ${Object.keys(parcial).join(', ')}`);
-    return this.vista(await this.recalcular(actualizado));
-  }
-
-  private async recalcular(envio: Envio): Promise<Envio> {
-    const recibidos = envio.paquetes.filter((p) => p.estado === 'RECIBIDO');
-    if (recibidos.length === 0 || recibidos.some((p) => p.pesoCentesimas === null)) return envio;
-    const pesoTotal = recibidos.reduce((suma, p) => suma + (p.pesoCentesimas ?? 0), 0);
-    const precio = calcularPrecio(envio.modalidad, pesoTotal, envio.valorDeclaradoCentavos, await this.config.tarifas());
-    return this.repos.envios.actualizar(envio.id, {
-      pesoTotalCentesimas: pesoTotal,
-      pesoCobrableCentesimas: precio.pesoCobrableCentesimas,
-      fleteCentavos: precio.fleteCentavos,
-      seguroCentavos: precio.seguroCentavos,
-      totalCentavos: precio.totalCentavos,
-    });
-  }
-
-  private async ajustarEstadoRecepcion(envio: Envio): Promise<Envio> {
-    if (!['PREALERTADO', 'RECIBIDO_PARCIAL'].includes(envio.estado)) return envio;
-    const todos = envio.paquetes.every((p) => p.estado === 'RECIBIDO');
-    const alguno = envio.paquetes.some((p) => p.estado === 'RECIBIDO');
-    const nuevo: EstadoEnvio = todos ? 'RECIBIDO_COMPLETO' : alguno ? 'RECIBIDO_PARCIAL' : 'PREALERTADO';
-    if (nuevo === envio.estado) return envio;
-    validarTransicion(envio.estado, nuevo);
-    return this.repos.envios.actualizar(envio.id, { estado: nuevo });
-  }
-
-  private async buscarPaquete(texto: string): Promise<{ envio: Envio; paquete: Paquete } | null> {
-    const normalizado = normalizarTracking(texto);
-    const exacto = await this.repos.envios.porTracking(normalizado);
-    if (exacto) {
-      const paquete = exacto.paquetes.find((p) => p.trackingNormalizado === normalizado)!;
-      return { envio: exacto, paquete };
-    }
-    const pendientes = await this.repos.envios.listar({ estados: ['PREALERTADO', 'RECIBIDO_PARCIAL'] });
-    for (const envio of pendientes) {
-      const paquete = envio.paquetes.find((p) => coincidenTrackings(p.trackingNormalizado, normalizado));
-      if (paquete) return { envio, paquete };
-    }
-    return null;
-  }
-
-  async escanear(actor: Actor, textoLeido: string): Promise<ResultadoEscaneo> {
-    if (!esPersonal(actor)) throw AppError.forbidden();
-    const texto = limpiarTexto(textoLeido, 120);
-    logger.info('Escaneo recibido', { actor: actor.id, largo: texto.length });
-    const hallado = await this.buscarPaquete(texto);
-    if (!hallado) return { resultado: 'SIN_PREALERTA', texto };
-
-    const cliente = await this.repos.usuarios.porId(hallado.envio.clienteId);
-    const nombre = cliente?.nombre ?? 'Cliente';
-    if (hallado.paquete.estado === 'RECIBIDO') {
-      const faltan = hallado.envio.paquetes.filter((p) => p.estado === 'ESPERADO').length;
-      return { resultado: 'YA_REGISTRADO', envioId: hallado.envio.id, paqueteId: hallado.paquete.id, cliente: nombre, faltan, texto };
-    }
-
-    await this.repos.envios.actualizarPaquete(hallado.paquete.id, {
-      estado: 'RECIBIDO',
-      recibidoPorId: actor.id,
-      recibidoEn: new Date(),
-    });
-    const refrescado = await this.ajustarEstadoRecepcion(await this.cargar(hallado.envio.id));
-    await this.evento(refrescado.id, actor, 'RECEPCION', 'Paquete recibido en la oficina');
-    const faltan = refrescado.paquetes.filter((p) => p.estado === 'ESPERADO').length;
-    logger.info('Paquete recibido', { envio: refrescado.id, faltan });
-    return { resultado: 'RECIBIDO', envioId: refrescado.id, paqueteId: hallado.paquete.id, cliente: nombre, faltan, texto };
-  }
-
   private async clienteSinAsignar(): Promise<Usuario> {
     const existente = await this.repos.usuarios.porTelefono(TELEFONO_SIN_ASIGNAR);
     if (existente) return existente;
+    logger.info('Creando el dueño interno de paquetes sin dueño');
     return this.repos.usuarios.crear({
-      nombre: 'Sin asignar',
+      nombre: 'Sin dueño',
       cedulaCifrada: this.cifrado.cifrar('00000'),
       cedulaHuella: 'sin-asignar',
       email: 'sin-asignar@venvios.invalid',
-      codigo: 'VENV-000000',
+      codigo: CODIGO_SIN_ASIGNAR,
       telefono: TELEFONO_SIN_ASIGNAR,
       passwordHash: await hash(randomBytes(16).toString('hex')),
       rol: 'CLIENTE',
@@ -413,48 +321,77 @@ export class EnvioService {
     });
   }
 
-  async registrarSinPrealerta(actor: Actor, textoLeido: string): Promise<EnvioVista> {
-    if (!esPersonal(actor)) throw AppError.forbidden();
-    const texto = limpiarTexto(textoLeido, 80);
-    const normalizado = normalizarTracking(texto);
-    if (await this.repos.envios.porTracking(normalizado)) throw AppError.conflict('Ese tracking ya está registrado.');
-    const sinAsignar = await this.clienteSinAsignar();
-    const envio = await this.repos.envios.crear({
-      clienteId: sinAsignar.id,
-      modalidad: 'M2',
-      transportista: 'MRW',
-      tienda: 'Sin prealerta',
-      valorDeclaradoCentavos: 0,
-      paquetes: [{ trackingTexto: texto, trackingNormalizado: normalizado }],
-    });
-    await this.repos.envios.actualizarPaquete(envio.paquetes[0]!.id, { estado: 'RECIBIDO', recibidoPorId: actor.id, recibidoEn: new Date() });
-    const ajustado = await this.ajustarEstadoRecepcion(await this.cargar(envio.id));
-    await this.evento(envio.id, actor, 'SIN_PREALERTA', 'Paquete recibido sin prealerta; falta asignar cliente');
-    return this.vista(ajustado);
-  }
-
-  async asignarCliente(actor: Actor, envioId: string, clienteId: string): Promise<EnvioVista> {
-    if (!esPersonal(actor)) throw AppError.forbidden();
+  private async clienteActivo(clienteId: string): Promise<Usuario> {
     const cliente = await this.repos.usuarios.porId(clienteId);
-    if (!cliente || cliente.rol !== 'CLIENTE' || !cliente.activo) throw AppError.notFound('El cliente no existe o no está activo.');
-    await this.cargar(envioId);
-    const actualizado = await this.repos.envios.actualizar(envioId, { clienteId });
-    await this.evento(envioId, actor, 'ASIGNACION', 'Envío asignado a un cliente', { clienteId });
-    return this.vista(actualizado);
+    if (!cliente || cliente.rol !== 'CLIENTE' || !cliente.activo || cliente.telefono === TELEFONO_SIN_ASIGNAR) {
+      throw AppError.notFound('El cliente no existe o no está activo.');
+    }
+    return cliente;
   }
 
-  async registrarPeso(actor: Actor, paqueteId: string, pesoKg: number): Promise<EnvioVista> {
-    if (!esPersonal(actor)) throw AppError.forbidden();
-    const { envio, paquete } = await this.buscarPorPaqueteId(paqueteId);
-    if (paquete.estado !== 'RECIBIDO') throw AppError.badRequest('Primero escanea y recibe el paquete.');
-    if (!ESTADOS_EDITABLES.includes(envio.estado)) {
-      throw AppError.badRequest('El envío ya está en cobro; no se puede cambiar el peso.', 'ENVIO_BLOQUEADO');
+  private async esSinDueno(envio: Envio): Promise<boolean> {
+    const cliente = await this.repos.usuarios.porId(envio.clienteId);
+    return cliente?.telefono === TELEFONO_SIN_ASIGNAR;
+  }
+
+  private async refrescarAlerta(envioId: string): Promise<Envio> {
+    const envio = await this.cargar(envioId);
+    if (envio.tipo !== 'ALERTA' || !ESTADOS_ALERTA_ACTIVOS.includes(envio.estado)) return envio;
+    const nuevo = estadoDeAlerta(envio.paquetes);
+    if (nuevo === envio.estado) return envio;
+    validarTransicion(envio.estado, nuevo);
+    return this.repos.envios.actualizar(envio.id, { estado: nuevo });
+  }
+
+  private async llevarABodega(clienteId: string, paqueteIds: string[], tienda: string): Promise<Envio> {
+    const destino = await this.repos.envios.crear({
+      tipo: 'ALERTA',
+      clienteId,
+      modalidad: 'M1',
+      transportista: 'MRW',
+      tienda,
+      valorDeclaradoCentavos: 0,
+      paquetes: [],
+    });
+    await this.repos.envios.moverPaquetes(paqueteIds, destino.id);
+    return this.refrescarAlerta(destino.id);
+  }
+
+  private async apartarDescartados(envio: Envio, paqueteIds: string[]): Promise<Envio> {
+    const apartado = await this.repos.envios.crear({
+      tipo: envio.tipo,
+      clienteId: envio.clienteId,
+      modalidad: envio.modalidad,
+      transportista: envio.transportista,
+      tienda: envio.tienda,
+      valorDeclaradoCentavos: 0,
+      paquetes: [],
+      estado: envio.tipo === 'CONSOLIDADO' ? 'POR_CONSOLIDAR' : 'PREALERTADO',
+    });
+    await this.repos.envios.moverPaquetes(paqueteIds, apartado.id);
+    return this.repos.envios.actualizar(apartado.id, { estado: 'CANCELADO' });
+  }
+
+  private async alCambiarConsolidado(envioId: string, actor: Actor): Promise<Envio> {
+    const envio = await this.cargar(envioId);
+    if (envio.tipo !== 'CONSOLIDADO' || !ESTADOS_CONSOLIDADO_ABIERTOS.includes(envio.estado)) return envio;
+    if (envio.paquetes.length === 0) {
+      await this.evento(envio.id, actor, 'CONSOLIDADO_VACIO', 'El consolidado quedó sin paquetes');
+      return this.repos.envios.actualizar(envio.id, { estado: 'CANCELADO' });
     }
-    const peso = validarPesoKg(pesoKg);
-    await this.repos.envios.actualizarPaquete(paqueteId, { pesoCentesimas: kilosACentesimas(peso) });
-    const recalculado = await this.recalcular(await this.cargar(envio.id));
-    await this.evento(envio.id, actor, 'PESO', `Peso registrado: ${peso.toFixed(2)} kg`);
-    return this.vista(recalculado);
+    const limpio = {
+      pesoTotalCentesimas: null,
+      pesoCobrableCentesimas: null,
+      fleteCentavos: null,
+      seguroCentavos: null,
+      totalCentavos: null,
+    };
+    if (envio.estado === 'POR_PAGAR') {
+      validarTransicion('POR_PAGAR', 'POR_CONSOLIDAR');
+      await this.evento(envio.id, actor, 'RECOTIZAR', 'Cambiaron los paquetes; hay que pesar de nuevo');
+      return this.repos.envios.actualizar(envio.id, { ...limpio, estado: 'POR_CONSOLIDAR' });
+    }
+    return this.repos.envios.actualizar(envio.id, limpio);
   }
 
   private async buscarPorPaqueteId(paqueteId: string): Promise<{ envio: Envio; paquete: Paquete }> {
@@ -466,8 +403,337 @@ export class EnvioService {
     throw AppError.notFound('El paquete no existe.');
   }
 
+  async crearPrealerta(actor: Actor, datos: NuevaPrealerta): Promise<EnvioVista> {
+    logger.info('Creando prealerta', { actor: actor.id, paquetes: datos.trackings?.length });
+    const clienteId = esPersonal(actor) ? datos.clienteId : actor.id;
+    if (!clienteId) throw AppError.badRequest('Indica el cliente de la prealerta.');
+    await this.clienteActivo(clienteId);
+    const modalidad = datos.modalidad === undefined ? 'M1' : validarModalidad(datos.modalidad);
+    const transportista = datos.transportista === undefined ? 'MRW' : validarTransportista(datos.transportista);
+    if (!Array.isArray(datos.trackings) || datos.trackings.length === 0) {
+      throw AppError.badRequest('Agrega al menos un número de tracking.');
+    }
+    if (datos.trackings.length > MAX_TRACKINGS) throw AppError.badRequest(`Máximo ${MAX_TRACKINGS} paquetes por alerta.`);
+
+    const vistos = new Set<string>();
+    const paquetes = datos.trackings.map((texto) => {
+      const trackingTexto = limpiarTexto(texto, 80);
+      const trackingNormalizado = normalizarTracking(trackingTexto);
+      if (vistos.has(trackingNormalizado)) throw AppError.badRequest('Repetiste un tracking en la lista.');
+      vistos.add(trackingNormalizado);
+      return { trackingTexto, trackingNormalizado };
+    });
+
+    const nuevos: typeof paquetes = [];
+    const reclamados: Array<{ paqueteId: string; origenId: string }> = [];
+    for (const paquete of paquetes) {
+      const existente = await this.repos.envios.porTracking(paquete.trackingNormalizado);
+      if (!existente) {
+        nuevos.push(paquete);
+        continue;
+      }
+      const hallado = existente.paquetes.find((p) => p.trackingNormalizado === paquete.trackingNormalizado);
+      const reclamable =
+        hallado?.estado === 'RECIBIDO' && existente.tipo === 'ALERTA' && ESTADOS_ALERTA_ACTIVOS.includes(existente.estado) && (await this.esSinDueno(existente));
+      if (reclamable && hallado) {
+        reclamados.push({ paqueteId: hallado.id, origenId: existente.id });
+        continue;
+      }
+      const puedeVer = esPersonal(actor) || existente.clienteId === actor.id;
+      throw AppError.conflict(`El tracking ${paquete.trackingTexto} ya está registrado.`, puedeVer ? { envioId: existente.id } : undefined);
+    }
+
+    const envio = await this.repos.envios.crear({
+      clienteId,
+      modalidad,
+      transportista,
+      tienda: limpiarTexto(datos.tienda, 80) || 'Sin indicar',
+      valorDeclaradoCentavos: validarValorDeclarado(Number(datos.valorDeclaradoUsd)),
+      paquetes: nuevos,
+    });
+    await this.evento(envio.id, actor, 'PREALERTA', `Alerta con ${paquetes.length} paquete(s)`);
+    if (reclamados.length > 0) {
+      await this.repos.envios.moverPaquetes(reclamados.map((r) => r.paqueteId), envio.id);
+      for (const origenId of new Set(reclamados.map((r) => r.origenId))) {
+        await this.refrescarAlerta(origenId);
+        await this.evento(origenId, actor, 'RECLAMO', 'Un cliente reclamó este paquete al registrar su alerta');
+      }
+      await this.evento(envio.id, actor, 'RECLAMO', `${reclamados.length} paquete(s) sin dueño unido(s) a esta alerta`);
+      logger.info('Paquetes sin dueño reclamados', { envio: envio.id, cantidad: reclamados.length });
+    }
+    logger.info('Prealerta creada', { envio: envio.id, paquetes: paquetes.length });
+    return this.vista(await this.refrescarAlerta(envio.id));
+  }
+
+  async editarDatos(
+    actor: Actor,
+    envioId: string,
+    cambios: { modalidad?: Modalidad; transportista?: Transportista; valorDeclaradoUsd?: number; tienda?: string },
+  ): Promise<EnvioVista> {
+    const envio = await this.obtenerEnvio(actor, envioId);
+    const abierto = envio.tipo === 'ALERTA' ? ESTADOS_ALERTA_ACTIVOS.includes(envio.estado) : ESTADOS_CONSOLIDADO_ABIERTOS.includes(envio.estado);
+    if (!abierto) throw AppError.badRequest('Este envío ya no admite cambios. Pide ayuda en la oficina.', 'ENVIO_BLOQUEADO');
+    if (!esPersonal(actor) && (cambios.valorDeclaradoUsd !== undefined || cambios.tienda !== undefined)) {
+      const permitido = envio.estado === 'PREALERTADO' || envio.estado === 'POR_CONSOLIDAR';
+      if (!permitido) throw AppError.forbidden('El valor declarado ya no se puede cambiar. Escríbenos por WhatsApp.');
+    }
+    const parcial: Parameters<typeof this.repos.envios.actualizar>[1] = {};
+    if (cambios.modalidad !== undefined) parcial.modalidad = validarModalidad(cambios.modalidad);
+    if (cambios.transportista !== undefined) parcial.transportista = validarTransportista(cambios.transportista);
+    if (cambios.valorDeclaradoUsd !== undefined) parcial.valorDeclaradoCentavos = validarValorDeclarado(cambios.valorDeclaradoUsd);
+    if (cambios.tienda !== undefined) parcial.tienda = limpiarTexto(cambios.tienda, 80) || 'Sin indicar';
+    const actualizado = await this.repos.envios.actualizar(envioId, parcial);
+    await this.evento(envioId, actor, 'EDICION', `Datos del envío editados: ${Object.keys(parcial).join(', ')}`);
+    return this.vista(await this.recalcular(actualizado));
+  }
+
+  private async recalcular(envio: Envio): Promise<Envio> {
+    if (envio.tipo !== 'CONSOLIDADO' || envio.pesoTotalCentesimas === null) return envio;
+    if (!ESTADOS_CONSOLIDADO_ABIERTOS.includes(envio.estado)) return envio;
+    const precio = calcularPrecio(envio.modalidad, envio.pesoTotalCentesimas, envio.valorDeclaradoCentavos, await this.config.tarifas());
+    return this.repos.envios.actualizar(envio.id, {
+      pesoCobrableCentesimas: precio.pesoCobrableCentesimas,
+      fleteCentavos: precio.fleteCentavos,
+      seguroCentavos: precio.seguroCentavos,
+      totalCentavos: precio.totalCentavos,
+    });
+  }
+
+  private async buscarPaquete(texto: string): Promise<{ envio: Envio; paquete: Paquete } | null> {
+    const normalizado = normalizarTracking(texto);
+    const exacto = await this.repos.envios.porTracking(normalizado);
+    if (exacto) {
+      const paquete = exacto.paquetes.find((p) => p.trackingNormalizado === normalizado)!;
+      return { envio: exacto, paquete };
+    }
+    const pendientes = await this.repos.envios.listar({ estados: ['PREALERTADO', 'RECIBIDO_PARCIAL'] });
+    for (const envio of pendientes) {
+      const paquete = envio.paquetes.find((p) => p.estado === 'ESPERADO' && coincidenTrackings(p.trackingNormalizado, normalizado));
+      if (paquete) return { envio, paquete };
+    }
+    return null;
+  }
+
+  async escanear(actor: Actor, textoLeido: string): Promise<ResultadoEscaneo> {
+    this.exigirPersonal(actor);
+    const texto = limpiarTexto(textoLeido, 120);
+    logger.info('Escaneo recibido', { actor: actor.id, largo: texto.length });
+    const hallado = await this.buscarPaquete(texto);
+    if (!hallado) return { resultado: 'SIN_PREALERTA', texto };
+
+    const cliente = await this.repos.usuarios.porId(hallado.envio.clienteId);
+    const sinDueno = cliente?.telefono === TELEFONO_SIN_ASIGNAR;
+    const nombre = sinDueno ? 'Sin dueño' : (cliente?.nombre ?? 'Cliente');
+    if (hallado.paquete.estado === 'RECIBIDO') {
+      const faltan = hallado.envio.paquetes.filter((p) => p.estado === 'ESPERADO').length;
+      return { resultado: 'YA_REGISTRADO', envioId: hallado.envio.id, paqueteId: hallado.paquete.id, cliente: nombre, sinDueno, faltan, texto };
+    }
+
+    await this.repos.envios.actualizarPaquete(hallado.paquete.id, { estado: 'RECIBIDO', recibidoPorId: actor.id, recibidoEn: new Date() });
+    const refrescado = await this.refrescarAlerta(hallado.envio.id);
+    await this.evento(refrescado.id, actor, 'RECEPCION', 'Paquete recibido en la oficina');
+    const faltan = refrescado.paquetes.filter((p) => p.estado === 'ESPERADO').length;
+    logger.info('Paquete recibido', { envio: refrescado.id, faltan });
+    return { resultado: 'RECIBIDO', envioId: refrescado.id, paqueteId: hallado.paquete.id, cliente: nombre, sinDueno, faltan, texto };
+  }
+
+  async registrarSinPrealerta(actor: Actor, textoLeido: string, clienteId?: string): Promise<EnvioVista> {
+    this.exigirPersonal(actor);
+    const texto = limpiarTexto(textoLeido, 80);
+    if (texto.length < 4) throw AppError.badRequest('El tracking es muy corto.');
+    const normalizado = normalizarTracking(texto);
+    if (await this.repos.envios.porTracking(normalizado)) throw AppError.conflict('Ese tracking ya está registrado.');
+    const dueno = clienteId ? await this.clienteActivo(clienteId) : await this.clienteSinAsignar();
+    const envio = await this.repos.envios.crear({
+      clienteId: dueno.id,
+      modalidad: 'M1',
+      transportista: 'MRW',
+      tienda: TIENDA_SIN_PREALERTA,
+      valorDeclaradoCentavos: 0,
+      paquetes: [{ trackingTexto: texto, trackingNormalizado: normalizado }],
+    });
+    await this.repos.envios.actualizarPaquete(envio.paquetes[0]!.id, { estado: 'RECIBIDO', recibidoPorId: actor.id, recibidoEn: new Date() });
+    const ajustado = await this.refrescarAlerta(envio.id);
+    await this.evento(
+      envio.id,
+      actor,
+      'SIN_PREALERTA',
+      clienteId ? 'Paquete recibido sin prealerta y asignado al cliente' : 'Paquete recibido sin prealerta; queda sin dueño',
+    );
+    logger.info('Paquete sin prealerta registrado', { envio: envio.id, conDueno: Boolean(clienteId) });
+    return this.vista(ajustado);
+  }
+
+  async asignarPaquete(actor: Actor, paqueteId: string, clienteId: string | null, motivo?: string): Promise<EnvioVista> {
+    this.exigirPersonal(actor);
+    const { envio, paquete } = await this.buscarPorPaqueteId(paqueteId);
+    if (envio.tipo !== 'ALERTA' || !ESTADOS_ALERTA_ACTIVOS.includes(envio.estado)) {
+      throw AppError.badRequest('Este paquete está en un envío consolidado. Quítalo del consolidado antes de cambiar el dueño.', 'PAQUETE_EN_CONSOLIDADO');
+    }
+    if (paquete.estado !== 'RECIBIDO') throw AppError.badRequest('Solo se cambia el dueño de paquetes que ya están en bodega.');
+    const destino = clienteId ? await this.clienteActivo(clienteId) : await this.clienteSinAsignar();
+    if (destino.id === envio.clienteId) throw AppError.badRequest('El paquete ya pertenece a ese cliente.');
+    const nota = limpiarTexto(motivo, 200);
+    const tienda = envio.tienda;
+    const nuevo = await this.llevarABodega(destino.id, [paqueteId], tienda);
+    await this.refrescarAlerta(envio.id);
+    await this.evento(envio.id, actor, 'CAMBIO_DUENO', `Paquete ${paquete.trackingTexto} pasó a otro dueño${nota ? `: ${nota}` : ''}`, { destino: destino.id });
+    await this.evento(nuevo.id, actor, 'ASIGNACION', clienteId ? `Paquete asignado${nota ? `: ${nota}` : ''}` : `Paquete devuelto a sin dueño${nota ? `: ${nota}` : ''}`, { origen: envio.id });
+    logger.info('Dueño de paquete cambiado', { paquete: paqueteId, origen: envio.id, destino: nuevo.id });
+    return this.vista(nuevo);
+  }
+
+  async descartarPaquete(actor: Actor, paqueteId: string, motivo: string): Promise<EnvioVista> {
+    this.exigirPersonal(actor);
+    const detalle = exigirMotivo(motivo);
+    const { envio, paquete } = await this.buscarPorPaqueteId(paqueteId);
+    if ([...ESTADOS_CON_PAGO, 'CANCELADO', 'ARCHIVADO'].includes(envio.estado)) {
+      throw AppError.badRequest('Este paquete ya no se puede descartar.', 'ENVIO_BLOQUEADO');
+    }
+    const apartado = await this.apartarDescartados(envio, [paqueteId]);
+    await this.evento(apartado.id, actor, 'DESCARTE', `Paquete ${paquete.trackingTexto} descartado: ${detalle}`);
+    await this.evento(envio.id, actor, 'DESCARTE', `Paquete ${paquete.trackingTexto} descartado: ${detalle}`);
+    if (envio.tipo === 'ALERTA') await this.refrescarAlerta(envio.id);
+    else await this.alCambiarConsolidado(envio.id, actor);
+    logger.info('Paquete descartado', { paquete: paqueteId, envio: envio.id });
+    return this.vista(await this.cargar(envio.id));
+  }
+
+  async eliminarAlertaPendiente(actor: Actor, paqueteId: string): Promise<EnvioVista> {
+    const { envio, paquete } = await this.buscarPorPaqueteId(paqueteId);
+    this.exigirAcceso(actor, envio);
+    if (envio.tipo !== 'ALERTA' || paquete.estado !== 'ESPERADO' || !ESTADOS_ALERTA_ACTIVOS.includes(envio.estado)) {
+      throw AppError.badRequest('Solo se eliminan alertas de paquetes que aún no llegan.');
+    }
+    const apartado = await this.apartarDescartados(envio, [paqueteId]);
+    await this.evento(apartado.id, actor, 'ALERTA_ELIMINADA', `Alerta del tracking ${paquete.trackingTexto} eliminada`);
+    await this.evento(envio.id, actor, 'ALERTA_ELIMINADA', `Alerta del tracking ${paquete.trackingTexto} eliminada`);
+    logger.info('Alerta pendiente eliminada', { envio: envio.id });
+    return this.vista(await this.refrescarAlerta(envio.id));
+  }
+
+  private async paquetesParaConsolidar(clienteId: string, paqueteIds: unknown): Promise<Array<{ envio: Envio; paquete: Paquete }>> {
+    if (!Array.isArray(paqueteIds) || paqueteIds.length === 0) throw AppError.badRequest('Elige al menos un paquete.');
+    if (paqueteIds.length > MAX_PAQUETES_CONSOLIDADO) throw AppError.badRequest(`Máximo ${MAX_PAQUETES_CONSOLIDADO} paquetes por envío.`);
+    const unicos = [...new Set(paqueteIds.map(String))];
+    const elegidos: Array<{ envio: Envio; paquete: Paquete }> = [];
+    for (const id of unicos) {
+      const hallado = await this.buscarPorPaqueteId(id);
+      const enBodega =
+        hallado.envio.clienteId === clienteId &&
+        hallado.envio.tipo === 'ALERTA' &&
+        ESTADOS_ALERTA_ACTIVOS.includes(hallado.envio.estado) &&
+        hallado.paquete.estado === 'RECIBIDO';
+      if (!enBodega) throw AppError.badRequest(`El paquete ${hallado.paquete.trackingTexto} no está disponible en la bodega de este cliente.`, 'PAQUETE_NO_DISPONIBLE');
+      elegidos.push(hallado);
+    }
+    return elegidos;
+  }
+
+  async crearConsolidado(actor: Actor, datos: NuevoConsolidado): Promise<EnvioVista> {
+    const clienteId = esPersonal(actor) ? datos.clienteId : actor.id;
+    if (!clienteId) throw AppError.badRequest('Indica el cliente del envío.');
+    await this.clienteActivo(clienteId);
+    const modalidad = validarModalidad(datos.modalidad);
+    const transportista = validarTransportista(datos.transportista);
+    const valor = validarValorDeclarado(Number(datos.valorDeclaradoUsd));
+    const elegidos = await this.paquetesParaConsolidar(clienteId, datos.paqueteIds);
+    const tiendas = [...new Set(elegidos.map((e) => e.envio.tienda).filter((t) => t !== TIENDA_SIN_PREALERTA && t !== TIENDA_DEVUELTO && t !== 'Sin indicar'))];
+    const consolidado = await this.repos.envios.crear({
+      tipo: 'CONSOLIDADO',
+      clienteId,
+      modalidad,
+      transportista,
+      tienda: limpiarTexto(tiendas.join(', '), 80) || 'Envío consolidado',
+      valorDeclaradoCentavos: valor,
+      paquetes: [],
+    });
+    await this.repos.envios.moverPaquetes(elegidos.map((e) => e.paquete.id), consolidado.id);
+    for (const origenId of new Set(elegidos.map((e) => e.envio.id))) await this.refrescarAlerta(origenId);
+    await this.evento(consolidado.id, actor, 'CONSOLIDACION', `Consolidado con ${elegidos.length} paquete(s)${esPersonal(actor) ? ' por el personal' : ' por el cliente'}`);
+    logger.info('Consolidado creado', { envio: consolidado.id, paquetes: elegidos.length, porPersonal: esPersonal(actor) });
+    if (esPersonal(actor) && datos.pesoKg !== undefined && datos.pesoKg !== null) return this.cotizar(actor, consolidado.id, Number(datos.pesoKg));
+    return this.vista(await this.cargar(consolidado.id));
+  }
+
+  private async consolidadoAbierto(envioId: string): Promise<Envio> {
+    const envio = await this.cargar(envioId);
+    if (envio.tipo !== 'CONSOLIDADO' || !ESTADOS_CONSOLIDADO_ABIERTOS.includes(envio.estado)) {
+      throw AppError.badRequest('Este envío ya no admite cambios de paquetes o de peso.', 'ENVIO_BLOQUEADO');
+    }
+    return envio;
+  }
+
+  async agregarAlConsolidado(actor: Actor, envioId: string, paqueteIds: unknown): Promise<EnvioVista> {
+    this.exigirPersonal(actor);
+    const envio = await this.consolidadoAbierto(envioId);
+    const elegidos = await this.paquetesParaConsolidar(envio.clienteId, paqueteIds);
+    await this.repos.envios.moverPaquetes(elegidos.map((e) => e.paquete.id), envio.id);
+    for (const origenId of new Set(elegidos.map((e) => e.envio.id))) await this.refrescarAlerta(origenId);
+    await this.evento(envio.id, actor, 'AGREGAR_PAQUETES', `${elegidos.length} paquete(s) agregado(s) al consolidado`);
+    return this.vista(await this.alCambiarConsolidado(envio.id, actor));
+  }
+
+  async quitarDelConsolidado(actor: Actor, envioId: string, paqueteId: string): Promise<EnvioVista> {
+    this.exigirPersonal(actor);
+    const envio = await this.consolidadoAbierto(envioId);
+    const paquete = envio.paquetes.find((p) => p.id === paqueteId);
+    if (!paquete) throw AppError.notFound('El paquete no pertenece a este envío.');
+    await this.llevarABodega(envio.clienteId, [paqueteId], TIENDA_DEVUELTO);
+    await this.evento(envio.id, actor, 'QUITAR_PAQUETE', `Paquete ${paquete.trackingTexto} devuelto a la bodega del cliente`);
+    return this.vista(await this.alCambiarConsolidado(envio.id, actor));
+  }
+
+  async cotizar(actor: Actor, envioId: string, pesoKg: number): Promise<EnvioVista> {
+    this.exigirPersonal(actor);
+    const envio = await this.consolidadoAbierto(envioId);
+    if (envio.paquetes.length === 0) throw AppError.badRequest('El envío no tiene paquetes.');
+    const peso = kilosACentesimas(validarPesoKg(pesoKg));
+    const precio = calcularPrecio(envio.modalidad, peso, envio.valorDeclaradoCentavos, await this.config.tarifas());
+    if (envio.estado === 'POR_CONSOLIDAR') validarTransicion('POR_CONSOLIDAR', 'POR_PAGAR');
+    const actualizado = await this.repos.envios.actualizar(envio.id, {
+      estado: 'POR_PAGAR',
+      pesoTotalCentesimas: peso,
+      pesoCobrableCentesimas: precio.pesoCobrableCentesimas,
+      fleteCentavos: precio.fleteCentavos,
+      seguroCentavos: precio.seguroCentavos,
+      totalCentavos: precio.totalCentavos,
+    });
+    await this.evento(envio.id, actor, 'COTIZACION', `Peso del consolidado: ${(peso / 100).toFixed(2)} kg; total ${(precio.totalCentavos / 100).toFixed(2)} $`);
+    logger.info('Consolidado cotizado', { envio: envio.id });
+    return this.vista(actualizado);
+  }
+
+  async desarmar(actor: Actor, envioId: string, motivo?: string): Promise<EnvioVista> {
+    const envio = await this.obtenerEnvio(actor, envioId);
+    if (envio.tipo !== 'CONSOLIDADO' || !ESTADOS_CONSOLIDADO_ABIERTOS.includes(envio.estado)) {
+      throw AppError.badRequest('Este envío ya no se puede deshacer.', 'ENVIO_BLOQUEADO');
+    }
+    const pagos = await this.repos.pagos.deEnvio(envio.id);
+    if (pagos.some((p) => p.estado !== 'RECHAZADO')) throw AppError.badRequest('Este envío ya tiene pagos; escríbenos por WhatsApp.', 'ENVIO_CON_PAGOS');
+    const nota = limpiarTexto(motivo, 200);
+    if (envio.paquetes.length > 0) await this.llevarABodega(envio.clienteId, envio.paquetes.map((p) => p.id), TIENDA_DEVUELTO);
+    validarTransicion(envio.estado, 'CANCELADO');
+    const actualizado = await this.repos.envios.actualizar(envio.id, { estado: 'CANCELADO' });
+    await this.evento(envio.id, actor, 'DESHACER', `Consolidado deshecho; los paquetes volvieron a la bodega${nota ? `: ${nota}` : ''}`);
+    logger.info('Consolidado deshecho', { envio: envio.id });
+    return this.vista(actualizado);
+  }
+
+  async registrarPeso(actor: Actor, paqueteId: string, pesoKg: number): Promise<EnvioVista> {
+    this.exigirPersonal(actor);
+    const { envio, paquete } = await this.buscarPorPaqueteId(paqueteId);
+    if (paquete.estado !== 'RECIBIDO') throw AppError.badRequest('Primero escanea y recibe el paquete.');
+    const editable = (envio.tipo === 'ALERTA' && ESTADOS_ALERTA_ACTIVOS.includes(envio.estado)) || envio.estado === 'POR_CONSOLIDAR';
+    if (!editable) throw AppError.badRequest('Este envío ya fue pesado o cobrado; no se puede cambiar el peso del paquete.', 'ENVIO_BLOQUEADO');
+    const peso = validarPesoKg(pesoKg);
+    await this.repos.envios.actualizarPaquete(paqueteId, { pesoCentesimas: kilosACentesimas(peso) });
+    await this.evento(envio.id, actor, 'PESO', `Peso del paquete: ${peso.toFixed(2)} kg`);
+    return this.vista(await this.cargar(envio.id));
+  }
+
   async registrarFotoPaquete(actor: Actor, paqueteId: string, archivo: ArchivoEntrada | undefined): Promise<EnvioVista> {
-    if (!esPersonal(actor)) throw AppError.forbidden();
+    this.exigirPersonal(actor);
     const valido = validarImagen(archivo);
     const { envio } = await this.buscarPorPaqueteId(paqueteId);
     const ruta = rutaArchivo('paquetes', envio.id, valido.mime);
@@ -478,45 +744,16 @@ export class EnvioService {
   }
 
   async marcarAvisado(actor: Actor, paqueteId: string): Promise<EnvioVista> {
-    if (!esPersonal(actor)) throw AppError.forbidden();
+    this.exigirPersonal(actor);
     const { envio } = await this.buscarPorPaqueteId(paqueteId);
     await this.repos.envios.actualizarPaquete(paqueteId, { avisadoEn: new Date(), avisadoPorId: actor.id });
     await this.evento(envio.id, actor, 'AVISO', 'Aviso de llegada enviado por WhatsApp');
     return this.vista(await this.cargar(envio.id));
   }
 
-  async cerrarRecepcion(actor: Actor, envioId: string): Promise<EnvioVista> {
-    const envio = await this.obtenerEnvio(actor, envioId);
-    const pendientes = envio.paquetes.filter((p) => p.estado === 'ESPERADO');
-    const recibidos = envio.paquetes.filter((p) => p.estado === 'RECIBIDO');
-    if (recibidos.length === 0) throw AppError.badRequest('Aún no ha llegado ningún paquete de este envío.');
-    if (!['RECIBIDO_PARCIAL', 'RECIBIDO_COMPLETO'].includes(envio.estado)) {
-      throw AppError.badRequest('Este envío ya no admite cerrar la recepción.');
-    }
-    if (pendientes.length > 0) {
-      const nuevo = await this.repos.envios.crear({
-        clienteId: envio.clienteId,
-        modalidad: envio.modalidad,
-        transportista: envio.transportista,
-        tienda: envio.tienda,
-        valorDeclaradoCentavos: 0,
-        paquetes: [],
-      });
-      await this.repos.envios.moverPaquetes(pendientes.map((p) => p.id), nuevo.id);
-      await this.evento(nuevo.id, actor, 'DIVISION', 'Paquetes pendientes separados de otro envío; falta el valor declarado');
-      logger.info('Envío dividido al cerrar recepción', { original: envio.id, nuevo: nuevo.id });
-    }
-    let actual = await this.cargar(envio.id);
-    if (actual.estado === 'RECIBIDO_PARCIAL') {
-      validarTransicion(actual.estado, 'RECIBIDO_COMPLETO');
-      actual = await this.repos.envios.actualizar(envio.id, { estado: 'RECIBIDO_COMPLETO' });
-    }
-    await this.evento(envio.id, actor, 'CIERRE_RECEPCION', 'Recepción cerrada para pasar al pago');
-    return this.vista(await this.recalcular(actual));
-  }
-
   async guardarEntrega(actor: Actor, envioId: string, datos: DatosEntrega): Promise<EnvioVista> {
     const envio = await this.obtenerEnvio(actor, envioId);
+    if (envio.tipo !== 'CONSOLIDADO') throw AppError.badRequest('Los datos de entrega se cargan en el envío consolidado.');
     if (['DESPACHADO', 'CERRADO', 'CANCELADO'].includes(envio.estado)) {
       throw AppError.badRequest('El envío ya salió; los datos de entrega no se pueden cambiar.', 'ENVIO_BLOQUEADO');
     }
@@ -540,7 +777,7 @@ export class EnvioService {
   }
 
   async despachar(actor: Actor, envioId: string, guia: string, foto?: ArchivoEntrada): Promise<EnvioVista> {
-    if (!esPersonal(actor)) throw AppError.forbidden();
+    this.exigirPersonal(actor);
     const envio = await this.cargar(envioId);
     const entrega: DatosEntrega = {
       nombre: envio.entrega.nombre,
@@ -560,31 +797,30 @@ export class EnvioService {
       await this.almacenamiento.subir(guiaFotoPath, valida);
     }
     validarTransicion(envio.estado, 'DESPACHADO');
-    const actualizado = await this.repos.envios.actualizar(envioId, {
-      estado: 'DESPACHADO',
-      guiaVenezolana: numeroGuia,
-      guiaFotoPath,
-    });
+    const actualizado = await this.repos.envios.actualizar(envioId, { estado: 'DESPACHADO', guiaVenezolana: numeroGuia, guiaFotoPath });
     await this.evento(envioId, actor, 'DESPACHO', `Despachado con ${envio.transportista}`);
     logger.info('Envío despachado', { envio: envioId, transportista: envio.transportista });
     return this.vista(actualizado);
   }
 
   async cerrar(actor: Actor, envioId: string): Promise<EnvioVista> {
-    if (!esPersonal(actor)) throw AppError.forbidden();
+    this.exigirPersonal(actor);
     const envio = await this.cargar(envioId);
     validarTransicion(envio.estado, 'CERRADO');
     const actualizado = await this.repos.envios.actualizar(envioId, { estado: 'CERRADO' });
-    await this.evento(envioId, actor, 'CIERRE', 'Envío cerrado');
+    await this.evento(envioId, actor, 'ENTREGADO', 'Marcado como entregado');
     return this.vista(actualizado);
   }
 
   async cancelar(actor: Actor, envioId: string, motivo: string): Promise<EnvioVista> {
-    if (!esPersonal(actor)) throw AppError.forbidden();
+    this.exigirPersonal(actor);
+    const detalle = exigirMotivo(motivo);
     const envio = await this.cargar(envioId);
+    if (envio.tipo === 'CONSOLIDADO' && ESTADOS_CONSOLIDADO_ABIERTOS.includes(envio.estado)) return this.desarmar(actor, envioId, detalle);
     validarTransicion(envio.estado, 'CANCELADO');
     const actualizado = await this.repos.envios.actualizar(envioId, { estado: 'CANCELADO' });
-    await this.evento(envioId, actor, 'CANCELACION', limpiarTexto(motivo, 200) || 'Cancelado');
+    await this.evento(envioId, actor, 'DESCARTE', `Envío descartado: ${detalle}`);
+    logger.info('Envío descartado', { envio: envioId });
     return this.vista(actualizado);
   }
 
@@ -597,14 +833,11 @@ export class EnvioService {
     const motivo = limpiarTexto(cambios.motivo, 200);
     if (motivo.length < 5) throw AppError.badRequest('Escribe el motivo del ajuste (mínimo 5 letras).');
     const envio = await this.cargar(envioId);
+    if (envio.tipo !== 'CONSOLIDADO') throw AppError.badRequest('Los ajustes se hacen sobre el envío consolidado.');
     if (['DESPACHADO', 'CERRADO', 'CANCELADO'].includes(envio.estado)) {
       throw AppError.badRequest('El envío ya salió; no se puede ajustar.', 'ENVIO_BLOQUEADO');
     }
-    const anterior = {
-      pesoTotalCentesimas: envio.pesoTotalCentesimas,
-      valorDeclaradoCentavos: envio.valorDeclaradoCentavos,
-      totalCentavos: envio.totalCentavos,
-    };
+    const anterior = { pesoTotalCentesimas: envio.pesoTotalCentesimas, valorDeclaradoCentavos: envio.valorDeclaradoCentavos, totalCentavos: envio.totalCentavos };
     let trabajo = envio;
     if (cambios.valorDeclaradoUsd !== undefined) {
       trabajo = await this.repos.envios.actualizar(envioId, { valorDeclaradoCentavos: validarValorDeclarado(cambios.valorDeclaradoUsd) });
@@ -631,25 +864,79 @@ export class EnvioService {
     return this.vista(trabajo);
   }
 
+  async bodega(actor: Actor, filtro: { q?: string; sinDueno?: boolean } = {}): Promise<ItemBodega[]> {
+    this.exigirPersonal(actor);
+    const envios = (await this.repos.envios.listar({})).filter((e) => !ESTADOS_FUERA_DE_BODEGA.includes(e.estado));
+    const clientes = new Map<string, Usuario | null>();
+    const items: ItemBodega[] = [];
+    for (const envio of envios) {
+      if (!clientes.has(envio.clienteId)) clientes.set(envio.clienteId, await this.repos.usuarios.porId(envio.clienteId));
+      const cliente = clientes.get(envio.clienteId);
+      if (!cliente) continue;
+      const sinDueno = cliente.telefono === TELEFONO_SIN_ASIGNAR;
+      for (const paquete of envio.paquetes) {
+        if (paquete.estado !== 'RECIBIDO') continue;
+        items.push({
+          paqueteId: paquete.id,
+          tracking: paquete.trackingTexto,
+          pesoKg: paquete.pesoCentesimas ? paquete.pesoCentesimas / 100 : null,
+          tieneFoto: Boolean(paquete.fotoPath),
+          fotoRuta: paquete.fotoPath,
+          recibidoEn: paquete.recibidoEn ? paquete.recibidoEn.toISOString() : null,
+          envioId: envio.id,
+          tipoEnvio: envio.tipo,
+          estadoEnvio: envio.estado,
+          sinDueno,
+          cliente: { id: cliente.id, nombre: sinDueno ? 'Sin dueño' : cliente.nombre, codigo: sinDueno ? '' : cliente.codigo },
+        });
+      }
+    }
+    const q = filtro.q?.trim().toLowerCase() ?? '';
+    const qNormalizado = q.replace(/[^a-z0-9]/g, '');
+    return items
+      .filter((item) => !filtro.sinDueno || item.sinDueno)
+      .filter(
+        (item) =>
+          !q ||
+          item.cliente.nombre.toLowerCase().includes(q) ||
+          item.cliente.codigo.toLowerCase().includes(q) ||
+          (qNormalizado.length > 0 && item.tracking.toLowerCase().replace(/[^a-z0-9]/g, '').includes(qNormalizado)),
+      )
+      .sort((a, b) => (a.recibidoEn ?? '').localeCompare(b.recibidoEn ?? ''));
+  }
+
   async resumen(actor: Actor) {
-    if (!esPersonal(actor)) throw AppError.forbidden();
+    this.exigirPersonal(actor);
     const envios = await this.repos.envios.listar({});
     const pagosPorConfirmar = await this.repos.pagos.porEstado('POR_CONFIRMAR');
-    const activos = envios.filter((e) => !['CERRADO', 'CANCELADO'].includes(e.estado));
+    const sinDueno = await this.repos.usuarios.porTelefono(TELEFONO_SIN_ASIGNAR);
+    const alertas = envios.filter((e) => e.tipo === 'ALERTA' && ESTADOS_ALERTA_ACTIVOS.includes(e.estado));
+    const deClientes = alertas.filter((e) => e.clienteId !== sinDueno?.id);
+    const sinDuenoAlertas = alertas.filter((e) => e.clienteId === sinDueno?.id);
+    const contarRecibidos = (lista: Envio[]) => lista.reduce((s, e) => s + e.paquetes.filter((p) => p.estado === 'RECIBIDO').length, 0);
     return {
-      porRecibir: activos.filter((e) => ['PREALERTADO', 'RECIBIDO_PARCIAL'].includes(e.estado)).reduce((s, e) => s + e.paquetes.filter((p) => p.estado === 'ESPERADO').length, 0),
-      porAvisar: activos.reduce((s, e) => s + e.paquetes.filter((p) => p.estado === 'RECIBIDO' && !p.avisadoEn).length, 0),
-      porCobrar: activos.filter((e) => e.estado === 'RECIBIDO_COMPLETO').length,
+      porRecibir: deClientes.reduce((s, e) => s + e.paquetes.filter((p) => p.estado === 'ESPERADO').length, 0),
+      porAvisar: deClientes.reduce((s, e) => s + e.paquetes.filter((p) => p.estado === 'RECIBIDO' && !p.avisadoEn).length, 0),
+      sinDueno: contarRecibidos(sinDuenoAlertas),
+      porConsolidar: envios.filter((e) => e.estado === 'POR_CONSOLIDAR').length,
+      porCobrar: envios.filter((e) => e.estado === 'POR_PAGAR').length,
       pagosPorConfirmar: pagosPorConfirmar.length,
-      porDespachar: activos.filter((e) => e.estado === 'PAGADO').length,
-      sinAsignar: activos.filter((e) => e.tienda === 'Sin prealerta').length,
+      porDespachar: envios.filter((e) => e.estado === 'PAGADO').length,
+      enBodega: envios.filter((e) => !ESTADOS_FUERA_DE_BODEGA.includes(e.estado)).reduce((s, e) => s + e.paquetes.filter((p) => p.estado === 'RECIBIDO').length, 0),
     };
+  }
+
+  private async envioConFoto(ruta: string): Promise<Envio> {
+    const envios = await this.repos.envios.listar({});
+    const dueno = envios.find((envio) => envio.paquetes.some((paquete) => paquete.fotoPath === ruta));
+    if (!dueno) throw AppError.notFound('El archivo no existe.');
+    return dueno;
   }
 
   async verArchivo(actor: Actor, ruta: string) {
     const partes = ruta.split('/');
     if (partes.length !== 3 || partes.some((p) => !p || p === '..')) throw AppError.notFound('El archivo no existe.');
-    const envio = await this.cargar(partes[1]!);
+    const envio = partes[0] === 'paquetes' ? await this.envioConFoto(ruta) : await this.cargar(partes[1]!);
     this.exigirAcceso(actor, envio);
     return this.almacenamiento.acceso(ruta);
   }

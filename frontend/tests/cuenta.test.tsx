@@ -1,19 +1,24 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { CampoContrasena, CampoTelefono, RequisitosContrasenaLista } from '../src/components/ui';
-import { construirAlertas, esCobrable, filtrarAlertas, filtrarPedidos, resumirCuenta } from '../src/lib/cuenta';
+import { construirAlertas, esCobrable, filtrarAlertas, filtrarPedidos, paquetesEnBodega, resumirCuenta, valorSugeridoCentavos } from '../src/lib/cuenta';
 import { monedaDelMetodo } from '../src/lib/pago';
 import { PAISES, componerTelefono, validarTelefonoLocal } from '../src/lib/telefono';
 import type { Envio, EstadoEnvio } from '../src/lib/tipos';
 import { requisitosContrasena, validarContrasena, validarEmail, validarIdentificador, validarRepeticion } from '../src/lib/validar';
 
+const ESTADOS_ALERTA: EstadoEnvio[] = ['PREALERTADO', 'RECIBIDO_PARCIAL', 'RECIBIDO_COMPLETO', 'ARCHIVADO'];
+
 function envioDe(estado: EstadoEnvio, extra: Partial<Envio> = {}): Envio {
   return {
     id: `e-${estado}`,
+    tipo: ESTADOS_ALERTA.includes(estado) ? 'ALERTA' : 'CONSOLIDADO',
+    sinDueno: false,
     estado,
     tienda: 'Shein',
     creadoEn: '2026-11-10T12:00:00Z',
-    paquetes: [{ id: 'p1', tracking: 'XC-100', recibido: estado !== 'PREALERTADO' }],
+    paquetes: [{ id: `p-${estado}`, tracking: `XC-${estado}`, recibido: estado !== 'PREALERTADO', recibidoEn: null, pesoKg: null }],
+    valorDeclaradoCentavos: 6000,
     precio: { pesoCobrableKg: 2, precioPorKgCentavos: 950, fleteCentavos: 1900, seguroCentavos: 300, totalCentavos: 2200, totalBsCentavos: 200000 },
     pagadoCentavos: 0,
     tasa: { bolivaresPorUsd: 90, fecha: '2026-11-19', desactualizada: false },
@@ -117,6 +122,8 @@ describe('clasificación de la cuenta del cliente', () => {
     envioDe('PREALERTADO'),
     envioDe('RECIBIDO_PARCIAL', { id: 'parcial', paquetes: [{ id: 'a', tracking: 'AAA-1', recibido: true }, { id: 'b', tracking: 'BBB-2', recibido: false }] as Envio['paquetes'] }),
     envioDe('RECIBIDO_COMPLETO'),
+    envioDe('POR_CONSOLIDAR', { precio: null }),
+    envioDe('POR_PAGAR'),
     envioDe('POR_CONFIRMAR'),
     envioDe('PAGADO'),
     envioDe('DESPACHADO'),
@@ -124,10 +131,23 @@ describe('clasificación de la cuenta del cliente', () => {
     envioDe('CANCELADO'),
   ];
 
-  it('Pedidos muestra pagados y pendientes de pago, sin prealertas ni cancelados', () => {
-    expect(filtrarPedidos(envios, 'TODOS').map((e) => e.estado)).toEqual(['RECIBIDO_COMPLETO', 'POR_CONFIRMAR', 'PAGADO', 'DESPACHADO', 'CERRADO']);
-    expect(filtrarPedidos(envios, 'PENDIENTES')).toHaveLength(2);
+  it('Pedidos muestra solo envíos consolidados: pendientes y pagados, sin alertas ni descartados', () => {
+    expect(filtrarPedidos(envios, 'TODOS').map((e) => e.estado)).toEqual(['POR_CONSOLIDAR', 'POR_PAGAR', 'POR_CONFIRMAR', 'PAGADO', 'DESPACHADO', 'CERRADO']);
+    expect(filtrarPedidos(envios, 'PENDIENTES')).toHaveLength(3);
     expect(filtrarPedidos(envios, 'PAGADOS')).toHaveLength(3);
+  });
+
+  it('la bodega del cliente son los paquetes recibidos en alertas activas', () => {
+    const bodega = paquetesEnBodega(envios);
+    expect(bodega.map((p) => p.tracking).sort()).toEqual(['AAA-1', 'XC-RECIBIDO_COMPLETO']);
+    expect(paquetesEnBodega([])).toEqual([]);
+  });
+
+  it('el valor sugerido suma las alertas elegidas completas', () => {
+    const bodega = paquetesEnBodega(envios);
+    const completa = bodega.filter((p) => p.tracking === 'XC-RECIBIDO_COMPLETO');
+    expect(valorSugeridoCentavos(completa, bodega)).toBe(6000);
+    expect(valorSugeridoCentavos([], bodega)).toBe(0);
   });
 
   it('Alertas: Pendiente mientras no llega y Atendida cuando llegó', () => {
@@ -144,14 +164,15 @@ describe('clasificación de la cuenta del cliente', () => {
     expect(filtrarAlertas(alertas, 'no-existe', 'TODOS')).toHaveLength(0);
   });
 
-  it('Finanzas solo cobra lo que llegó completo y ya tiene precio', () => {
-    expect(esCobrable(envioDe('RECIBIDO_COMPLETO'))).toBe(true);
-    expect(esCobrable(envioDe('RECIBIDO_COMPLETO', { precio: null }))).toBe(false);
+  it('Finanzas solo cobra envíos consolidados ya pesados', () => {
+    expect(esCobrable(envioDe('POR_PAGAR'))).toBe(true);
+    expect(esCobrable(envioDe('POR_CONSOLIDAR', { precio: null }))).toBe(false);
+    expect(esCobrable(envioDe('RECIBIDO_COMPLETO'))).toBe(false);
     expect(esCobrable(envioDe('PAGADO'))).toBe(false);
   });
 
   it('el resumen suma el saldo por pagar y resta lo ya pagado', () => {
-    const resumen = resumirCuenta([envioDe('RECIBIDO_COMPLETO', { pagadoCentavos: 500 })]);
+    const resumen = resumirCuenta([envioDe('POR_PAGAR', { pagadoCentavos: 500 })]);
     expect(resumen.porPagar).toBe(1);
     expect(resumen.saldoPorPagarCentavos).toBe(1700);
   });

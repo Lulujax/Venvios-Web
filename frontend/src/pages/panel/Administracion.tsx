@@ -229,9 +229,10 @@ function EditorDatosPago() {
   );
 }
 
-const VARIABLES = '{nombre} {tracking} {resumen_paquetes} {linea_peso} {linea_total} {nota_modalidad} {enlace_cuenta} {transportista} {guia} {enlace_rastreo} {motivo}';
-const MENSAJES: Array<{ clave: 'llegada' | 'pagoVerificado' | 'pagoRechazado' | 'despacho'; titulo: string }> = [
+const VARIABLES = '{nombre} {tracking} {resumen_paquetes} {linea_peso} {linea_total} {nota_modalidad} {enlace_cuenta} {enlace_consolidar} {transportista} {guia} {enlace_rastreo} {motivo}';
+const MENSAJES: Array<{ clave: 'llegada' | 'cotizacion' | 'pagoVerificado' | 'pagoRechazado' | 'despacho'; titulo: string }> = [
   { clave: 'llegada', titulo: 'Llegó un paquete' },
+  { clave: 'cotizacion', titulo: 'Total del envío consolidado' },
   { clave: 'pagoVerificado', titulo: 'Pago verificado (pide datos de entrega)' },
   { clave: 'pagoRechazado', titulo: 'Pago rechazado' },
   { clave: 'despacho', titulo: 'Envío despachado (guía)' },
