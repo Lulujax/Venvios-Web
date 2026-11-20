@@ -184,11 +184,12 @@ En todo el recorrido, el cliente ve el **seguimiento de cada paquete** con sus p
 - **RF-102** EL SISTEMA mostrará al cliente una sección «Perfil» con dos partes: «Mis datos» y «Mis datos de entrega».
 - **RF-103** EN «Mis datos», EL SISTEMA permitirá al cliente corregir su nombre y apellido, su correo y su teléfono de WhatsApp (con selector de país), con las mismas reglas del registro (RF-10). Mostrará, sin poder cambiarlos, su número de casillero y su cédula parcial (`V-***678`).
 - **RF-104** AL cambiar su correo, su teléfono o su contraseña, EL SISTEMA pedirá la contraseña actual. La contraseña nueva cumple RF-11 y cierra las sesiones de otros equipos (RF-16). SI el correo o el teléfono ya pertenecen a otra cuenta, ENTONCES EL SISTEMA no hará el cambio y lo explicará (RF-13).
-- **RF-105** [NECESITA ACLARACIÓN: ¿puede el cliente corregir su cédula? Propuesta: no, porque identifica su cuenta; en ese caso se le pide escribir a administración por WhatsApp.]
+- **RF-105** EL SISTEMA no permitirá al cliente cambiar su cédula, porque identifica su cuenta. SI el cliente necesita corregirla, ENTONCES EL SISTEMA le indicará escribir a administración por WhatsApp. Solo el administrador puede corregirla (RF-110).
 - **RF-106** EN «Mis datos de entrega», EL SISTEMA guardará: quién recibe (nombre y apellido, número de cédula y teléfono; por defecto son los del cliente y los puede cambiar si recibe otra persona) y, para MRW y para Zoom por separado, la agencia por donde retira, la ciudad y el estado. El cliente puede llenar solo la transportista que usa.
 - **RF-107** EL SISTEMA guardará cifrados el nombre, la cédula y el teléfono de quien recibe (RF-94) y registrará cuándo se cambió el perfil, sin escribir esos datos en los registros internos (RF-93).
 - **RF-108** EN la pantalla de Consolidar, EL SISTEMA mostrará al cliente un resumen de los datos de entrega de la transportista elegida, con un enlace «Cambiar en mi perfil». No habrá formulario de dirección en esa pantalla.
 - **RF-109** EN un envío que aún no salió, EL SISTEMA permitirá al cliente pulsar «Actualizar con mi perfil» para copiar de nuevo sus datos de entrega actuales. Para cualquier otro cambio, el cliente escribe al operador por WhatsApp y el operador corrige (RF-51). El cliente ya no edita la dirección dentro del envío.
+- **RF-110** EL SISTEMA permitirá al administrador corregir la cédula de un cliente, buscándolo por nombre, correo, casillero o cédula, con un motivo obligatorio. El operador no puede. SI la cédula nueva ya pertenece a otra cuenta, ENTONCES EL SISTEMA no hará el cambio y lo explicará (RF-13). Queda en el historial de la cuenta quién la cambió, cuándo y por qué, sin guardar la cédula anterior completa (RF-93, RF-94).
 
 ## Tarifa
 

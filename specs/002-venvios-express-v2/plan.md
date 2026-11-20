@@ -69,6 +69,7 @@ Actual (Prisma): `Usuario`, `Envio` (tipo `ALERTA | CONSOLIDADO`), `Paquete`, `P
 Cambios del lote:
 
 - `Usuario`: se agregan los datos de entrega del perfil: quién recibe (nombre, cédula y teléfono cifrados) y, para MRW y para Zoom, agencia, ciudad y estado.
+- `EventoCuenta`: id, usuarioId, actorId, tipo, detalle, datos (sin datos sensibles) y creadoEn. Guarda los cambios del perfil y las correcciones de cédula del administrador. Entra en `proteger.sql` (RF-95).
 - `Paquete`: se agrega `valorDeclaradoCentavos` (por defecto 0) y `creadoEn`.
 - `Envio`: se agrega `seguroManualCentavos` (opcional). El valor declarado del envío sigue guardado como suma de sus paquetes.
 - `PaqueteHito`: id, paqueteId, paso (`PREALERTADO | EN_OFICINA | CONSOLIDANDO | POR_PAGAR | PAGO_EN_REVISION | ENVIANDO | EN_RUTA | ENTREGADO`), actorId (opcional), creadoEn. Índice por (paqueteId, creadoEn). Solo agrega filas.
@@ -115,6 +116,7 @@ Los valores internos no cambian; solo las etiquetas.
 | Seguro editable | `seguroManualCentavos`; vacío = automático; botón «volver a automático» | Guardar solo el seguro final (se pierde el recálculo al cambiar el peso) |
 | Auditoría de ediciones | `Evento` con `datos` (campo, valor anterior, valor nuevo, motivo, quién), como ya hace el ajuste del administrador | Tabla nueva `AjusteManual` |
 | Datos de entrega | Viven en el perfil del cliente (quién recibe, más agencia, ciudad y estado para MRW y para Zoom), cifrados y con las validaciones de `guardarEntrega`. Al solicitar la consolidación se copian al envío (copia fija). Si el perfil está incompleto, no se envía la solicitud. El cliente ya no edita la dirección dentro del envío; el operador sí puede corregirla | Pedirlos en cada solicitud (repite formulario y pantalla); pedirlos en la prealerta (aún no se sabe la transportista); libreta con varias direcciones (más diseño; se puede agregar después) |
+| Corrección de cédula | Solo el administrador, con motivo. Se vuelve a cifrar la cédula y se recalcula su huella HMAC para seguir detectando repetidas. El historial de la cuenta guarda quién, cuándo, el motivo y la cédula anterior enmascarada (`V-***678`) | Permitirla al cliente (cambia la identidad de la cuenta sin control); permitirla al operador; guardar la cédula anterior completa (dato sensible en el historial) |
 | Referencia de pago | Validación según método, sin columna nueva | Columna `idTransaccion` |
 | Nombres de estado | Solo etiquetas (backend `ETIQUETAS_ESTADO`, frontend `formato.ts`, plantillas) | Renombrar valores en la base de datos |
 | Cierre por el cliente | Ruta `POST /api/envios/:id/recibido`, solo del dueño y solo desde «En ruta»; la ruta del operador se queda y la pantalla pide confirmar | Cierre automático por días; un solo botón para ambos |
@@ -132,7 +134,7 @@ Los valores internos no cambian; solo las etiquetas.
 Una tarea a la vez, cada una con sus pruebas (`tareas.md`):
 
 1. Verificación manual de lo ya construido (V-1 a V-9), en paralelo.
-2. T-1 nombres de estado → T-2 pago con Binance → T-3 valor por guía → T-4a perfil (Mis datos) → T-4b datos de entrega en el perfil → T-4c consolidar y envío usan el perfil → T-5 cotización editable → T-6 registro de pasos por paquete → T-7 seguimiento visible → T-8 cierre → T-9 pantallas del operador → T-10 preparar producción.
+2. T-1 nombres de estado → T-2 pago con Binance → T-3 valor por guía → T-4a perfil (Mis datos) → T-4b datos de entrega en el perfil → T-4c consolidar y envío usan el perfil → T-4d corrección de cédula por el administrador → T-5 cotización editable → T-6 registro de pasos por paquete → T-7 seguimiento visible → T-8 cierre → T-9 pantallas del operador → T-10 preparar producción.
 
 ## Verificación
 
