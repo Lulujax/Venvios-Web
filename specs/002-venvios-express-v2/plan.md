@@ -68,6 +68,7 @@ Actual (Prisma): `Usuario`, `Envio` (tipo `ALERTA | CONSOLIDADO`), `Paquete`, `P
 
 Cambios del lote:
 
+- `Usuario`: se agregan los datos de entrega del perfil: quién recibe (nombre, cédula y teléfono cifrados) y, para MRW y para Zoom, agencia, ciudad y estado.
 - `Paquete`: se agrega `valorDeclaradoCentavos` (por defecto 0) y `creadoEn`.
 - `Envio`: se agrega `seguroManualCentavos` (opcional). El valor declarado del envío sigue guardado como suma de sus paquetes.
 - `PaqueteHito`: id, paqueteId, paso (`PREALERTADO | EN_OFICINA | CONSOLIDANDO | POR_PAGAR | PAGO_EN_REVISION | ENVIANDO | EN_RUTA | ENTREGADO`), actorId (opcional), creadoEn. Índice por (paqueteId, creadoEn). Solo agrega filas.
@@ -113,7 +114,7 @@ Los valores internos no cambian; solo las etiquetas.
 | Prealerta en la API | `paquetes: [{ tracking, valorUsd }]` reemplaza a `trackings` más un solo valor | Aceptar los dos formatos |
 | Seguro editable | `seguroManualCentavos`; vacío = automático; botón «volver a automático» | Guardar solo el seguro final (se pierde el recálculo al cambiar el peso) |
 | Auditoría de ediciones | `Evento` con `datos` (campo, valor anterior, valor nuevo, motivo, quién), como ya hace el ajuste del administrador | Tabla nueva `AjusteManual` |
-| Datos de entrega | Se piden al consolidar, con las validaciones de `guardarEntrega`. Si el operador consolida por el cliente, pueden quedar para después; el despacho sigue bloqueado sin ellos | Pedirlos en la prealerta (aún no se sabe la transportista); formulario aparte después del pago |
+| Datos de entrega | Viven en el perfil del cliente (quién recibe, más agencia, ciudad y estado para MRW y para Zoom), cifrados y con las validaciones de `guardarEntrega`. Al solicitar la consolidación se copian al envío (copia fija). Si el perfil está incompleto, no se envía la solicitud. El cliente ya no edita la dirección dentro del envío; el operador sí puede corregirla | Pedirlos en cada solicitud (repite formulario y pantalla); pedirlos en la prealerta (aún no se sabe la transportista); libreta con varias direcciones (más diseño; se puede agregar después) |
 | Referencia de pago | Validación según método, sin columna nueva | Columna `idTransaccion` |
 | Nombres de estado | Solo etiquetas (backend `ETIQUETAS_ESTADO`, frontend `formato.ts`, plantillas) | Renombrar valores en la base de datos |
 | Cierre por el cliente | Ruta `POST /api/envios/:id/recibido`, solo del dueño y solo desde «En ruta»; la ruta del operador se queda y la pantalla pide confirmar | Cierre automático por días; un solo botón para ambos |
@@ -123,7 +124,7 @@ Los valores internos no cambian; solo las etiquetas.
 
 ## Pantallas del lote
 
-- **Cliente.** Alertas: valor por guía. Consolidar: datos de entrega y valor total visible. Pedidos: seguimiento por paquete y botón «Ya lo recibí» en «En ruta». Finanzas: pago con ID de Binance o 6 dígitos según el método.
+- **Cliente.** Alertas: valor por guía. Perfil (nuevo): «Mis datos» y «Mis datos de entrega». Consolidar: resumen de entrega con «Cambiar en mi perfil» y valor total visible. Pedidos: seguimiento por paquete y botón «Ya lo recibí» en «En ruta». Finanzas: pago con ID de Binance o 6 dígitos según el método.
 - **Operador.** Solicitudes de consolidación visibles desde Inicio y Envíos; cotización con valor por paquete y seguro editables, y «Enviar cotización»; Pagos por revisar; despacho con guía y foto; «Entregado» con confirmación en pantalla.
 
 ## Orden de trabajo
@@ -131,7 +132,7 @@ Los valores internos no cambian; solo las etiquetas.
 Una tarea a la vez, cada una con sus pruebas (`tareas.md`):
 
 1. Verificación manual de lo ya construido (V-1 a V-9), en paralelo.
-2. T-1 nombres de estado → T-2 pago con Binance → T-3 valor por guía → T-4 datos de entrega al consolidar → T-5 cotización editable → T-6 registro de pasos por paquete → T-7 seguimiento visible → T-8 cierre → T-9 pantallas del operador → T-10 preparar producción.
+2. T-1 nombres de estado → T-2 pago con Binance → T-3 valor por guía → T-4a perfil (Mis datos) → T-4b datos de entrega en el perfil → T-4c consolidar y envío usan el perfil → T-5 cotización editable → T-6 registro de pasos por paquete → T-7 seguimiento visible → T-8 cierre → T-9 pantallas del operador → T-10 preparar producción.
 
 ## Verificación
 
@@ -149,6 +150,7 @@ Una tarea a la vez, cada una con sus pruebas (`tareas.md`):
 - El reparto del valor en envíos viejos puede quedar aproximado hasta que el operador lo corrija.
 - Hay dos repositorios que deben quedar iguales; una diferencia entre memoria y Prisma solo se vería en producción.
 - Los paquetes que ya estaban más allá de «En oficina» no tendrán fecha en los pasos siguientes.
+- Los clientes que ya tienen envíos con datos de entrega: la migración copia los del último envío a su perfil para que no los tengan que escribir otra vez.
 - Los enlaces de rastreo de MRW y Zoom no se verificaron para saber si aceptan el número en la URL.
 - Los datos reales de Binance y del banco se cargan desde el panel, nunca desde el código.
 - El archivo de datos de prueba y el modo HTTPS de desarrollo deben quedar fuera de producción (T-10).

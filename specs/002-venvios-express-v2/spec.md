@@ -12,10 +12,10 @@ Además hay una página pública con la información de la empresa, las tarifas 
 
 ## El recorrido completo
 
-1. El cliente se registra y recibe su **casillero** (`VENV-123456`).
+1. El cliente se registra y recibe su **casillero** (`VENV-123456`). En su **perfil** guarda sus datos de entrega para MRW o Zoom.
 2. Hace su **prealerta**: número de guía, valor declarado de cada paquete y tienda de origen.
 3. Llega el paquete a la oficina. El operador lo **escanea**; el sistema dice de quién es y lo deja «En oficina», ya con su cliente.
-4. El cliente ve en su cuenta qué paquetes llegaron, elige varios, escoge MRW o Zoom, la modalidad y escribe los datos de entrega. Eso es la **solicitud de consolidación**.
+4. El cliente ve en su cuenta qué paquetes llegaron, elige varios, escoge MRW o Zoom y la modalidad. Sus datos de entrega salen de su perfil, sin volver a escribirlos. Eso es la **solicitud de consolidación**.
 5. El operador ve la solicitud, **pesa**, revisa los valores declarados y el seguro (puede corregirlos) y le manda la **cotización** por WhatsApp con el enlace de la página para pagar.
 6. El cliente **paga** (pago móvil o Binance) y sube su comprobante. El envío queda «Pago en revisión».
 7. El operador verifica en su banco y **aprueba**. El envío queda «Enviando a Venezuela».
@@ -59,7 +59,7 @@ En todo el recorrido, el cliente ve el **seguimiento de cada paquete** con sus p
 
 ### Cuenta del cliente
 
-- **RF-19** EL SISTEMA mostrará al cliente un panel con menú lateral en la PC y barra inferior en el teléfono, con: Inicio, Pedidos, Alertas, Consolidar y Finanzas.
+- **RF-19** EL SISTEMA mostrará al cliente un panel con menú lateral en la PC y barra inferior en el teléfono, con: Inicio, Pedidos, Alertas, Consolidar y Finanzas, y un acceso a su Perfil (en el teléfono, desde la cabecera, para no llenar la barra inferior).
 - **RF-20** EN Inicio, EL SISTEMA mostrará su número de casillero, la dirección de envío de su casillero, cómo enviar sus compras a esa dirección y contadores de sus paquetes.
 - **RF-21** EN Alertas, EL SISTEMA listará las prealertas del cliente con estado «Pendiente» mientras el paquete no haya llegado a la oficina y «Atendida» cuando ya llegó, con un botón para crear una nueva alerta.
 - **RF-22** EN Pedidos, EL SISTEMA listará los envíos consolidados del cliente con su estado y el seguimiento de sus paquetes (RF-78).
@@ -87,8 +87,8 @@ En todo el recorrido, el cliente ve el **seguimiento de cada paquete** con sus p
 - **RF-38** CUANDO el código leído trae más dígitos que el número de una prealerta (caso Coordinadora: el cliente escribió el impreso `01234567890.1` y el código dice `701234567890001`), EL SISTEMA reconocerá el paquete si el código contiene ese número, siempre que el número de la prealerta tenga al menos 8 caracteres. Para números con forma `base.pieza`, la pieza se completa a 3 dígitos (`.1` equivale a `001`). SI el código coincide con más de un paquete esperado, ENTONCES EL SISTEMA no marcará ninguno y pedirá escribir el número completo.
 - **RF-39** CUANDO se lea un tracking con prealerta, EL SISTEMA marcará el paquete como «En oficina» automáticamente, lo guardará con su cliente y mostrará el nombre del cliente y cuántos paquetes de su alerta faltan.
 - **RF-40** SI se escanea un paquete que ya fue recibido, ENTONCES EL SISTEMA avisará que ya está registrado y no lo duplicará.
-- **RF-41** EL SISTEMA permitirá cargar el peso de cada paquete en kilos, con dos decimales exactos. Es opcional: el cobro se calcula con el peso total del consolidado (RF-53). No se usa peso volumétrico.
-- **RF-42** EL SISTEMA permitirá tomar una foto del paquete al recibirlo. La foto es opcional.
+- **RF-41** EL SISTEMA no pedirá el peso de cada paquete: el peso se registra una sola vez, el del consolidado completo (RF-53), en kilos con dos decimales exactos. No se usa peso volumétrico.
+- **RF-42** EL SISTEMA permitirá tomar una foto del paquete en la misma pantalla del escaneo, justo después de recibirlo. La foto es opcional y se ve después en la lista de paquetes del envío; no se toma desde la pantalla de consolidar.
 - **RF-43** EL SISTEMA permitirá avisar al cliente por WhatsApp de cada paquete que llega. El mensaje dice que llegó, cuántos paquetes de su alerta ya llegaron y cuántos faltan, y que entre a su cuenta para consolidar. No incluye el total a pagar.
 - **RF-44** EL SISTEMA abrirá WhatsApp Web en la PC y la aplicación de WhatsApp en el teléfono con el mensaje ya escrito. Guardará que el aviso se abrió, con fecha y usuario. No puede saber si el mensaje se envió de verdad, así que el operador lo confirma con un botón.
 
@@ -102,14 +102,14 @@ En todo el recorrido, el cliente ve el **seguimiento de cada paquete** con sus p
 
 ### Consolidación y cotización
 
-- **RF-50** EL SISTEMA permitirá al cliente elegir, entre sus paquetes en bodega, cuáles se envían juntos (consolidar), con la transportista (MRW o Zoom), la modalidad y los datos de entrega (RF-51). El valor declarado del envío es la **suma de los valores declarados de los paquetes elegidos** y el cliente lo ve antes de enviar la solicitud. El envío queda «Por consolidar».
-- **RF-51** EL SISTEMA pedirá los datos de entrega al solicitar la consolidación: nombre y apellido de quien recibe, número de cédula, teléfono, agencia por donde retira (MRW o Zoom), ciudad y estado. Por defecto trae los datos del cliente y los puede cambiar si recibe otra persona. El operador puede corregirlos mientras el envío no haya salido.
-- **RF-52** EL SISTEMA permitirá al operador ver las solicitudes de consolidación, consolidar en nombre del cliente cuando lo acuerdan por WhatsApp (los datos de entrega pueden quedar para después), y agregar o quitar paquetes de un consolidado antes del pago.
+- **RF-50** EL SISTEMA permitirá al cliente elegir, entre sus paquetes en bodega, cuáles se envían juntos (consolidar), con la transportista (MRW o Zoom) y la modalidad; los datos de entrega salen de su perfil (RF-51). El valor declarado del envío es la **suma de los valores declarados de los paquetes elegidos** y el cliente lo ve antes de enviar la solicitud. El envío queda «Por consolidar».
+- **RF-51** CUANDO el cliente solicite una consolidación, EL SISTEMA copiará al envío los datos de entrega de su perfil para la transportista elegida (quién recibe, agencia, ciudad y estado). SI esos datos están incompletos, ENTONCES EL SISTEMA no enviará la solicitud y llevará al cliente a completar su perfil. Lo copiado queda fijo en el envío: cambiar el perfil después no cambia envíos ya solicitados. El operador puede corregirlo mientras el envío no haya salido.
+- **RF-52** EL SISTEMA permitirá al operador ver las solicitudes de consolidación, consolidar en nombre del cliente cuando lo acuerdan por WhatsApp (si el perfil del cliente no tiene los datos de entrega, pueden quedar para después), y agregar o quitar paquetes de un consolidado antes del pago.
 - **RF-53** CUANDO el operador elija la modalidad de cobro y registre el peso total del consolidado, EL SISTEMA calculará el seguro de carga automáticamente y el total en dólares y en Bs a la tasa del día, y el envío pasará a «Por pagar».
 - **RF-54** SI cambian los paquetes de un consolidado ya pesado, ENTONCES EL SISTEMA borrará el total y lo devolverá a «Por consolidar» hasta pesarlo de nuevo.
 - **RF-55** EL SISTEMA permitirá al cliente o al personal deshacer un consolidado que aún no tiene pagos; sus paquetes vuelven a la bodega del cliente.
 - **RF-56** ANTES de que el envío tenga un pago registrado, EL SISTEMA permitirá al operador editar el valor declarado de cada paquete y el monto del seguro (que viene calculado por defecto), con un motivo obligatorio. Se guarda el valor anterior, quién lo cambió y cuándo (RF-81). CUANDO se edite, EL SISTEMA recalculará el total. El operador podrá volver el seguro a automático.
-- **RF-57** EL SISTEMA permitirá solo al administrador corregir a mano el precio, el peso o el valor declarado de un envío que ya tiene un pago registrado, con un motivo obligatorio. Se guarda el valor anterior y quién lo cambió (RF-81).
+- **RF-57** EL SISTEMA permitirá solo al administrador corregir a mano el precio, el peso o el valor declarado de un envío que ya tiene un pago registrado, con un motivo obligatorio. Se guarda el valor anterior y quién lo cambió (RF-81). Esa corrección aparece solo para el administrador, solo con pago registrado y al final de la pantalla del envío; el operador no la ve.
 - **RF-58** CUANDO el operador pulse «Enviar cotización», EL SISTEMA abrirá el chat del cliente con el mensaje ya escrito: el peso, el valor declarado, el seguro, el total en $ y en Bs, y el enlace de la página para registrar su pago.
 
 ### Pago
@@ -174,6 +174,22 @@ En todo el recorrido, el cliente ve el **seguimiento de cada paquete** con sus p
 - **RF-98** CUANDO una acción cambia varias cosas a la vez (consolidar, cambiar dueño, confirmar un pago), EL SISTEMA guardará todo junto o nada; SI algo falla a la mitad, ENTONCES no quedan datos a medias.
 - **RF-99** SI dos personas cambian el mismo envío, paquete o pago al mismo tiempo, ENTONCES EL SISTEMA aplicará solo el primer cambio y le pedirá al segundo que recargue la página.
 
+### Pantalla del envío para el personal
+
+- **RF-100** EN la pantalla de un envío, EL SISTEMA mostrará al personal solo el trabajo de la etapa en que está el envío: si se está consolidando, solo lo de consolidar; si se está revisando el pago, solo los pagos; si se está enviando, solo el despacho. Lo de las otras etapas no aparece hasta que el envío llegue a ellas.
+- **RF-101** EN un envío «Por consolidar» o «Por pagar», EL SISTEMA mostrará al operador tres pasos numerados, en este orden: 1) los paquetes del envío, con «Quitar paquete» (pide confirmar) y «Agregar de la bodega del cliente» en la misma sección; 2) el peso total, la modalidad de cobro, el valor declarado y la transportista; 3) el total y la cotización. La última acción de la pantalla es «Calcular total» y, ya calculado, «Enviar cotización por WhatsApp». El resumen de precio del cliente no aparece mientras no haya total.
+
+### Perfil del cliente
+
+- **RF-102** EL SISTEMA mostrará al cliente una sección «Perfil» con dos partes: «Mis datos» y «Mis datos de entrega».
+- **RF-103** EN «Mis datos», EL SISTEMA permitirá al cliente corregir su nombre y apellido, su correo y su teléfono de WhatsApp (con selector de país), con las mismas reglas del registro (RF-10). Mostrará, sin poder cambiarlos, su número de casillero y su cédula parcial (`V-***678`).
+- **RF-104** AL cambiar su correo, su teléfono o su contraseña, EL SISTEMA pedirá la contraseña actual. La contraseña nueva cumple RF-11 y cierra las sesiones de otros equipos (RF-16). SI el correo o el teléfono ya pertenecen a otra cuenta, ENTONCES EL SISTEMA no hará el cambio y lo explicará (RF-13).
+- **RF-105** [NECESITA ACLARACIÓN: ¿puede el cliente corregir su cédula? Propuesta: no, porque identifica su cuenta; en ese caso se le pide escribir a administración por WhatsApp.]
+- **RF-106** EN «Mis datos de entrega», EL SISTEMA guardará: quién recibe (nombre y apellido, número de cédula y teléfono; por defecto son los del cliente y los puede cambiar si recibe otra persona) y, para MRW y para Zoom por separado, la agencia por donde retira, la ciudad y el estado. El cliente puede llenar solo la transportista que usa.
+- **RF-107** EL SISTEMA guardará cifrados el nombre, la cédula y el teléfono de quien recibe (RF-94) y registrará cuándo se cambió el perfil, sin escribir esos datos en los registros internos (RF-93).
+- **RF-108** EN la pantalla de Consolidar, EL SISTEMA mostrará al cliente un resumen de los datos de entrega de la transportista elegida, con un enlace «Cambiar en mi perfil». No habrá formulario de dirección en esa pantalla.
+- **RF-109** EN un envío que aún no salió, EL SISTEMA permitirá al cliente pulsar «Actualizar con mi perfil» para copiar de nuevo sus datos de entrega actuales. Para cualquier otro cambio, el cliente escribe al operador por WhatsApp y el operador corrige (RF-51). El cliente ya no edita la dirección dentro del envío.
+
 ## Tarifa
 
 Los precios están en dólares a tasa BCV del día; el pago puede hacerse en Bs.
@@ -212,7 +228,7 @@ Nota: con estos tramos, 9,9 kg cuestan 94,05 $ y 10 kg cuestan 85 $. Es lo que d
 
 - Como cliente me registro, veo mi casillero y hago una prealerta de 3 guías con un valor para cada una.
 - Como operador escaneo cada paquete (con cámara y con foto) y sale el cliente correcto, ya «En oficina». Un paquete prealertado sigue como «Prealertado» hasta que se escanea.
-- Como cliente elijo esos 3 paquetes, escojo MRW, escribo los datos de entrega y veo el valor declarado como la suma de los tres.
+- Como cliente guardo mis datos de entrega en mi perfil; después elijo esos 3 paquetes, escojo MRW y veo el valor declarado como la suma de los tres, sin volver a escribir la dirección.
 - Como operador veo la solicitud, pongo 4,35 kg con 60 $ declarados y el sistema muestra 44,33 $ y su equivalente en Bs. Corrijo un valor o el seguro y el total se recalcula. Mando la cotización por WhatsApp con el enlace.
 - Pago por pago móvil con 6 dígitos y por Binance con ID de transacción; los dos se registran sin error y el envío queda «Pago en revisión».
 - Apruebo el pago y el envío dice «Enviando a Venezuela». Registro la guía de MRW con foto, pulso «Enviar guía» y el envío dice «En ruta».
@@ -230,3 +246,4 @@ Nota: con estos tramos, 9,9 kg cuestan 94,05 $ y 10 kg cuestan 85 $. Es lo que d
 - Aplicación nativa en Play Store o App Store.
 - Facturación electrónica.
 - Cierre automático de envíos por paso de días.
+- Libreta con varias direcciones guardadas por transportista (por ahora una para MRW y una para Zoom).
