@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Alerta, Campo, CampoTelefono, Cargando, ErrorCarga, RequisitosContrasenaLista, Seccion, useAviso } from '../../components/ui';
+import { useAuth } from '../../lib/auth';
 import { api, mensajeDeError } from '../../lib/api';
 import { aNumero } from '../../lib/formato';
 import type { Contacto, DatosPago, Tarifas, TransportistaPublico, Usuario } from '../../lib/tipos';
@@ -41,6 +42,7 @@ function useConfigClave<T>(clave: string) {
 }
 
 function Usuarios() {
+  const { usuario: yo } = useAuth();
   const avisar = useAviso();
   const { datos, cargando, error, recargar } = useCarga(() => api.get<{ usuarios: Usuario[] }>('/admin/usuarios').then((r) => r.usuarios));
   const [nuevo, setNuevo] = useState({ nombre: '', cedula: '', email: '', pais: PAIS_PREDETERMINADO, telefono: '', contrasena: '', rol: 'OPERADOR' });
@@ -85,7 +87,11 @@ function Usuarios() {
           {datos?.map((u) => (
             <li key={u.id} className="flex items-center justify-between gap-3 rounded-2xl border border-linea px-4 py-3 text-sm">
               <div className="min-w-0"><p className="truncate font-bold">{u.nombre}</p><p className="text-suave">{u.rol === 'ADMIN' ? 'Administrador' : 'Operador'} · {u.email}</p></div>
-              <button type="button" className={`btn btn-chico ${u.activo ? 'btn-suave' : 'btn-primario'}`} onClick={() => void alternar(u)}>{u.activo ? 'Desactivar' : 'Activar'}</button>
+              {u.id === yo?.id ? (
+                <span className="text-sm font-bold text-suave">Tú</span>
+              ) : (
+                <button type="button" className={`btn btn-chico ${u.activo ? 'btn-suave' : 'btn-primario'}`} onClick={() => void alternar(u)}>{u.activo ? 'Desactivar' : 'Activar'}</button>
+              )}
             </li>
           ))}
         </ul>
