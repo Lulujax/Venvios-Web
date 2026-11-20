@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto';
 import { AppError } from '../utils/errors';
 
 function obtenerLlave(llaveHex: string | undefined): Buffer {
@@ -24,6 +24,14 @@ export class CifradoCedula {
     return [iv, etiqueta, cifrado].map((parte) => parte.toString('base64')).join('.');
   }
 
+  cifrarOpcional(texto: string | null): string | null {
+    return texto ? this.cifrar(texto) : null;
+  }
+
+  descifrarOpcional(cifrado: string | null): string | null {
+    return cifrado ? this.descifrar(cifrado) : null;
+  }
+
   descifrar(cifrado: string): string {
     const partes = cifrado.split('.');
     if (partes.length !== 3) throw new Error('Dato cifrado con formato inválido.');
@@ -34,6 +42,6 @@ export class CifradoCedula {
   }
 
   huella(texto: string): string {
-    return createHash('sha256').update(`${this.llave.toString('hex')}:${texto}`).digest('hex');
+    return createHmac('sha256', this.llave).update(texto, 'utf8').digest('hex');
   }
 }

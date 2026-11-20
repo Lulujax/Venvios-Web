@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { PNG_MINIMO, crearEntorno, crearPersonalYEntrar, datosCliente, registrarCliente, type Entorno } from './ayudas';
 import { CifradoCedula } from '../src/domain/cifrado';
 import { crearRepositoriosMemoria } from '../src/repositories/memoria';
-import { AuthService } from '../src/services/AuthService';
+import { AuthService, LimitadorIntentos } from '../src/services/AuthService';
 
 let entorno: Entorno;
 
@@ -90,7 +90,7 @@ describe('cuentas', () => {
   it('el número de casillero repetido se vuelve a generar', async () => {
     const secuencia = ['111111', '111111', '222222'];
     const repos = crearRepositoriosMemoria();
-    const servicio = new AuthService(repos.usuarios, new CifradoCedula('a'.repeat(64)), 'secreto-de-prueba-largo', undefined, () => secuencia.shift() ?? '999999');
+    const servicio = new AuthService(repos.usuarios, new CifradoCedula('a'.repeat(64)), 'secreto-de-prueba-largo', new LimitadorIntentos(repos.intentos), () => secuencia.shift() ?? '999999');
     const base = { nombre: 'Ana Perez', email: 'a@correo.com', telefono: '584141111111', cedula: '11111111', contrasena: 'ClavePrueba2026!' };
     const primero = await servicio.registrarCliente(base);
     const segundo = await servicio.registrarCliente({ ...base, email: 'b@correo.com', telefono: '584142222222', cedula: '22222222' });

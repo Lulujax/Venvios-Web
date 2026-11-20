@@ -29,6 +29,10 @@ export class AppError extends Error {
     return new AppError(message, 409, 'CONFLICTO', datos);
   }
 
+  static cambioSimultaneo(): AppError {
+    return new AppError('Alguien más cambió estos datos al mismo tiempo. Recarga la página e intenta de nuevo.', 409, 'CAMBIO_SIMULTANEO');
+  }
+
   static tooMany(message = 'Demasiados intentos. Espera unos minutos.'): AppError {
     return new AppError(message, 429, 'DEMASIADOS_INTENTOS');
   }

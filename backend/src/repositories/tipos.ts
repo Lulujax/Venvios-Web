@@ -20,6 +20,7 @@ export interface Usuario {
   rol: Rol;
   activo: boolean;
   debeCambiarClave: boolean;
+  sesionVersion: number;
   creadoEn: Date;
 }
 
@@ -38,9 +39,9 @@ export interface Paquete {
 }
 
 export interface EntregaGuardada {
-  nombre: string | null;
+  nombreCifrado: string | null;
   cedulaCifrada: string | null;
-  telefono: string | null;
+  telefonoCifrado: string | null;
   agencia: string | null;
   ciudad: string | null;
   estado: string | null;
@@ -76,6 +77,7 @@ export interface Pago {
   montoOriginalCentavos: number;
   metodo: MetodoPago;
   referencia: string | null;
+  referenciaRepetida: boolean;
   comprobantePath: string | null;
   estado: EstadoPago;
   motivoRechazo: string | null;
@@ -101,7 +103,12 @@ export interface TasaGuardada {
   fuente: 'API' | 'MANUAL';
 }
 
-export type NuevoUsuario = Omit<Usuario, 'id' | 'creadoEn'>;
+export type NuevoUsuario = Omit<Usuario, 'id' | 'creadoEn' | 'sesionVersion'>;
+
+export interface IntentoGuardado {
+  cuenta: number;
+  hasta: Date;
+}
 
 export interface NuevoPaquete {
   trackingTexto: string;
@@ -122,7 +129,14 @@ export interface NuevoEnvio {
 export interface FiltroEnvios {
   clienteId?: string;
   estados?: EstadoEnvio[];
+  excluirEstados?: EstadoEnvio[];
+  texto?: string;
+  limite?: number;
 }
+
+export type CambiosEnvio = Partial<Omit<Envio, 'id' | 'creadoEn' | 'actualizadoEn' | 'paquetes' | 'entrega'>> & { entrega?: Partial<EntregaGuardada> };
+export type CambiosPaquete = Partial<Omit<Paquete, 'id' | 'envioId'>>;
+export type CambiosPago = Partial<Omit<Pago, 'id' | 'envioId' | 'creadoEn'>>;
 
 export interface UsuarioRepository {
   crear(datos: NuevoUsuario): Promise<Usuario>;
@@ -131,8 +145,10 @@ export interface UsuarioRepository {
   porTelefono(telefono: string): Promise<Usuario | null>;
   porEmail(email: string): Promise<Usuario | null>;
   porCodigo(codigo: string): Promise<Usuario | null>;
+  porIds(ids: string[]): Promise<Usuario[]>;
   listar(roles?: Rol[]): Promise<Usuario[]>;
-  actualizar(id: string, cambios: Partial<Omit<Usuario, 'id' | 'creadoEn'>>): Promise<Usuario>;
+  actualizar(id: string, cambios: Partial<Omit<Usuario, 'id' | 'creadoEn' | 'sesionVersion'>>): Promise<Usuario>;
+  renovarSesiones(id: string): Promise<Usuario>;
 }
 
 export interface EnvioRepository {
@@ -140,10 +156,12 @@ export interface EnvioRepository {
   porId(id: string): Promise<Envio | null>;
   listar(filtro: FiltroEnvios): Promise<Envio[]>;
   porTracking(trackingNormalizado: string): Promise<Envio | null>;
-  actualizar(id: string, cambios: Partial<Omit<Envio, 'id' | 'creadoEn' | 'actualizadoEn' | 'paquetes' | 'entrega'>> & { entrega?: Partial<EntregaGuardada> }): Promise<Envio>;
-  actualizarPaquete(id: string, cambios: Partial<Omit<Paquete, 'id' | 'envioId'>>): Promise<Paquete>;
+  porPaqueteId(paqueteId: string): Promise<Envio | null>;
+  porFotoPaquete(ruta: string): Promise<Envio | null>;
+  actualizar(id: string, cambios: CambiosEnvio, estadoEsperado?: EstadoEnvio): Promise<Envio>;
+  actualizarPaquete(id: string, cambios: CambiosPaquete, estadoEsperado?: EstadoPaquete): Promise<Paquete>;
   agregarPaquetes(envioId: string, paquetes: NuevoPaquete[]): Promise<Paquete[]>;
-  moverPaquetes(paqueteIds: string[], nuevoEnvioId: string): Promise<void>;
+  moverPaquetes(paqueteIds: string[], nuevoEnvioId: string, origenes?: string[]): Promise<void>;
   agregarEvento(evento: Omit<Evento, 'id' | 'creadoEn'>): Promise<Evento>;
   eventosDe(envioId: string): Promise<Evento[]>;
 }
@@ -152,8 +170,16 @@ export interface PagoRepository {
   crear(datos: Omit<Pago, 'id' | 'creadoEn'>): Promise<Pago>;
   porId(id: string): Promise<Pago | null>;
   deEnvio(envioId: string): Promise<Pago[]>;
+  deEnvios(envioIds: string[]): Promise<Pago[]>;
   porEstado(estado: EstadoPago): Promise<Pago[]>;
-  actualizar(id: string, cambios: Partial<Omit<Pago, 'id' | 'envioId' | 'creadoEn'>>): Promise<Pago>;
+  conReferencia(referencia: string): Promise<Pago[]>;
+  actualizar(id: string, cambios: CambiosPago, estadoEsperado?: EstadoPago): Promise<Pago>;
+}
+
+export interface IntentoRepository {
+  obtener(clave: string): Promise<IntentoGuardado | null>;
+  guardar(clave: string, intento: IntentoGuardado): Promise<void>;
+  borrar(clave: string): Promise<void>;
 }
 
 export interface ConfigRepository {
@@ -169,4 +195,6 @@ export interface Repositorios {
   envios: EnvioRepository;
   pagos: PagoRepository;
   config: ConfigRepository;
+  intentos: IntentoRepository;
+  enTransaccion<T>(trabajo: () => Promise<T>): Promise<T>;
 }

@@ -41,7 +41,8 @@ export function crearContexto(opciones: OpcionesContexto): Contexto {
   const cifrado = new CifradoCedula(opciones.llaveCedula);
   const config = new ConfigService(opciones.repos.config);
   const tasas = new TasaService(opciones.repos.config, opciones.consultaTasa, opciones.reloj);
-  const auth = new AuthService(opciones.repos.usuarios, cifrado, opciones.secretoJwt, opciones.limitador);
+  const limitador = opciones.limitador ?? new LimitadorIntentos(opciones.repos.intentos);
+  const auth = new AuthService(opciones.repos.usuarios, cifrado, opciones.secretoJwt, limitador);
   const envios = new EnvioService(opciones.repos, cifrado, config, tasas, opciones.almacenamiento);
   const pagos = new PagoService(opciones.repos, tasas, config, opciones.almacenamiento, envios);
   const mensajes = new MensajeService(envios, config, opciones.urlApp);
@@ -83,6 +84,9 @@ export async function crearContextoDesdeEntorno(): Promise<Contexto> {
     logger.warn('Sin DATABASE_URL: se usan datos en memoria (se pierden al reiniciar)');
   }
 
+  if (produccion && !process.env.SUPABASE_URL) {
+    throw new Error('Falta SUPABASE_URL en producción: sin ella las fotos y comprobantes se perderían.');
+  }
   const almacenamiento: Almacenamiento = process.env.SUPABASE_URL
     ? new AlmacenamientoSupabase(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY ?? '', process.env.SUPABASE_BUCKET ?? '')
     : new AlmacenamientoMemoria();

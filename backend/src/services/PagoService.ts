@@ -63,6 +63,12 @@ export class PagoService {
     return { usd: Math.round(original / tasa.bolivaresPorUsd), original, tasa: tasa.bolivaresPorUsd };
   }
 
+  private async esReferenciaRepetida(referencia: string | null, metodo: MetodoPago): Promise<boolean> {
+    if (!referencia) return false;
+    const anteriores = await this.repos.pagos.conReferencia(referencia);
+    return anteriores.some((p) => p.metodo === metodo && p.estado !== 'RECHAZADO');
+  }
+
   private validarEnvioCobrable(envio: Envio): void {
     if (envio.totalCentavos === null) throw AppError.badRequest('Aún no se calcula el total de este envío.', 'SIN_TOTAL');
     if (!ESTADOS_COBRABLES.includes(envio.estado)) {
@@ -95,6 +101,8 @@ export class PagoService {
     }
     const usd = saldo;
     const tasa = datos.moneda === 'BS' ? tasaVigente.bolivaresPorUsd : null;
+    const referenciaRepetida = await this.esReferenciaRepetida(referencia, datos.metodo);
+    if (referenciaRepetida) logger.warn('Comprobante con una referencia ya usada en otro pago', { envio: envioId, metodo: datos.metodo });
 
     const ruta = rutaArchivo('comprobantes', envioId, comprobante.mime);
     await this.almacenamiento.subir(ruta, comprobante);
@@ -105,6 +113,7 @@ export class PagoService {
       montoOriginalCentavos: original,
       metodo: datos.metodo,
       referencia,
+      referenciaRepetida,
       comprobantePath: ruta,
       estado: 'POR_CONFIRMAR',
       motivoRechazo: null,
@@ -114,9 +123,10 @@ export class PagoService {
     });
     if (envio.estado === 'POR_PAGAR') {
       validarTransicion(envio.estado, 'POR_CONFIRMAR');
-      await this.repos.envios.actualizar(envioId, { estado: 'POR_CONFIRMAR' });
+      await this.repos.envios.actualizar(envioId, { estado: 'POR_CONFIRMAR' }, 'POR_PAGAR');
     }
-    await this.repos.envios.agregarEvento({ envioId, actorId: actor.id, tipo: 'PAGO_SUBIDO', detalle: `Comprobante subido (${datos.metodo})`, datos: null });
+    const aviso = referenciaRepetida ? ' · referencia repetida, revisar en el banco' : '';
+    await this.repos.envios.agregarEvento({ envioId, actorId: actor.id, tipo: 'PAGO_SUBIDO', detalle: `Comprobante subido (${datos.metodo})${aviso}`, datos: null });
     logger.info('Comprobante subido', { envio: envioId, metodo: datos.metodo });
     return this.envios.detalle(actor, envioId);
   }
@@ -132,13 +142,15 @@ export class PagoService {
     if (usd > (envio.totalCentavos ?? 0) - confirmado + TOLERANCIA_CENTAVOS) {
       throw AppError.badRequest('El monto supera lo que falta por pagar. Revisa el monto o habla con administración.', 'MONTO_EXCEDIDO');
     }
+    const referencia = limpiarTexto(datos.referencia, 40) || null;
     const pago = await this.repos.pagos.crear({
       envioId,
       montoUsdCentavos: usd,
       moneda: datos.moneda,
       montoOriginalCentavos: original,
       metodo: datos.metodo,
-      referencia: limpiarTexto(datos.referencia, 40) || null,
+      referencia,
+      referenciaRepetida: await this.esReferenciaRepetida(referencia, datos.metodo),
       comprobantePath: null,
       estado: 'POR_CONFIRMAR',
       motivoRechazo: null,
@@ -147,7 +159,7 @@ export class PagoService {
       confirmadoPorId: null,
     });
     if (envio.estado === 'POR_PAGAR') {
-      await this.repos.envios.actualizar(envioId, { estado: 'POR_CONFIRMAR' });
+      await this.repos.envios.actualizar(envioId, { estado: 'POR_CONFIRMAR' }, 'POR_PAGAR');
     }
     return this.confirmar(actor, pago.id);
   }
@@ -163,7 +175,7 @@ export class PagoService {
     const pago = await this.repos.pagos.porId(pagoId);
     if (!pago) throw AppError.notFound('El pago no existe.');
     if (pago.estado !== 'POR_CONFIRMAR') throw AppError.badRequest('Ese pago ya fue revisado.');
-    await this.repos.pagos.actualizar(pagoId, { estado: 'CONFIRMADO', confirmadoPorId: actor.id });
+    await this.repos.pagos.actualizar(pagoId, { estado: 'CONFIRMADO', confirmadoPorId: actor.id }, 'POR_CONFIRMAR');
 
     const envio = await this.envios.obtenerEnvio(actor, pago.envioId);
     const pagos = await this.repos.pagos.deEnvio(envio.id);
@@ -173,12 +185,12 @@ export class PagoService {
 
     if (cubierto && envio.estado !== 'PAGADO') {
       validarTransicion(envio.estado, 'PAGADO');
-      await this.repos.envios.actualizar(envio.id, { estado: 'PAGADO' });
+      await this.repos.envios.actualizar(envio.id, { estado: 'PAGADO' }, envio.estado);
       await this.repos.envios.agregarEvento({ envioId: envio.id, actorId: actor.id, tipo: 'PAGO_CONFIRMADO', detalle: 'Pago completo confirmado', datos: null });
     } else if (!cubierto) {
       const quedanPendientes = pagos.some((p) => p.estado === 'POR_CONFIRMAR' && p.id !== pagoId);
       if (envio.estado === 'POR_CONFIRMAR' && !quedanPendientes) {
-        await this.repos.envios.actualizar(envio.id, { estado: 'POR_PAGAR' });
+        await this.repos.envios.actualizar(envio.id, { estado: 'POR_PAGAR' }, 'POR_CONFIRMAR');
       }
       await this.repos.envios.agregarEvento({
         envioId: envio.id,
@@ -199,13 +211,13 @@ export class PagoService {
     const pago = await this.repos.pagos.porId(pagoId);
     if (!pago) throw AppError.notFound('El pago no existe.');
     if (pago.estado !== 'POR_CONFIRMAR') throw AppError.badRequest('Ese pago ya fue revisado.');
-    await this.repos.pagos.actualizar(pagoId, { estado: 'RECHAZADO', motivoRechazo: limpio, confirmadoPorId: actor.id });
+    await this.repos.pagos.actualizar(pagoId, { estado: 'RECHAZADO', motivoRechazo: limpio, confirmadoPorId: actor.id }, 'POR_CONFIRMAR');
 
     const envio = await this.envios.obtenerEnvio(actor, pago.envioId);
     const pagos = await this.repos.pagos.deEnvio(envio.id);
     const quedanPendientes = pagos.some((p) => p.estado === 'POR_CONFIRMAR');
     if (envio.estado === 'POR_CONFIRMAR' && !quedanPendientes) {
-      await this.repos.envios.actualizar(envio.id, { estado: 'POR_PAGAR' });
+      await this.repos.envios.actualizar(envio.id, { estado: 'POR_PAGAR' }, 'POR_CONFIRMAR');
     }
     await this.repos.envios.agregarEvento({ envioId: envio.id, actorId: actor.id, tipo: 'PAGO_RECHAZADO', detalle: limpio, datos: null });
     logger.info('Pago rechazado', { envio: envio.id });

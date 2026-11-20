@@ -319,3 +319,15 @@ Hecho cuando: la página abre con candado, la cámara funciona en un teléfono r
 - **T-65** Pago exacto y referencia de 6 dígitos. Cubre: RF-71, RF-72. Hecho cuando: un monto distinto se rechaza. `[ ] Hecha y probada`
 - **T-66** El cliente elimina alertas pendientes; entregado por el operador. Cubre: RF-73, RF-74. `[ ] Hecha y probada`
 - **T-67** Pantallas: Bodega (panel), Consolidar (cliente), escaneo con asignación, detalle del envío. Cubre: RF-60 a RF-69. `[ ] Hecha y probada`
+
+## Lote: seguridad y solidez antes de producción
+
+- **T-68** Clave temporal: el operador solo la asigna a clientes. Cubre: RF-75. Hecho cuando: un operador recibe «prohibido» al intentarlo con el admin. `[ ] Hecha y probada`
+- **T-69** Cerrar sesiones al cambiar la contraseña, al recibir clave temporal o al desactivar la cuenta. Cubre: RF-76. Hecho cuando: la sesión vieja recibe 401. `[ ] Hecha y probada`
+- **T-70** Intentos de ingreso guardados en la base de datos. Cubre: RF-77. Hecho cuando: el bloqueo sigue aunque se cree otro servicio de acceso. `[ ] Hecha y probada`
+- **T-71** Cifrar nombre y teléfono de quien recibe; huella con HMAC; protección por filas en Supabase. Cubre: RF-78, RF-79. Hecho cuando: la migración inicial y la de protección existen y las pruebas pasan. `[ ] Hecha y probada`
+- **T-72** No arrancar en producción sin almacén de fotos. Cubre: RF-80. `[ ] Hecha y probada`
+- **T-73** Marcar referencias repetidas al personal. Cubre: RF-81. Hecho cuando: el segundo pago con la misma referencia muestra el aviso. `[ ] Hecha y probada`
+- **T-74** Consultas directas a la base de datos (paquete por id, foto, bodega, resumen) y lista del personal de 200 con búsqueda en todos. Cubre: RF-82, RF-83. Hecho cuando: con más de 200 envíos se asigna el paquete más viejo. `[ ] Hecha y probada`
+- **T-75** Transacciones por petición y control de cambios simultáneos. Cubre: RF-84, RF-85. Hecho cuando: un fallo a la mitad no deja envíos vacíos y dos confirmaciones del mismo pago dan una sola. `[ ] Hecha y probada`
+- **T-76** Tasa BCV en caché y vistas cargadas en bloque. Cubre: RF-86. Hecho cuando: una lista de envíos consulta la tasa una sola vez. `[ ] Hecha y probada`

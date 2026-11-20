@@ -5,6 +5,7 @@ import { dolaresABolivaresCentavos } from '../domain/dinero';
 import {
   ESTADOS_ALERTA_ACTIVOS,
   ESTADOS_CONSOLIDADO_ABIERTOS,
+  ESTADOS_ENVIO,
   ESTADOS_FUERA_DE_BODEGA,
   ETIQUETAS_ESTADO,
   estadoDeAlerta,
@@ -17,7 +18,7 @@ import {
 import { calcularPrecio, kilosACentesimas, modalidadPropuesta, type Modalidad } from '../domain/tarifas';
 import { coincidenTrackings, normalizarTracking } from '../domain/tracking';
 import { limpiarTexto, validarCedula, validarPesoKg, validarTelefono, validarValorDeclarado } from '../domain/validaciones';
-import type { Envio, Paquete, Repositorios, Rol, Transportista, Usuario } from '../repositories/tipos';
+import type { Envio, Pago, Paquete, Repositorios, Rol, Transportista, Usuario } from '../repositories/tipos';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { enmascararCedula } from '../utils/mask';
@@ -49,6 +50,7 @@ export interface PagoVista {
   montoOriginalCentavos: number;
   montoUsdCentavos: number;
   referencia: string | null;
+  referenciaRepetida: boolean;
   tieneComprobante: boolean;
   comprobanteRuta: string | null;
   motivoRechazo: string | null;
@@ -130,6 +132,8 @@ export const CODIGO_SIN_ASIGNAR = 'VENV-000000';
 const TIENDA_SIN_PREALERTA = 'Sin prealerta';
 const TIENDA_DEVUELTO = 'Devuelto a bodega';
 const ESTADOS_CON_PAGO: EstadoEnvio[] = ['POR_CONFIRMAR', 'PAGADO', 'DESPACHADO', 'CERRADO'];
+const ESTADOS_EN_BODEGA: EstadoEnvio[] = ESTADOS_ENVIO.filter((estado) => !ESTADOS_FUERA_DE_BODEGA.includes(estado));
+export const LIMITE_LISTA_PERSONAL = 200;
 
 export function esPersonal(actor: Actor): boolean {
   return actor.rol === 'OPERADOR' || actor.rol === 'ADMIN';
@@ -193,11 +197,7 @@ export class EnvioService {
     return envio;
   }
 
-  async vista(envio: Envio): Promise<EnvioVista> {
-    const cliente = await this.repos.usuarios.porId(envio.clienteId);
-    if (!cliente) throw new AppError('El envío no tiene cliente asociado.', 500, 'INTERNO');
-    const pagos = await this.repos.pagos.deEnvio(envio.id);
-    const tasa = await this.tasaOpcional();
+  private construirVista(envio: Envio, cliente: Usuario, pagos: Pago[], tasa: TasaVigente | null): EnvioVista {
     const pesoTotal = envio.pesoTotalCentesimas;
     const recibidos = envio.paquetes.filter((p) => p.estado === 'RECIBIDO');
     const pagadoCentavos = pagos.filter((p) => p.estado === 'CONFIRMADO').reduce((suma, p) => suma + p.montoUsdCentavos, 0);
@@ -245,9 +245,9 @@ export class EnvioService {
           : null,
       tasa: tasa ? { bolivaresPorUsd: tasa.bolivaresPorUsd, fecha: tasa.fecha, desactualizada: tasa.desactualizada } : null,
       entrega: {
-        nombre: envio.entrega.nombre,
-        cedula: envio.entrega.cedulaCifrada ? this.cifrado.descifrar(envio.entrega.cedulaCifrada) : null,
-        telefono: envio.entrega.telefono,
+        nombre: this.cifrado.descifrarOpcional(envio.entrega.nombreCifrado),
+        cedula: this.cifrado.descifrarOpcional(envio.entrega.cedulaCifrada),
+        telefono: this.cifrado.descifrarOpcional(envio.entrega.telefonoCifrado),
         agencia: envio.entrega.agencia,
         ciudad: envio.entrega.ciudad,
         estado: envio.entrega.estado,
@@ -261,6 +261,7 @@ export class EnvioService {
         montoOriginalCentavos: p.montoOriginalCentavos,
         montoUsdCentavos: p.montoUsdCentavos,
         referencia: p.referencia,
+        referenciaRepetida: p.referenciaRepetida,
         tieneComprobante: Boolean(p.comprobantePath),
         comprobanteRuta: p.comprobantePath,
         motivoRechazo: p.motivoRechazo,
@@ -270,6 +271,29 @@ export class EnvioService {
       creadoEn: envio.creadoEn.toISOString(),
       actualizadoEn: envio.actualizadoEn.toISOString(),
     };
+  }
+
+  async vistas(envios: Envio[]): Promise<EnvioVista[]> {
+    if (envios.length === 0) return [];
+    const [clientes, pagos, tasa] = await Promise.all([
+      this.repos.usuarios.porIds(envios.map((e) => e.clienteId)),
+      this.repos.pagos.deEnvios(envios.map((e) => e.id)),
+      this.tasaOpcional(),
+    ]);
+    const clientePorId = new Map(clientes.map((c) => [c.id, c]));
+    const pagosPorEnvio = new Map<string, Pago[]>();
+    for (const pago of pagos) pagosPorEnvio.set(pago.envioId, [...(pagosPorEnvio.get(pago.envioId) ?? []), pago]);
+    return envios.map((envio) => {
+      const cliente = clientePorId.get(envio.clienteId);
+      if (!cliente) throw new AppError('El envío no tiene cliente asociado.', 500, 'INTERNO');
+      return this.construirVista(envio, cliente, pagosPorEnvio.get(envio.id) ?? [], tasa);
+    });
+  }
+
+  async vista(envio: Envio): Promise<EnvioVista> {
+    const [unica] = await this.vistas([envio]);
+    if (!unica) throw new AppError('No se pudo armar la vista del envío.', 500, 'INTERNO');
+    return unica;
   }
 
   async detalle(actor: Actor, envioId: string): Promise<EnvioVista> {
@@ -284,23 +308,16 @@ export class EnvioService {
   }
 
   async listar(actor: Actor, filtro: { estado?: EstadoEnvio; q?: string } = {}): Promise<EnvioVista[]> {
+    const personal = esPersonal(actor);
     const envios = await this.repos.envios.listar({
-      clienteId: esPersonal(actor) ? undefined : actor.id,
+      clienteId: personal ? undefined : actor.id,
       estados: filtro.estado ? [filtro.estado] : undefined,
+      excluirEstados: personal && !filtro.estado ? ['ARCHIVADO'] : undefined,
+      texto: personal ? filtro.q : undefined,
+      limite: personal ? LIMITE_LISTA_PERSONAL : undefined,
     });
-    const visibles = esPersonal(actor) && !filtro.estado ? envios.filter((e) => e.estado !== 'ARCHIVADO') : envios;
-    const vistas = await Promise.all(visibles.map((e) => this.vista(e)));
-    const q = filtro.q?.trim().toLowerCase();
-    if (!q || !esPersonal(actor)) return vistas;
-    const digitos = q.replace(/\D/g, '');
-    return vistas.filter(
-      (v) =>
-        v.cliente.nombre.toLowerCase().includes(q) ||
-        v.cliente.codigo.toLowerCase().includes(q) ||
-        (digitos.length >= 4 && v.cliente.telefono.includes(digitos)) ||
-        v.paquetes.some((p) => p.tracking.toLowerCase().includes(q)) ||
-        (v.guia.numero?.toLowerCase().includes(q) ?? false),
-    );
+    logger.debug('Envíos listados', { actor: actor.id, cantidad: envios.length, conBusqueda: Boolean(filtro.q) });
+    return this.vistas(envios);
   }
 
   private async clienteSinAsignar(): Promise<Usuario> {
@@ -340,10 +357,10 @@ export class EnvioService {
     const nuevo = estadoDeAlerta(envio.paquetes);
     if (nuevo === envio.estado) return envio;
     validarTransicion(envio.estado, nuevo);
-    return this.repos.envios.actualizar(envio.id, { estado: nuevo });
+    return this.repos.envios.actualizar(envio.id, { estado: nuevo }, envio.estado);
   }
 
-  private async llevarABodega(clienteId: string, paqueteIds: string[], tienda: string): Promise<Envio> {
+  private async llevarABodega(clienteId: string, paqueteIds: string[], tienda: string, origenId: string): Promise<Envio> {
     const destino = await this.repos.envios.crear({
       tipo: 'ALERTA',
       clienteId,
@@ -353,7 +370,7 @@ export class EnvioService {
       valorDeclaradoCentavos: 0,
       paquetes: [],
     });
-    await this.repos.envios.moverPaquetes(paqueteIds, destino.id);
+    await this.repos.envios.moverPaquetes(paqueteIds, destino.id, [origenId]);
     return this.refrescarAlerta(destino.id);
   }
 
@@ -368,7 +385,7 @@ export class EnvioService {
       paquetes: [],
       estado: envio.tipo === 'CONSOLIDADO' ? 'POR_CONSOLIDAR' : 'PREALERTADO',
     });
-    await this.repos.envios.moverPaquetes(paqueteIds, apartado.id);
+    await this.repos.envios.moverPaquetes(paqueteIds, apartado.id, [envio.id]);
     return this.repos.envios.actualizar(apartado.id, { estado: 'CANCELADO' });
   }
 
@@ -377,7 +394,7 @@ export class EnvioService {
     if (envio.tipo !== 'CONSOLIDADO' || !ESTADOS_CONSOLIDADO_ABIERTOS.includes(envio.estado)) return envio;
     if (envio.paquetes.length === 0) {
       await this.evento(envio.id, actor, 'CONSOLIDADO_VACIO', 'El consolidado quedó sin paquetes');
-      return this.repos.envios.actualizar(envio.id, { estado: 'CANCELADO' });
+      return this.repos.envios.actualizar(envio.id, { estado: 'CANCELADO' }, envio.estado);
     }
     const limpio = {
       pesoTotalCentesimas: null,
@@ -389,18 +406,16 @@ export class EnvioService {
     if (envio.estado === 'POR_PAGAR') {
       validarTransicion('POR_PAGAR', 'POR_CONSOLIDAR');
       await this.evento(envio.id, actor, 'RECOTIZAR', 'Cambiaron los paquetes; hay que pesar de nuevo');
-      return this.repos.envios.actualizar(envio.id, { ...limpio, estado: 'POR_CONSOLIDAR' });
+      return this.repos.envios.actualizar(envio.id, { ...limpio, estado: 'POR_CONSOLIDAR' }, 'POR_PAGAR');
     }
-    return this.repos.envios.actualizar(envio.id, limpio);
+    return this.repos.envios.actualizar(envio.id, limpio, envio.estado);
   }
 
   private async buscarPorPaqueteId(paqueteId: string): Promise<{ envio: Envio; paquete: Paquete }> {
-    const todos = await this.repos.envios.listar({});
-    for (const envio of todos) {
-      const paquete = envio.paquetes.find((p) => p.id === paqueteId);
-      if (paquete) return { envio, paquete };
-    }
-    throw AppError.notFound('El paquete no existe.');
+    const envio = typeof paqueteId === 'string' && paqueteId ? await this.repos.envios.porPaqueteId(paqueteId) : null;
+    const paquete = envio?.paquetes.find((p) => p.id === paqueteId);
+    if (!envio || !paquete) throw AppError.notFound('El paquete no existe.');
+    return { envio, paquete };
   }
 
   async crearPrealerta(actor: Actor, datos: NuevaPrealerta): Promise<EnvioVista> {
@@ -453,7 +468,7 @@ export class EnvioService {
     });
     await this.evento(envio.id, actor, 'PREALERTA', `Alerta con ${paquetes.length} paquete(s)`);
     if (reclamados.length > 0) {
-      await this.repos.envios.moverPaquetes(reclamados.map((r) => r.paqueteId), envio.id);
+      await this.repos.envios.moverPaquetes(reclamados.map((r) => r.paqueteId), envio.id, reclamados.map((r) => r.origenId));
       for (const origenId of new Set(reclamados.map((r) => r.origenId))) {
         await this.refrescarAlerta(origenId);
         await this.evento(origenId, actor, 'RECLAMO', 'Un cliente reclamó este paquete al registrar su alerta');
@@ -529,7 +544,7 @@ export class EnvioService {
       return { resultado: 'YA_REGISTRADO', envioId: hallado.envio.id, paqueteId: hallado.paquete.id, cliente: nombre, sinDueno, faltan, texto };
     }
 
-    await this.repos.envios.actualizarPaquete(hallado.paquete.id, { estado: 'RECIBIDO', recibidoPorId: actor.id, recibidoEn: new Date() });
+    await this.repos.envios.actualizarPaquete(hallado.paquete.id, { estado: 'RECIBIDO', recibidoPorId: actor.id, recibidoEn: new Date() }, 'ESPERADO');
     const refrescado = await this.refrescarAlerta(hallado.envio.id);
     await this.evento(refrescado.id, actor, 'RECEPCION', 'Paquete recibido en la oficina');
     const faltan = refrescado.paquetes.filter((p) => p.estado === 'ESPERADO').length;
@@ -575,7 +590,7 @@ export class EnvioService {
     if (destino.id === envio.clienteId) throw AppError.badRequest('El paquete ya pertenece a ese cliente.');
     const nota = limpiarTexto(motivo, 200);
     const tienda = envio.tienda;
-    const nuevo = await this.llevarABodega(destino.id, [paqueteId], tienda);
+    const nuevo = await this.llevarABodega(destino.id, [paqueteId], tienda, envio.id);
     await this.refrescarAlerta(envio.id);
     await this.evento(envio.id, actor, 'CAMBIO_DUENO', `Paquete ${paquete.trackingTexto} pasó a otro dueño${nota ? `: ${nota}` : ''}`, { destino: destino.id });
     await this.evento(nuevo.id, actor, 'ASIGNACION', clienteId ? `Paquete asignado${nota ? `: ${nota}` : ''}` : `Paquete devuelto a sin dueño${nota ? `: ${nota}` : ''}`, { origen: envio.id });
@@ -648,7 +663,7 @@ export class EnvioService {
       valorDeclaradoCentavos: valor,
       paquetes: [],
     });
-    await this.repos.envios.moverPaquetes(elegidos.map((e) => e.paquete.id), consolidado.id);
+    await this.repos.envios.moverPaquetes(elegidos.map((e) => e.paquete.id), consolidado.id, elegidos.map((e) => e.envio.id));
     for (const origenId of new Set(elegidos.map((e) => e.envio.id))) await this.refrescarAlerta(origenId);
     await this.evento(consolidado.id, actor, 'CONSOLIDACION', `Consolidado con ${elegidos.length} paquete(s)${esPersonal(actor) ? ' por el personal' : ' por el cliente'}`);
     logger.info('Consolidado creado', { envio: consolidado.id, paquetes: elegidos.length, porPersonal: esPersonal(actor) });
@@ -668,7 +683,7 @@ export class EnvioService {
     this.exigirPersonal(actor);
     const envio = await this.consolidadoAbierto(envioId);
     const elegidos = await this.paquetesParaConsolidar(envio.clienteId, paqueteIds);
-    await this.repos.envios.moverPaquetes(elegidos.map((e) => e.paquete.id), envio.id);
+    await this.repos.envios.moverPaquetes(elegidos.map((e) => e.paquete.id), envio.id, elegidos.map((e) => e.envio.id));
     for (const origenId of new Set(elegidos.map((e) => e.envio.id))) await this.refrescarAlerta(origenId);
     await this.evento(envio.id, actor, 'AGREGAR_PAQUETES', `${elegidos.length} paquete(s) agregado(s) al consolidado`);
     return this.vista(await this.alCambiarConsolidado(envio.id, actor));
@@ -679,7 +694,7 @@ export class EnvioService {
     const envio = await this.consolidadoAbierto(envioId);
     const paquete = envio.paquetes.find((p) => p.id === paqueteId);
     if (!paquete) throw AppError.notFound('El paquete no pertenece a este envío.');
-    await this.llevarABodega(envio.clienteId, [paqueteId], TIENDA_DEVUELTO);
+    await this.llevarABodega(envio.clienteId, [paqueteId], TIENDA_DEVUELTO, envio.id);
     await this.evento(envio.id, actor, 'QUITAR_PAQUETE', `Paquete ${paquete.trackingTexto} devuelto a la bodega del cliente`);
     return this.vista(await this.alCambiarConsolidado(envio.id, actor));
   }
@@ -691,14 +706,18 @@ export class EnvioService {
     const peso = kilosACentesimas(validarPesoKg(pesoKg));
     const precio = calcularPrecio(envio.modalidad, peso, envio.valorDeclaradoCentavos, await this.config.tarifas());
     if (envio.estado === 'POR_CONSOLIDAR') validarTransicion('POR_CONSOLIDAR', 'POR_PAGAR');
-    const actualizado = await this.repos.envios.actualizar(envio.id, {
-      estado: 'POR_PAGAR',
-      pesoTotalCentesimas: peso,
-      pesoCobrableCentesimas: precio.pesoCobrableCentesimas,
-      fleteCentavos: precio.fleteCentavos,
-      seguroCentavos: precio.seguroCentavos,
-      totalCentavos: precio.totalCentavos,
-    });
+    const actualizado = await this.repos.envios.actualizar(
+      envio.id,
+      {
+        estado: 'POR_PAGAR',
+        pesoTotalCentesimas: peso,
+        pesoCobrableCentesimas: precio.pesoCobrableCentesimas,
+        fleteCentavos: precio.fleteCentavos,
+        seguroCentavos: precio.seguroCentavos,
+        totalCentavos: precio.totalCentavos,
+      },
+      envio.estado,
+    );
     await this.evento(envio.id, actor, 'COTIZACION', `Peso del consolidado: ${(peso / 100).toFixed(2)} kg; total ${(precio.totalCentavos / 100).toFixed(2)} $`);
     logger.info('Consolidado cotizado', { envio: envio.id });
     return this.vista(actualizado);
@@ -712,9 +731,9 @@ export class EnvioService {
     const pagos = await this.repos.pagos.deEnvio(envio.id);
     if (pagos.some((p) => p.estado !== 'RECHAZADO')) throw AppError.badRequest('Este envío ya tiene pagos; escríbenos por WhatsApp.', 'ENVIO_CON_PAGOS');
     const nota = limpiarTexto(motivo, 200);
-    if (envio.paquetes.length > 0) await this.llevarABodega(envio.clienteId, envio.paquetes.map((p) => p.id), TIENDA_DEVUELTO);
+    if (envio.paquetes.length > 0) await this.llevarABodega(envio.clienteId, envio.paquetes.map((p) => p.id), TIENDA_DEVUELTO, envio.id);
     validarTransicion(envio.estado, 'CANCELADO');
-    const actualizado = await this.repos.envios.actualizar(envio.id, { estado: 'CANCELADO' });
+    const actualizado = await this.repos.envios.actualizar(envio.id, { estado: 'CANCELADO' }, envio.estado);
     await this.evento(envio.id, actor, 'DESHACER', `Consolidado deshecho; los paquetes volvieron a la bodega${nota ? `: ${nota}` : ''}`);
     logger.info('Consolidado deshecho', { envio: envio.id });
     return this.vista(actualizado);
@@ -764,9 +783,9 @@ export class EnvioService {
     };
     const actualizado = await this.repos.envios.actualizar(envioId, {
       entrega: {
-        nombre: campo(datos.nombre, 'el nombre de quien recibe'),
+        nombreCifrado: this.cifrado.cifrar(campo(datos.nombre, 'el nombre de quien recibe')),
         cedulaCifrada: this.cifrado.cifrar(validarCedula(String(datos.cedula ?? ''))),
-        telefono: validarTelefono(String(datos.telefono ?? '')),
+        telefonoCifrado: this.cifrado.cifrar(validarTelefono(String(datos.telefono ?? ''))),
         agencia: campo(datos.agencia, 'la agencia de retiro'),
         ciudad: campo(datos.ciudad, 'la ciudad'),
         estado: campo(datos.estado, 'el estado'),
@@ -780,9 +799,9 @@ export class EnvioService {
     this.exigirPersonal(actor);
     const envio = await this.cargar(envioId);
     const entrega: DatosEntrega = {
-      nombre: envio.entrega.nombre,
+      nombre: envio.entrega.nombreCifrado ? '*' : null,
       cedula: envio.entrega.cedulaCifrada ? '*' : null,
-      telefono: envio.entrega.telefono,
+      telefono: envio.entrega.telefonoCifrado ? '*' : null,
       agencia: envio.entrega.agencia,
       ciudad: envio.entrega.ciudad,
       estado: envio.entrega.estado,
@@ -797,7 +816,7 @@ export class EnvioService {
       await this.almacenamiento.subir(guiaFotoPath, valida);
     }
     validarTransicion(envio.estado, 'DESPACHADO');
-    const actualizado = await this.repos.envios.actualizar(envioId, { estado: 'DESPACHADO', guiaVenezolana: numeroGuia, guiaFotoPath });
+    const actualizado = await this.repos.envios.actualizar(envioId, { estado: 'DESPACHADO', guiaVenezolana: numeroGuia, guiaFotoPath }, envio.estado);
     await this.evento(envioId, actor, 'DESPACHO', `Despachado con ${envio.transportista}`);
     logger.info('Envío despachado', { envio: envioId, transportista: envio.transportista });
     return this.vista(actualizado);
@@ -807,7 +826,7 @@ export class EnvioService {
     this.exigirPersonal(actor);
     const envio = await this.cargar(envioId);
     validarTransicion(envio.estado, 'CERRADO');
-    const actualizado = await this.repos.envios.actualizar(envioId, { estado: 'CERRADO' });
+    const actualizado = await this.repos.envios.actualizar(envioId, { estado: 'CERRADO' }, envio.estado);
     await this.evento(envioId, actor, 'ENTREGADO', 'Marcado como entregado');
     return this.vista(actualizado);
   }
@@ -818,7 +837,7 @@ export class EnvioService {
     const envio = await this.cargar(envioId);
     if (envio.tipo === 'CONSOLIDADO' && ESTADOS_CONSOLIDADO_ABIERTOS.includes(envio.estado)) return this.desarmar(actor, envioId, detalle);
     validarTransicion(envio.estado, 'CANCELADO');
-    const actualizado = await this.repos.envios.actualizar(envioId, { estado: 'CANCELADO' });
+    const actualizado = await this.repos.envios.actualizar(envioId, { estado: 'CANCELADO' }, envio.estado);
     await this.evento(envioId, actor, 'DESCARTE', `Envío descartado: ${detalle}`);
     logger.info('Envío descartado', { envio: envioId });
     return this.vista(actualizado);
@@ -866,11 +885,10 @@ export class EnvioService {
 
   async bodega(actor: Actor, filtro: { q?: string; sinDueno?: boolean } = {}): Promise<ItemBodega[]> {
     this.exigirPersonal(actor);
-    const envios = (await this.repos.envios.listar({})).filter((e) => !ESTADOS_FUERA_DE_BODEGA.includes(e.estado));
-    const clientes = new Map<string, Usuario | null>();
+    const envios = await this.repos.envios.listar({ estados: ESTADOS_EN_BODEGA });
+    const clientes = new Map((await this.repos.usuarios.porIds(envios.map((e) => e.clienteId))).map((c) => [c.id, c]));
     const items: ItemBodega[] = [];
     for (const envio of envios) {
-      if (!clientes.has(envio.clienteId)) clientes.set(envio.clienteId, await this.repos.usuarios.porId(envio.clienteId));
       const cliente = clientes.get(envio.clienteId);
       if (!cliente) continue;
       const sinDueno = cliente.telefono === TELEFONO_SIN_ASIGNAR;
@@ -907,7 +925,7 @@ export class EnvioService {
 
   async resumen(actor: Actor) {
     this.exigirPersonal(actor);
-    const envios = await this.repos.envios.listar({});
+    const envios = await this.repos.envios.listar({ estados: ESTADOS_EN_BODEGA });
     const pagosPorConfirmar = await this.repos.pagos.porEstado('POR_CONFIRMAR');
     const sinDueno = await this.repos.usuarios.porTelefono(TELEFONO_SIN_ASIGNAR);
     const alertas = envios.filter((e) => e.tipo === 'ALERTA' && ESTADOS_ALERTA_ACTIVOS.includes(e.estado));
@@ -922,13 +940,12 @@ export class EnvioService {
       porCobrar: envios.filter((e) => e.estado === 'POR_PAGAR').length,
       pagosPorConfirmar: pagosPorConfirmar.length,
       porDespachar: envios.filter((e) => e.estado === 'PAGADO').length,
-      enBodega: envios.filter((e) => !ESTADOS_FUERA_DE_BODEGA.includes(e.estado)).reduce((s, e) => s + e.paquetes.filter((p) => p.estado === 'RECIBIDO').length, 0),
+      enBodega: envios.reduce((s, e) => s + e.paquetes.filter((p) => p.estado === 'RECIBIDO').length, 0),
     };
   }
 
   private async envioConFoto(ruta: string): Promise<Envio> {
-    const envios = await this.repos.envios.listar({});
-    const dueno = envios.find((envio) => envio.paquetes.some((paquete) => paquete.fotoPath === ruta));
+    const dueno = await this.repos.envios.porFotoPaquete(ruta);
     if (!dueno) throw AppError.notFound('El archivo no existe.');
     return dueno;
   }

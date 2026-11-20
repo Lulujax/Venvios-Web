@@ -3,7 +3,6 @@ import { crearContexto, type Contexto } from '../src/config/contexto';
 import { crearApp } from '../src/http/app';
 import { crearRepositoriosMemoria } from '../src/repositories/memoria';
 import { AlmacenamientoMemoria } from '../src/services/Almacenamiento';
-import { LimitadorIntentos } from '../src/services/AuthService';
 import { sembrarConfiguracion } from '../src/services/Semilla';
 
 export const PNG_MINIMO = Buffer.from(
@@ -26,7 +25,6 @@ export async function crearEntorno(opciones: { consultaTasa?: () => Promise<numb
     urlApp: 'https://prueba.venvios.test',
     consultaTasa: opciones.consultaTasa ?? (async () => 900),
     reloj: () => new Date('2026-11-19T15:00:00Z'),
-    limitador: new LimitadorIntentos(),
   });
   await sembrarConfiguracion(contexto);
   const app = crearApp(contexto);

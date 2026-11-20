@@ -10,7 +10,7 @@ import {
   validarNombre,
   validarTelefono,
 } from '../domain/validaciones';
-import type { Rol, Usuario, UsuarioRepository } from '../repositories/tipos';
+import type { IntentoRepository, Rol, Usuario, UsuarioRepository } from '../repositories/tipos';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { enmascararCedula } from '../utils/mask';
@@ -35,33 +35,42 @@ export interface SesionEmitida {
 export interface PayloadSesion {
   sub: string;
   rol: Rol;
+  v: number;
+}
+
+export interface ActorAuth {
+  id: string;
+  rol: Rol;
 }
 
 const MAX_INTENTOS = 5;
 const MAX_REINTENTOS_CODIGO = 50;
 const BLOQUEO_MS = 10 * 60 * 1000;
 const DURACION_SESION_SEGUNDOS = 60 * 60 * 24 * 7;
+const CODIGO_INTERNO_SIN_DUENO = 'VENV-000000';
 
 export class LimitadorIntentos {
-  private readonly fallos = new Map<string, { cuenta: number; hasta: number }>();
+  constructor(
+    private readonly repositorio: IntentoRepository,
+    private readonly reloj: () => number = () => Date.now(),
+  ) {}
 
-  constructor(private readonly reloj: () => number = () => Date.now()) {}
-
-  verificar(clave: string): void {
-    const registro = this.fallos.get(clave);
-    if (registro && registro.cuenta >= MAX_INTENTOS && registro.hasta > this.reloj()) {
+  async verificar(clave: string): Promise<void> {
+    const registro = await this.repositorio.obtener(clave);
+    if (registro && registro.cuenta >= MAX_INTENTOS && registro.hasta.getTime() > this.reloj()) {
+      logger.warn('Ingreso bloqueado por demasiados intentos');
       throw AppError.tooMany();
     }
   }
 
-  registrarFallo(clave: string): void {
-    const actual = this.fallos.get(clave);
-    const vigente = actual && actual.hasta > this.reloj() ? actual.cuenta : 0;
-    this.fallos.set(clave, { cuenta: vigente + 1, hasta: this.reloj() + BLOQUEO_MS });
+  async registrarFallo(clave: string): Promise<void> {
+    const actual = await this.repositorio.obtener(clave);
+    const vigente = actual && actual.hasta.getTime() > this.reloj() ? actual.cuenta : 0;
+    await this.repositorio.guardar(clave, { cuenta: vigente + 1, hasta: new Date(this.reloj() + BLOQUEO_MS) });
   }
 
-  limpiar(clave: string): void {
-    this.fallos.delete(clave);
+  async limpiar(clave: string): Promise<void> {
+    await this.repositorio.borrar(clave);
   }
 }
 
@@ -70,7 +79,7 @@ export class AuthService {
     private readonly usuarios: UsuarioRepository,
     private readonly cifrado: CifradoCedula,
     private readonly secretoJwt: string,
-    private readonly limitador: LimitadorIntentos = new LimitadorIntentos(),
+    private readonly limitador: LimitadorIntentos,
     private readonly generarDigitos: () => string = () => String(randomInt(0, 1000000)).padStart(6, '0'),
   ) {
     if (!secretoJwt || secretoJwt.length < 16) throw new Error('JWT_SECRET debe tener al menos 16 caracteres.');
@@ -91,7 +100,7 @@ export class AuthService {
   }
 
   private emitir(usuario: Usuario): SesionEmitida {
-    const payload: PayloadSesion = { sub: usuario.id, rol: usuario.rol };
+    const payload: PayloadSesion = { sub: usuario.id, rol: usuario.rol, v: usuario.sesionVersion };
     const token = jwt.sign(payload, this.secretoJwt, { expiresIn: DURACION_SESION_SEGUNDOS });
     return { token, usuario: this.aPublico(usuario) };
   }
@@ -159,7 +168,7 @@ export class AuthService {
   async codigoLibre(): Promise<string> {
     for (let intento = 1; intento <= MAX_REINTENTOS_CODIGO; intento += 1) {
       const candidato = `VENV-${this.generarDigitos()}`;
-      if (!(await this.usuarios.porCodigo(candidato))) {
+      if (candidato !== CODIGO_INTERNO_SIN_DUENO && !(await this.usuarios.porCodigo(candidato))) {
         logger.info('Número de casillero asignado', { intento });
         return candidato;
       }
@@ -168,27 +177,31 @@ export class AuthService {
     throw new AppError('No se pudo generar un número de casillero. Intenta de nuevo.', 500);
   }
 
+  private claveIntentos(identificador: string): string {
+    return this.cifrado.huella(`acceso:${identificador}`);
+  }
+
   private async buscarPorIdentificador(identificador: string): Promise<{ clave: string; usuario: Usuario | null }> {
     const texto = typeof identificador === 'string' ? identificador.trim() : '';
     if (texto.includes('@')) {
       const email = texto.toLowerCase().slice(0, 120);
-      return { clave: email, usuario: await this.usuarios.porEmail(email) };
+      return { clave: this.claveIntentos(email), usuario: await this.usuarios.porEmail(email) };
     }
     const codigo = normalizarCodigoCasillero(texto);
-    if (codigo) return { clave: codigo, usuario: await this.usuarios.porCodigo(codigo) };
-    return { clave: 'x:' + texto.toLowerCase().slice(0, 40), usuario: null };
+    if (codigo) return { clave: this.claveIntentos(codigo), usuario: await this.usuarios.porCodigo(codigo) };
+    return { clave: this.claveIntentos(`otro:${texto.toLowerCase().slice(0, 40)}`), usuario: null };
   }
 
   async iniciarSesion(identificador: string, contrasena: string): Promise<SesionEmitida> {
     const { clave, usuario } = await this.buscarPorIdentificador(identificador);
-    this.limitador.verificar(clave);
+    await this.limitador.verificar(clave);
     const valida = usuario && usuario.activo ? await verify(usuario.passwordHash, contrasena) : false;
     if (!usuario || !valida) {
-      this.limitador.registrarFallo(clave);
+      await this.limitador.registrarFallo(clave);
       logger.warn('Inicio de sesión fallido');
       throw AppError.unauthorized('Correo, número de casillero o contraseña incorrectos.');
     }
-    this.limitador.limpiar(clave);
+    await this.limitador.limpiar(clave);
     logger.info('Inicio de sesión correcto', { id: usuario.id, rol: usuario.rol });
     return this.emitir(usuario);
   }
@@ -202,30 +215,42 @@ export class AuthService {
     }
     const usuario = await this.usuarios.porId(payload.sub);
     if (!usuario || !usuario.activo) throw AppError.unauthorized('Tu cuenta no está activa.');
+    if ((payload.v ?? 0) !== usuario.sesionVersion) {
+      logger.info('Sesión rechazada: la clave o el estado de la cuenta cambió', { id: usuario.id });
+      throw AppError.unauthorized('Tu sesión se cerró. Inicia sesión de nuevo.');
+    }
     return usuario;
   }
 
-  async cambiarContrasena(usuarioId: string, actual: string, nueva: string): Promise<void> {
+  async cambiarContrasena(usuarioId: string, actual: string, nueva: string): Promise<SesionEmitida> {
     const usuario = await this.usuarios.porId(usuarioId);
     if (!usuario) throw AppError.notFound('El usuario no existe.');
     if (!(await verify(usuario.passwordHash, actual))) throw AppError.badRequest('La contraseña actual no es correcta.');
     const validada = validarContrasena(nueva);
     await this.usuarios.actualizar(usuarioId, { passwordHash: await hash(validada), debeCambiarClave: false });
-    logger.info('Contraseña cambiada', { id: usuarioId });
+    const renovado = await this.usuarios.renovarSesiones(usuarioId);
+    logger.info('Contraseña cambiada; otras sesiones cerradas', { id: usuarioId });
+    return this.emitir(renovado);
   }
 
-  async asignarTemporal(usuarioId: string, actorId: string): Promise<string> {
+  async asignarTemporal(usuarioId: string, actor: ActorAuth): Promise<string> {
     const usuario = await this.usuarios.porId(usuarioId);
-    if (!usuario) throw AppError.notFound('El usuario no existe.');
+    if (!usuario || usuario.codigo === CODIGO_INTERNO_SIN_DUENO) throw AppError.notFound('El usuario no existe.');
+    if (usuario.rol !== 'CLIENTE' && actor.rol !== 'ADMIN') {
+      logger.warn('Un operador intentó cambiar la clave de una cuenta del personal', { actor: actor.id, objetivo: usuarioId });
+      throw AppError.forbidden('Solo el administrador puede cambiar la clave de una cuenta del personal.');
+    }
     const temporal = randomBytes(5).toString('hex');
     await this.usuarios.actualizar(usuarioId, { passwordHash: await hash(temporal), debeCambiarClave: true });
-    logger.info('Contraseña temporal asignada', { id: usuarioId, actor: actorId });
+    await this.usuarios.renovarSesiones(usuarioId);
+    logger.info('Contraseña temporal asignada; sesiones cerradas', { id: usuarioId, actor: actor.id });
     return temporal;
   }
 
   async cambiarEstadoActivo(usuarioId: string, activo: boolean, actorId: string): Promise<UsuarioPublico> {
     if (usuarioId === actorId && !activo) throw AppError.badRequest('No puedes desactivar tu propia cuenta.');
-    const actualizado = await this.usuarios.actualizar(usuarioId, { activo });
+    const cambiado = await this.usuarios.actualizar(usuarioId, { activo });
+    const actualizado = activo ? cambiado : await this.usuarios.renovarSesiones(usuarioId);
     logger.info('Estado de usuario cambiado', { id: usuarioId, activo, actor: actorId });
     return this.aPublico(actualizado);
   }
@@ -238,7 +263,7 @@ export class AuthService {
     const limpio = texto.trim().toLowerCase();
     if (limpio.length < 3) return [];
     const digitos = limpio.replace(/\D/g, '');
-    const clientes = (await this.usuarios.listar(['CLIENTE'])).filter((c) => c.codigo !== 'VENV-000000');
+    const clientes = (await this.usuarios.listar(['CLIENTE'])).filter((c) => c.codigo !== CODIGO_INTERNO_SIN_DUENO);
     const coincidencias = clientes.filter((c) => {
       if (c.nombre.toLowerCase().includes(limpio)) return true;
       if (c.codigo.toLowerCase().includes(limpio) || c.email.includes(limpio)) return true;

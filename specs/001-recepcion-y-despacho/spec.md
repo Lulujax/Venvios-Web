@@ -153,6 +153,21 @@ Estos requisitos reemplazan: el cálculo del precio con la suma de los pesos de 
 - **RF-51** EL SISTEMA no mostrará datos de clientes (nombres, teléfonos, fotos) en la página pública.
 - **RF-52** Un usuario común solo verá sus propios envíos, fotos y comprobantes. Las fotos y comprobantes no tienen dirección pública: solo se sirven a quien tenga permiso.
 - **RF-53** Los registros internos de errores (logs) no guardarán teléfonos ni nombres completos.
+- **RF-75** SI un operador intenta poner una clave temporal a una cuenta del personal, ENTONCES EL SISTEMA lo impedirá; solo el administrador puede hacerlo.
+- **RF-76** CUANDO alguien cambia su contraseña, recibe una clave temporal o se desactiva su cuenta, EL SISTEMA cerrará sus sesiones abiertas en otros equipos.
+- **RF-77** EL SISTEMA recordará los intentos fallidos de ingreso en la base de datos, para que el bloqueo de 10 minutos tras 5 fallos valga aunque el servidor tenga varias copias.
+- **RF-78** EL SISTEMA guardará cifrados la cédula, el nombre y el teléfono de quien recibe el envío, y la cédula del cliente. La huella para detectar cédulas repetidas usará HMAC con la llave del servidor.
+- **RF-79** EL SISTEMA bloqueará la lectura directa de las tablas desde internet (protección por filas de Supabase); solo el servidor de Venvios las lee.
+- **RF-80** SI en producción falta la configuración del almacén de fotos, la base de datos o las llaves, ENTONCES EL SISTEMA no arrancará, en vez de guardar datos donde se pierden.
+- **RF-81** CUANDO un comprobante trae una referencia que ya se usó en otro pago con el mismo método, EL SISTEMA lo aceptará pero se lo marcará al personal como «referencia repetida» para revisarlo en el banco.
+
+### Solidez con muchos datos y varios usuarios a la vez
+
+- **RF-82** EL SISTEMA encontrará cualquier paquete, foto o envío aunque haya miles de envíos guardados; la bodega y el resumen no dependen de una lista recortada.
+- **RF-83** La lista general de envíos del personal mostrará los 200 más recientes; el buscador buscará en todos.
+- **RF-84** CUANDO una acción cambia varias cosas a la vez (consolidar, cambiar dueño, confirmar un pago), EL SISTEMA guardará todo junto o nada; SI algo falla a la mitad, ENTONCES no quedan datos a medias.
+- **RF-85** SI dos personas cambian el mismo envío, paquete o pago al mismo tiempo, ENTONCES EL SISTEMA aplicará solo el primer cambio y le pedirá al segundo que recargue la página.
+- **RF-86** EL SISTEMA consultará la tasa BCV como máximo una vez cada pocos minutos; SI la fuente no responde, ENTONCES usará la última guardada sin volver a esperarla en cada pantalla.
 
 ## Tarifa
 

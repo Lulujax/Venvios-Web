@@ -46,6 +46,7 @@ export interface PagoVista {
   montoOriginalCentavos: number;
   montoUsdCentavos: number;
   referencia: string | null;
+  referenciaRepetida: boolean;
   tieneComprobante: boolean;
   comprobanteRuta: string | null;
   motivoRechazo: string | null;

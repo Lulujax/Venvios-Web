@@ -28,6 +28,27 @@ function ruta(manejador: Manejador): RequestHandler {
   };
 }
 
+function rutaEnTransaccion(contexto: Contexto, manejador: Manejador): RequestHandler {
+  return (req, res, next) => {
+    const enviarJson = res.json.bind(res);
+    const pendiente: { enviar?: () => void } = {};
+    res.json = ((cuerpo: unknown) => {
+      pendiente.enviar = () => enviarJson(cuerpo);
+      return res;
+    }) as Response['json'];
+    contexto.repos
+      .enTransaccion(() => manejador(req as PeticionAutenticada, res))
+      .then(() => {
+        res.json = enviarJson;
+        pendiente.enviar?.();
+      })
+      .catch((error: unknown) => {
+        res.json = enviarJson;
+        next(error);
+      });
+  };
+}
+
 function actorDe(req: PeticionAutenticada): Actor {
   if (!req.usuario) throw AppError.unauthorized();
   return { id: req.usuario.id, rol: req.usuario.rol };
@@ -120,6 +141,8 @@ export function crearApp(contexto: Contexto): express.Express {
     });
   };
 
+  const rutaTx = (manejador: Manejador): RequestHandler => rutaEnTransaccion(contexto, manejador);
+
   const api = express.Router();
 
   api.get('/salud', (_req, res) => {
@@ -171,7 +194,8 @@ export function crearApp(contexto: Contexto): express.Express {
     limiteAuth,
     ruta(async (req, res) => {
       const { actual, nueva } = z.object({ actual: z.string(), nueva: z.string() }).parse(req.body);
-      await contexto.auth.cambiarContrasena(req.usuario!.id, actual, nueva);
+      const sesion = await contexto.auth.cambiarContrasena(req.usuario!.id, actual, nueva);
+      fijarCookie(res, sesion.token);
       res.json({ ok: true });
     }),
   );
@@ -189,7 +213,7 @@ export function crearApp(contexto: Contexto): express.Express {
   api.post(
     '/envios',
     exigirSesion,
-    ruta(async (req, res) => {
+    rutaTx(async (req, res) => {
       const datos = esquemaPrealerta.parse(req.body);
       res.status(201).json({ envio: await contexto.envios.crearPrealerta(actorDe(req), datos) });
     }),
@@ -200,7 +224,7 @@ export function crearApp(contexto: Contexto): express.Express {
   api.patch(
     '/envios/:id',
     exigirSesion,
-    ruta(async (req, res) => {
+    rutaTx(async (req, res) => {
       const cambios = z
         .object({
           modalidad: z.enum(['M1', 'M2']).optional(),
@@ -213,14 +237,14 @@ export function crearApp(contexto: Contexto): express.Express {
     }),
   );
 
-  api.post('/envios/consolidar', exigirSesion, ruta(async (req, res) => res.status(201).json({ envio: await contexto.envios.crearConsolidado(actorDe(req), esquemaConsolidado.parse(req.body)) })));
-  api.post('/envios/:id/deshacer', exigirSesion, ruta(async (req, res) => res.json({ envio: await contexto.envios.desarmar(actorDe(req), req.params.id!, z.object({ motivo: z.string().optional() }).parse(req.body ?? {}).motivo) })));
-  api.post('/paquetes/:id/eliminar-alerta', exigirSesion, ruta(async (req, res) => res.json({ envio: await contexto.envios.eliminarAlertaPendiente(actorDe(req), req.params.id!) })));
+  api.post('/envios/consolidar', exigirSesion, rutaTx(async (req, res) => res.status(201).json({ envio: await contexto.envios.crearConsolidado(actorDe(req), esquemaConsolidado.parse(req.body)) })));
+  api.post('/envios/:id/deshacer', exigirSesion, rutaTx(async (req, res) => res.json({ envio: await contexto.envios.desarmar(actorDe(req), req.params.id!, z.object({ motivo: z.string().optional() }).parse(req.body ?? {}).motivo) })));
+  api.post('/paquetes/:id/eliminar-alerta', exigirSesion, rutaTx(async (req, res) => res.json({ envio: await contexto.envios.eliminarAlertaPendiente(actorDe(req), req.params.id!) })));
 
   api.put(
     '/envios/:id/entrega',
     exigirSesion,
-    ruta(async (req, res) => res.json({ envio: await contexto.envios.guardarEntrega(actorDe(req), req.params.id!, esquemaEntrega.parse(req.body)) })),
+    rutaTx(async (req, res) => res.json({ envio: await contexto.envios.guardarEntrega(actorDe(req), req.params.id!, esquemaEntrega.parse(req.body)) })),
   );
 
   api.get('/envios/:id/pago', exigirSesion, ruta(async (req, res) => res.json(await contexto.pagos.informacionParaPagar(actorDe(req), req.params.id!))));
@@ -229,7 +253,7 @@ export function crearApp(contexto: Contexto): express.Express {
     '/envios/:id/pagos',
     exigirSesion,
     subida.single('archivo'),
-    ruta(async (req, res) => {
+    rutaTx(async (req, res) => {
       const cuerpo = z
         .object({ metodo: z.enum(['BINANCE', 'PAGO_MOVIL', 'TRANSFERENCIA']), moneda: z.enum(['USD', 'BS']), monto: z.string(), referencia: z.string() })
         .parse(req.body);
@@ -261,10 +285,10 @@ export function crearApp(contexto: Contexto): express.Express {
   staff.use(personal);
 
   staff.get('/resumen', ruta(async (req, res) => res.json(await contexto.envios.resumen(actorDe(req)))));
-  staff.post('/escaneo', ruta(async (req, res) => res.json(await contexto.envios.escanear(actorDe(req), z.object({ texto: z.string() }).parse(req.body).texto))));
+  staff.post('/escaneo', rutaTx(async (req, res) => res.json(await contexto.envios.escanear(actorDe(req), z.object({ texto: z.string() }).parse(req.body).texto))));
   staff.post(
     '/sin-prealerta',
-    ruta(async (req, res) => {
+    rutaTx(async (req, res) => {
       const c = z.object({ texto: z.string(), clienteId: z.string().optional() }).parse(req.body);
       res.status(201).json({ envio: await contexto.envios.registrarSinPrealerta(actorDe(req), c.texto, c.clienteId) });
     }),
@@ -278,18 +302,18 @@ export function crearApp(contexto: Contexto): express.Express {
   );
   staff.post(
     '/paquetes/:id/asignar',
-    ruta(async (req, res) => {
+    rutaTx(async (req, res) => {
       const c = z.object({ clienteId: z.string().nullable(), motivo: z.string().optional() }).parse(req.body);
       res.json({ envio: await contexto.envios.asignarPaquete(actorDe(req), req.params.id!, c.clienteId, c.motivo) });
     }),
   );
-  staff.post('/paquetes/:id/descartar', ruta(async (req, res) => res.json({ envio: await contexto.envios.descartarPaquete(actorDe(req), req.params.id!, z.object({ motivo: z.string() }).parse(req.body).motivo) })));
-  staff.post('/envios/:id/cotizar', ruta(async (req, res) => res.json({ envio: await contexto.envios.cotizar(actorDe(req), req.params.id!, numero(req.body?.pesoKg)) })));
-  staff.post('/envios/:id/paquetes', ruta(async (req, res) => res.json({ envio: await contexto.envios.agregarAlConsolidado(actorDe(req), req.params.id!, z.object({ paqueteIds: z.array(z.string()).min(1) }).parse(req.body).paqueteIds) })));
-  staff.post('/envios/:id/quitar-paquete', ruta(async (req, res) => res.json({ envio: await contexto.envios.quitarDelConsolidado(actorDe(req), req.params.id!, z.object({ paqueteId: z.string() }).parse(req.body).paqueteId) })));
-  staff.post('/paquetes/:id/peso', ruta(async (req, res) => res.json({ envio: await contexto.envios.registrarPeso(actorDe(req), req.params.id!, numero(req.body?.pesoKg)) })));
-  staff.post('/paquetes/:id/foto', subida.single('archivo'), ruta(async (req, res) => res.json({ envio: await contexto.envios.registrarFotoPaquete(actorDe(req), req.params.id!, archivoDe(req)) })));
-  staff.post('/paquetes/:id/avisado', ruta(async (req, res) => res.json({ envio: await contexto.envios.marcarAvisado(actorDe(req), req.params.id!) })));
+  staff.post('/paquetes/:id/descartar', rutaTx(async (req, res) => res.json({ envio: await contexto.envios.descartarPaquete(actorDe(req), req.params.id!, z.object({ motivo: z.string() }).parse(req.body).motivo) })));
+  staff.post('/envios/:id/cotizar', rutaTx(async (req, res) => res.json({ envio: await contexto.envios.cotizar(actorDe(req), req.params.id!, numero(req.body?.pesoKg)) })));
+  staff.post('/envios/:id/paquetes', rutaTx(async (req, res) => res.json({ envio: await contexto.envios.agregarAlConsolidado(actorDe(req), req.params.id!, z.object({ paqueteIds: z.array(z.string()).min(1) }).parse(req.body).paqueteIds) })));
+  staff.post('/envios/:id/quitar-paquete', rutaTx(async (req, res) => res.json({ envio: await contexto.envios.quitarDelConsolidado(actorDe(req), req.params.id!, z.object({ paqueteId: z.string() }).parse(req.body).paqueteId) })));
+  staff.post('/paquetes/:id/peso', rutaTx(async (req, res) => res.json({ envio: await contexto.envios.registrarPeso(actorDe(req), req.params.id!, numero(req.body?.pesoKg)) })));
+  staff.post('/paquetes/:id/foto', subida.single('archivo'), rutaTx(async (req, res) => res.json({ envio: await contexto.envios.registrarFotoPaquete(actorDe(req), req.params.id!, archivoDe(req)) })));
+  staff.post('/paquetes/:id/avisado', rutaTx(async (req, res) => res.json({ envio: await contexto.envios.marcarAvisado(actorDe(req), req.params.id!) })));
   staff.get('/envios/:id/historial', ruta(async (req, res) => res.json({ eventos: await contexto.envios.historial(actorDe(req), req.params.id!) })));
 
   staff.get(
@@ -305,27 +329,27 @@ export function crearApp(contexto: Contexto): express.Express {
 
   staff.post(
     '/envios/:id/pago-manual',
-    ruta(async (req, res) => {
+    rutaTx(async (req, res) => {
       const c = z.object({ metodo: z.enum(['BINANCE', 'PAGO_MOVIL', 'TRANSFERENCIA', 'MANUAL']), moneda: z.enum(['USD', 'BS']), monto: z.coerce.number(), referencia: z.string().optional() }).parse(req.body);
       res.status(201).json({ envio: await contexto.pagos.registrarManual(actorDe(req), req.params.id!, c) });
     }),
   );
-  staff.post('/pagos/:id/confirmar', ruta(async (req, res) => res.json({ envio: await contexto.pagos.confirmar(actorDe(req), req.params.id!) })));
-  staff.post('/pagos/:id/rechazar', ruta(async (req, res) => res.json({ envio: await contexto.pagos.rechazar(actorDe(req), req.params.id!, z.object({ motivo: z.string() }).parse(req.body).motivo) })));
+  staff.post('/pagos/:id/confirmar', rutaTx(async (req, res) => res.json({ envio: await contexto.pagos.confirmar(actorDe(req), req.params.id!) })));
+  staff.post('/pagos/:id/rechazar', rutaTx(async (req, res) => res.json({ envio: await contexto.pagos.rechazar(actorDe(req), req.params.id!, z.object({ motivo: z.string() }).parse(req.body).motivo) })));
 
   staff.post(
     '/envios/:id/despachar',
     subida.single('archivo'),
-    ruta(async (req, res) => {
+    rutaTx(async (req, res) => {
       const { guia } = z.object({ guia: z.string() }).parse(req.body);
       res.json({ envio: await contexto.envios.despachar(actorDe(req), req.params.id!, guia, archivoDe(req)) });
     }),
   );
-  staff.post('/envios/:id/cerrar', ruta(async (req, res) => res.json({ envio: await contexto.envios.cerrar(actorDe(req), req.params.id!) })));
-  staff.post('/envios/:id/cancelar', ruta(async (req, res) => res.json({ envio: await contexto.envios.cancelar(actorDe(req), req.params.id!, z.object({ motivo: z.string() }).parse(req.body).motivo) })));
+  staff.post('/envios/:id/cerrar', rutaTx(async (req, res) => res.json({ envio: await contexto.envios.cerrar(actorDe(req), req.params.id!) })));
+  staff.post('/envios/:id/cancelar', rutaTx(async (req, res) => res.json({ envio: await contexto.envios.cancelar(actorDe(req), req.params.id!, z.object({ motivo: z.string() }).parse(req.body).motivo) })));
 
   staff.get('/clientes', ruta(async (req, res) => res.json({ clientes: await contexto.auth.buscarClientes(typeof req.query.q === 'string' ? req.query.q : '') })));
-  staff.post('/clientes/:id/clave-temporal', ruta(async (req, res) => res.json({ temporal: await contexto.auth.asignarTemporal(req.params.id!, actorDe(req).id) })));
+  staff.post('/clientes/:id/clave-temporal', rutaTx(async (req, res) => res.json({ temporal: await contexto.auth.asignarTemporal(req.params.id!, actorDe(req)) })));
 
   api.use('/staff', staff);
 
@@ -337,22 +361,22 @@ export function crearApp(contexto: Contexto): express.Express {
     if (!contexto.config.esClaveValida(clave)) throw AppError.notFound('Esa configuración no existe.');
     res.json({ valor: await contexto.config.obtener(clave) });
   }));
-  administracion.put('/config/:clave', ruta(async (req, res) => {
+  administracion.put('/config/:clave', rutaTx(async (req, res) => {
     await contexto.config.guardar(req.params.clave!, req.body?.valor, actorDe(req).id);
     res.json({ ok: true });
   }));
-  administracion.put('/tasa', ruta(async (req, res) => res.json({ tasa: await contexto.tasas.cargarManual(numero(req.body?.bolivaresPorUsd), actorDe(req).id) })));
+  administracion.put('/tasa', rutaTx(async (req, res) => res.json({ tasa: await contexto.tasas.cargarManual(numero(req.body?.bolivaresPorUsd), actorDe(req).id) })));
   administracion.get('/tasa', ruta(async (_req, res) => res.json({ tasa: await contexto.tasas.vigente() })));
   administracion.get('/usuarios', ruta(async (_req, res) => res.json({ usuarios: await contexto.auth.listar(['OPERADOR', 'ADMIN']) })));
-  administracion.post('/usuarios', ruta(async (req, res) => {
+  administracion.post('/usuarios', rutaTx(async (req, res) => {
     const c = esquemaRegistro.extend({ rol: z.enum(['OPERADOR', 'ADMIN']) }).parse(req.body);
     res.status(201).json({ usuario: await contexto.auth.crearPersonal(c, actorDe(req).id) });
   }));
-  administracion.patch('/usuarios/:id', ruta(async (req, res) => {
+  administracion.patch('/usuarios/:id', rutaTx(async (req, res) => {
     const c = z.object({ activo: z.boolean() }).parse(req.body);
     res.json({ usuario: await contexto.auth.cambiarEstadoActivo(req.params.id!, c.activo, actorDe(req).id) });
   }));
-  administracion.post('/envios/:id/ajuste', ruta(async (req, res) => {
+  administracion.post('/envios/:id/ajuste', rutaTx(async (req, res) => {
     const c = z.object({ pesoTotalKg: z.coerce.number().optional(), valorDeclaradoUsd: z.coerce.number().optional(), totalUsd: z.coerce.number().optional(), motivo: z.string() }).parse(req.body);
     res.json({ envio: await contexto.envios.ajusteAdmin(actorDe(req), req.params.id!, c) });
   }));

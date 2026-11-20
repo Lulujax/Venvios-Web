@@ -23,17 +23,18 @@ npm run dev
 
 | Comando | Qué hace |
 | --- | --- |
-| `npm test` | Pruebas del backend (82) y del frontend (43) |
+| `npm test` | Pruebas del backend (107) y del frontend (43) |
 | `npm run e2e` | Flujo completo en Chrome real (registro, prealerta, escaneo, pago, entrega, despacho) |
 | `npm run typecheck` | Revisa los tipos de TypeScript |
 | `npm run build` | Compila para producción |
 | `npm run db:migrate` / `npm run db:seed` | Crea las tablas y la configuración inicial en Postgres |
+| `npm run db:proteger` | Activa la protección por filas de Supabase en todas las tablas (correr después de cada migración) |
 
 ## Desplegar (Netlify + Supabase)
 
 1. En Supabase crea un proyecto. Copia la cadena de conexión con pooler (`DATABASE_URL`) y la directa (`DIRECT_URL`). En Storage crea un bucket **privado** llamado `venvios-privado` y copia la clave de servicio.
 2. Genera dos secretos: `JWT_SECRET` (cadena larga aleatoria) y `CEDULA_KEY` (64 caracteres hexadecimales, por ejemplo `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
-3. Crea `backend/.env` con las variables de `.env.example` y corre `npm run db:migrate` y `npm run db:seed` una vez. Define `ADMIN_PASSWORD` antes de sembrar.
+3. Crea `backend/.env` con las variables de `.env.example` y corre `npm run db:migrate`, `npm run db:proteger` y `npm run db:seed` una vez. Si ya habías migrado antes, vuelve a correr `db:migrate` (cambió el esquema: nombre y teléfono de entrega cifrados, sesiones y intentos de ingreso) y luego `db:proteger`. Define `ADMIN_PASSWORD` antes de sembrar.
 4. En Netlify conecta el repositorio y carga las mismas variables (`DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `CEDULA_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_BUCKET`). El build ya está definido en `netlify.toml`.
 5. Entra como administrador → Admin → Datos de pago, carga los datos reales (Binance y pago móvil) y desmarca «datos de prueba».
 

@@ -1,12 +1,23 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
+import type { EstadoEnvio } from '../domain/estados';
 import { AppError } from '../utils/errors';
+import { logger } from '../utils/logger';
+import { coincideBusqueda, partesBusqueda } from './busqueda';
 import type {
+  CambiosEnvio,
+  CambiosPago,
+  CambiosPaquete,
   ConfigRepository,
   EntregaGuardada,
   Envio,
   EnvioRepository,
+  EstadoPago,
+  EstadoPaquete,
   Evento,
   FiltroEnvios,
+  IntentoGuardado,
+  IntentoRepository,
   NuevoEnvio,
   NuevoPaquete,
   NuevoUsuario,
@@ -21,9 +32,9 @@ import type {
 } from './tipos';
 
 const ENTREGA_VACIA: EntregaGuardada = {
-  nombre: null,
+  nombreCifrado: null,
   cedulaCifrada: null,
-  telefono: null,
+  telefonoCifrado: null,
   agencia: null,
   ciudad: null,
   estado: null,
@@ -33,17 +44,39 @@ function copiar<T>(valor: T): T {
   return structuredClone(valor);
 }
 
-export class UsuarioMemoria implements UsuarioRepository {
+type Restaurar = () => void;
+
+interface ConInstantanea {
+  instantanea(): Restaurar;
+}
+
+function instantaneaDeMapa<K, V>(mapa: Map<K, V>): Restaurar {
+  const copia = new Map([...mapa.entries()].map(([clave, valor]) => [clave, copiar(valor)] as const));
+  return () => {
+    mapa.clear();
+    for (const [clave, valor] of copia) mapa.set(clave, valor);
+  };
+}
+
+export class UsuarioMemoria implements UsuarioRepository, ConInstantanea {
   private readonly datos = new Map<string, Usuario>();
+
+  instantanea(): Restaurar {
+    return instantaneaDeMapa(this.datos);
+  }
 
   async crear(nuevo: NuevoUsuario): Promise<Usuario> {
     const existente = [...this.datos.values()].find(
       (u) => u.cedulaHuella === nuevo.cedulaHuella || u.telefono === nuevo.telefono || u.email === nuevo.email || u.codigo === nuevo.codigo,
     );
     if (existente) throw AppError.conflict('Ya existe una cuenta con esa cédula, ese correo o ese teléfono.');
-    const usuario: Usuario = { ...nuevo, id: randomUUID(), creadoEn: new Date() };
+    const usuario: Usuario = { ...nuevo, sesionVersion: 0, id: randomUUID(), creadoEn: new Date() };
     this.datos.set(usuario.id, usuario);
     return copiar(usuario);
+  }
+
+  leerSinCopiar(id: string): Usuario | undefined {
+    return this.datos.get(id);
   }
 
   async porId(id: string): Promise<Usuario | null> {
@@ -51,42 +84,66 @@ export class UsuarioMemoria implements UsuarioRepository {
     return usuario ? copiar(usuario) : null;
   }
 
-  async porCedulaHuella(huella: string): Promise<Usuario | null> {
-    const usuario = [...this.datos.values()].find((u) => u.cedulaHuella === huella);
+  async porIds(ids: string[]): Promise<Usuario[]> {
+    return [...new Set(ids)].map((id) => this.datos.get(id)).filter((u): u is Usuario => Boolean(u)).map(copiar);
+  }
+
+  private buscar(condicion: (u: Usuario) => boolean): Usuario | null {
+    const usuario = [...this.datos.values()].find(condicion);
     return usuario ? copiar(usuario) : null;
+  }
+
+  async porCedulaHuella(huella: string): Promise<Usuario | null> {
+    return this.buscar((u) => u.cedulaHuella === huella);
   }
 
   async porTelefono(telefono: string): Promise<Usuario | null> {
-    const usuario = [...this.datos.values()].find((u) => u.telefono === telefono);
-    return usuario ? copiar(usuario) : null;
+    return this.buscar((u) => u.telefono === telefono);
   }
 
   async porEmail(email: string): Promise<Usuario | null> {
-    const usuario = [...this.datos.values()].find((u) => u.email === email);
-    return usuario ? copiar(usuario) : null;
+    return this.buscar((u) => u.email === email);
   }
 
   async porCodigo(codigo: string): Promise<Usuario | null> {
-    const usuario = [...this.datos.values()].find((u) => u.codigo === codigo);
-    return usuario ? copiar(usuario) : null;
+    return this.buscar((u) => u.codigo === codigo);
   }
 
   async listar(roles?: Rol[]): Promise<Usuario[]> {
     return [...this.datos.values()].filter((u) => !roles || roles.includes(u.rol)).map(copiar);
   }
 
-  async actualizar(id: string, cambios: Partial<Omit<Usuario, 'id' | 'creadoEn'>>): Promise<Usuario> {
+  async actualizar(id: string, cambios: Partial<Omit<Usuario, 'id' | 'creadoEn' | 'sesionVersion'>>): Promise<Usuario> {
     const actual = this.datos.get(id);
     if (!actual) throw AppError.notFound('El usuario no existe.');
     const actualizado = { ...actual, ...cambios };
     this.datos.set(id, actualizado);
     return copiar(actualizado);
   }
+
+  async renovarSesiones(id: string): Promise<Usuario> {
+    const actual = this.datos.get(id);
+    if (!actual) throw AppError.notFound('El usuario no existe.');
+    const actualizado = { ...actual, sesionVersion: actual.sesionVersion + 1 };
+    this.datos.set(id, actualizado);
+    return copiar(actualizado);
+  }
 }
 
-export class EnvioMemoria implements EnvioRepository {
+export class EnvioMemoria implements EnvioRepository, ConInstantanea {
   private readonly envios = new Map<string, Envio>();
   private readonly eventos: Evento[] = [];
+
+  constructor(private readonly usuarios: UsuarioMemoria) {}
+
+  instantanea(): Restaurar {
+    const restaurarEnvios = instantaneaDeMapa(this.envios);
+    const cantidadEventos = this.eventos.length;
+    return () => {
+      restaurarEnvios();
+      this.eventos.splice(cantidadEventos);
+    };
+  }
 
   private construirPaquete(envioId: string, nuevo: NuevoPaquete): Paquete {
     return {
@@ -112,6 +169,11 @@ export class EnvioMemoria implements EnvioRepository {
         }
       }
     }
+  }
+
+  private buscar(condicion: (e: Envio) => boolean): Envio | null {
+    const encontrado = [...this.envios.values()].find(condicion);
+    return encontrado ? copiar(encontrado) : null;
   }
 
   async crear(datos: NuevoEnvio): Promise<Envio> {
@@ -149,29 +211,48 @@ export class EnvioMemoria implements EnvioRepository {
     return envio ? copiar(envio) : null;
   }
 
+  private coincideTexto(envio: Envio, texto: string | undefined): boolean {
+    const partes = partesBusqueda(texto);
+    if (!partes) return true;
+    const cliente = this.usuarios.leerSinCopiar(envio.clienteId);
+    return coincideBusqueda(partes, {
+      nombre: cliente?.nombre ?? '',
+      codigo: cliente?.codigo ?? '',
+      telefono: cliente?.telefono ?? '',
+      trackings: envio.paquetes.map((p) => p.trackingTexto),
+      guia: envio.guiaVenezolana,
+    });
+  }
+
   async listar(filtro: FiltroEnvios): Promise<Envio[]> {
-    return [...this.envios.values()]
+    const lista = [...this.envios.values()]
       .filter((e) => !filtro.clienteId || e.clienteId === filtro.clienteId)
       .filter((e) => !filtro.estados || filtro.estados.includes(e.estado))
-      .sort((a, b) => b.creadoEn.getTime() - a.creadoEn.getTime())
-      .map(copiar);
+      .filter((e) => !filtro.excluirEstados || !filtro.excluirEstados.includes(e.estado))
+      .filter((e) => this.coincideTexto(e, filtro.texto))
+      .sort((a, b) => b.creadoEn.getTime() - a.creadoEn.getTime());
+    return (filtro.limite === undefined ? lista : lista.slice(0, filtro.limite)).map(copiar);
   }
 
   async porTracking(trackingNormalizado: string): Promise<Envio | null> {
-    const encontrado = [...this.envios.values()].find((e) =>
-      e.paquetes.some((p) => p.trackingNormalizado === trackingNormalizado),
-    );
-    return encontrado ? copiar(encontrado) : null;
+    return this.buscar((e) => e.paquetes.some((p) => p.trackingNormalizado === trackingNormalizado));
   }
 
-  async actualizar(
-    id: string,
-    cambios: Partial<Omit<Envio, 'id' | 'creadoEn' | 'actualizadoEn' | 'paquetes' | 'entrega'>> & {
-      entrega?: Partial<EntregaGuardada>;
-    },
-  ): Promise<Envio> {
+  async porPaqueteId(paqueteId: string): Promise<Envio | null> {
+    return this.buscar((e) => e.paquetes.some((p) => p.id === paqueteId));
+  }
+
+  async porFotoPaquete(ruta: string): Promise<Envio | null> {
+    return this.buscar((e) => e.paquetes.some((p) => p.fotoPath === ruta));
+  }
+
+  async actualizar(id: string, cambios: CambiosEnvio, estadoEsperado?: EstadoEnvio): Promise<Envio> {
     const actual = this.envios.get(id);
     if (!actual) throw AppError.notFound('El envío no existe.');
+    if (estadoEsperado !== undefined && actual.estado !== estadoEsperado) {
+      logger.warn('Cambio simultáneo detectado en un envío', { envio: id });
+      throw AppError.cambioSimultaneo();
+    }
     const { entrega, ...resto } = cambios;
     const actualizado: Envio = {
       ...actual,
@@ -183,14 +264,17 @@ export class EnvioMemoria implements EnvioRepository {
     return copiar(actualizado);
   }
 
-  async actualizarPaquete(id: string, cambios: Partial<Omit<Paquete, 'id' | 'envioId'>>): Promise<Paquete> {
+  async actualizarPaquete(id: string, cambios: CambiosPaquete, estadoEsperado?: EstadoPaquete): Promise<Paquete> {
     for (const envio of this.envios.values()) {
       const indice = envio.paquetes.findIndex((p) => p.id === id);
-      if (indice >= 0) {
-        envio.paquetes[indice] = { ...envio.paquetes[indice]!, ...cambios };
-        envio.actualizadoEn = new Date();
-        return copiar(envio.paquetes[indice]!);
+      if (indice < 0) continue;
+      if (estadoEsperado !== undefined && envio.paquetes[indice]!.estado !== estadoEsperado) {
+        logger.warn('Cambio simultáneo detectado en un paquete', { paquete: id });
+        throw AppError.cambioSimultaneo();
       }
+      envio.paquetes[indice] = { ...envio.paquetes[indice]!, ...cambios };
+      envio.actualizadoEn = new Date();
+      return copiar(envio.paquetes[indice]!);
     }
     throw AppError.notFound('El paquete no existe.');
   }
@@ -204,16 +288,22 @@ export class EnvioMemoria implements EnvioRepository {
     return copiar(creados);
   }
 
-  async moverPaquetes(paqueteIds: string[], nuevoEnvioId: string): Promise<void> {
+  async moverPaquetes(paqueteIds: string[], nuevoEnvioId: string, origenes?: string[]): Promise<void> {
     const destino = this.envios.get(nuevoEnvioId);
     if (!destino) throw AppError.notFound('El envío destino no existe.');
+    const movibles = [...this.envios.values()]
+      .filter((e) => e.id !== nuevoEnvioId && (!origenes || origenes.includes(e.id)))
+      .flatMap((e) => e.paquetes.filter((p) => paqueteIds.includes(p.id)));
+    if (movibles.length !== new Set(paqueteIds).size) {
+      logger.warn('Paquetes que ya no están donde se esperaba', { destino: nuevoEnvioId });
+      throw AppError.cambioSimultaneo();
+    }
     for (const envio of this.envios.values()) {
       if (envio.id === nuevoEnvioId) continue;
       const quedan: Paquete[] = [];
       for (const paquete of envio.paquetes) {
-        if (paqueteIds.includes(paquete.id)) {
-          destino.paquetes.push({ ...paquete, envioId: nuevoEnvioId });
-        } else quedan.push(paquete);
+        if (paqueteIds.includes(paquete.id)) destino.paquetes.push({ ...paquete, envioId: nuevoEnvioId });
+        else quedan.push(paquete);
       }
       envio.paquetes = quedan;
     }
@@ -233,8 +323,19 @@ export class EnvioMemoria implements EnvioRepository {
   }
 }
 
-export class PagoMemoria implements PagoRepository {
+export class PagoMemoria implements PagoRepository, ConInstantanea {
   private readonly datos = new Map<string, Pago>();
+
+  instantanea(): Restaurar {
+    return instantaneaDeMapa(this.datos);
+  }
+
+  private filtrar(condicion: (p: Pago) => boolean): Pago[] {
+    return [...this.datos.values()]
+      .filter(condicion)
+      .sort((a, b) => a.creadoEn.getTime() - b.creadoEn.getTime())
+      .map(copiar);
+  }
 
   async crear(nuevo: Omit<Pago, 'id' | 'creadoEn'>): Promise<Pago> {
     const pago: Pago = { ...nuevo, id: randomUUID(), creadoEn: new Date() };
@@ -248,25 +349,46 @@ export class PagoMemoria implements PagoRepository {
   }
 
   async deEnvio(envioId: string): Promise<Pago[]> {
-    return [...this.datos.values()].filter((p) => p.envioId === envioId).map(copiar);
+    return this.filtrar((p) => p.envioId === envioId);
   }
 
-  async porEstado(estado: Pago['estado']): Promise<Pago[]> {
-    return [...this.datos.values()].filter((p) => p.estado === estado).map(copiar);
+  async deEnvios(envioIds: string[]): Promise<Pago[]> {
+    return this.filtrar((p) => envioIds.includes(p.envioId));
   }
 
-  async actualizar(id: string, cambios: Partial<Omit<Pago, 'id' | 'envioId' | 'creadoEn'>>): Promise<Pago> {
+  async porEstado(estado: EstadoPago): Promise<Pago[]> {
+    return this.filtrar((p) => p.estado === estado);
+  }
+
+  async conReferencia(referencia: string): Promise<Pago[]> {
+    return this.filtrar((p) => p.referencia === referencia);
+  }
+
+  async actualizar(id: string, cambios: CambiosPago, estadoEsperado?: EstadoPago): Promise<Pago> {
     const actual = this.datos.get(id);
     if (!actual) throw AppError.notFound('El pago no existe.');
+    if (estadoEsperado !== undefined && actual.estado !== estadoEsperado) {
+      logger.warn('Cambio simultáneo detectado en un pago', { pago: id });
+      throw AppError.cambioSimultaneo();
+    }
     const actualizado = { ...actual, ...cambios };
     this.datos.set(id, actualizado);
     return copiar(actualizado);
   }
 }
 
-export class ConfigMemoria implements ConfigRepository {
+export class ConfigMemoria implements ConfigRepository, ConInstantanea {
   private readonly valores = new Map<string, unknown>();
   private readonly tasas = new Map<string, TasaGuardada>();
+
+  instantanea(): Restaurar {
+    const restaurarValores = instantaneaDeMapa(this.valores);
+    const restaurarTasas = instantaneaDeMapa(this.tasas);
+    return () => {
+      restaurarValores();
+      restaurarTasas();
+    };
+  }
 
   async obtener<T>(clave: string): Promise<T | null> {
     return this.valores.has(clave) ? copiar(this.valores.get(clave) as T) : null;
@@ -292,11 +414,60 @@ export class ConfigMemoria implements ConfigRepository {
   }
 }
 
+export class IntentoMemoria implements IntentoRepository {
+  private readonly datos = new Map<string, IntentoGuardado>();
+
+  async obtener(clave: string): Promise<IntentoGuardado | null> {
+    const intento = this.datos.get(clave);
+    return intento ? copiar(intento) : null;
+  }
+
+  async guardar(clave: string, intento: IntentoGuardado): Promise<void> {
+    this.datos.set(clave, copiar(intento));
+  }
+
+  async borrar(clave: string): Promise<void> {
+    this.datos.delete(clave);
+  }
+}
+
+class TransaccionesMemoria {
+  private readonly dentro = new AsyncLocalStorage<true>();
+  private cola: Promise<unknown> = Promise.resolve();
+
+  constructor(private readonly participantes: ConInstantanea[]) {}
+
+  ejecutar<T>(trabajo: () => Promise<T>): Promise<T> {
+    if (this.dentro.getStore()) return trabajo();
+    const turno = this.cola.then(() => this.ejecutarEnTurno(trabajo));
+    this.cola = turno.catch(() => undefined);
+    return turno;
+  }
+
+  private async ejecutarEnTurno<T>(trabajo: () => Promise<T>): Promise<T> {
+    const restauraciones = this.participantes.map((p) => p.instantanea());
+    try {
+      return await this.dentro.run(true, trabajo);
+    } catch (error) {
+      for (const restaurar of restauraciones) restaurar();
+      logger.warn('Transacción en memoria revertida');
+      throw error;
+    }
+  }
+}
+
 export function crearRepositoriosMemoria(): Repositorios {
+  const usuarios = new UsuarioMemoria();
+  const envios = new EnvioMemoria(usuarios);
+  const pagos = new PagoMemoria();
+  const config = new ConfigMemoria();
+  const transacciones = new TransaccionesMemoria([usuarios, envios, pagos, config]);
   return {
-    usuarios: new UsuarioMemoria(),
-    envios: new EnvioMemoria(),
-    pagos: new PagoMemoria(),
-    config: new ConfigMemoria(),
+    usuarios,
+    envios,
+    pagos,
+    config,
+    intentos: new IntentoMemoria(),
+    enTransaccion: (trabajo) => transacciones.ejecutar(trabajo),
   };
 }

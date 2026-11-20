@@ -83,6 +83,7 @@ model Usuario {
   rol              Rol      @default(CLIENTE)
   activo           Boolean  @default(true)
   debeCambiarClave Boolean  @default(false)
+  sesionVersion    Int      @default(0)
   creadoEn         DateTime @default(now())
 
   envios Envio[]
@@ -104,9 +105,9 @@ model Envio {
   fleteCentavos          Int?
   seguroCentavos         Int?
   totalCentavos          Int?
-  entregaNombre          String?
+  entregaNombreCifrado   String?
   entregaCedulaCifrada   String?
-  entregaTelefono        String?
+  entregaTelefonoCifrado String?
   entregaAgencia         String?
   entregaCiudad          String?
   entregaEstado          String?
@@ -122,6 +123,7 @@ model Envio {
 
   @@index([clienteId, estado])
   @@index([estado])
+  @@index([creadoEn])
 }
 
 model Paquete {
@@ -140,6 +142,7 @@ model Paquete {
   envio Envio @relation(fields: [envioId], references: [id], onDelete: Cascade)
 
   @@index([envioId])
+  @@index([fotoPath])
 }
 
 model Pago {
@@ -150,6 +153,7 @@ model Pago {
   montoOriginalCentavos Int
   metodo                MetodoPago
   referencia            String?
+  referenciaRepetida    Boolean     @default(false)
   comprobantePath       String?
   estado                EstadoPago  @default(POR_CONFIRMAR)
   motivoRechazo         String?
@@ -161,6 +165,7 @@ model Pago {
   envio Envio @relation(fields: [envioId], references: [id], onDelete: Cascade)
 
   @@index([envioId, estado])
+  @@index([referencia])
 }
 
 model Evento {
@@ -187,4 +192,10 @@ model TasaBcv {
   bolivaresPorUsd  Float
   fuente           FuenteTasa
   creadoEn         DateTime   @default(now())
+}
+
+model IntentoAcceso {
+  clave  String   @id
+  cuenta Int
+  hasta  DateTime
 }
