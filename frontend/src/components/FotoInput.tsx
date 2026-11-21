@@ -13,6 +13,7 @@ interface FotoInputProps {
 
 export function FotoInput({ etiqueta, archivo, onChange, usarCamara = false, disabled = false }: FotoInputProps) {
   const entrada = useRef<HTMLInputElement>(null);
+  const camara = useRef<HTMLInputElement>(null);
   const [vista, setVista] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [procesando, setProcesando] = useState(false);
@@ -40,13 +41,15 @@ export function FotoInput({ etiqueta, archivo, onChange, usarCamara = false, dis
     } finally {
       setProcesando(false);
       if (entrada.current) entrada.current.value = '';
+      if (camara.current) camara.current.value = '';
     }
   }
 
   return (
     <div>
       <span className="etiqueta">{etiqueta}</span>
-      <input ref={entrada} type="file" accept="image/*" capture={usarCamara ? 'environment' : undefined} className="sr-only" onChange={(e) => void elegir(e.target.files)} disabled={disabled || procesando} aria-label={etiqueta} />
+      <input ref={entrada} type="file" accept="image/*" className="sr-only" onChange={(e) => void elegir(e.target.files)} disabled={disabled || procesando} aria-label={`${etiqueta}: subir foto`} />
+      {usarCamara && <input ref={camara} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => void elegir(e.target.files)} disabled={disabled || procesando} aria-label={`${etiqueta}: tomar foto`} />}
       {vista ? (
         <div className="flex items-center gap-3 rounded-2xl border border-linea bg-white p-2">
           <img src={vista} alt="Vista previa" className="h-16 w-16 rounded-xl object-cover" />
@@ -54,10 +57,16 @@ export function FotoInput({ etiqueta, archivo, onChange, usarCamara = false, dis
           <button type="button" className="btn btn-suave btn-chico" onClick={() => onChange(null)} aria-label="Quitar imagen"><FiX aria-hidden /></button>
         </div>
       ) : (
-        <button type="button" className="btn btn-suave w-full border-dashed" onClick={() => entrada.current?.click()} disabled={disabled || procesando}>
-          {usarCamara ? <FiCamera aria-hidden /> : <FiImage aria-hidden />}
-          {procesando ? 'Preparando…' : usarCamara ? 'Tomar foto' : 'Elegir imagen'}
-        </button>
+        <div className={usarCamara ? 'grid grid-cols-2 gap-2' : ''}>
+          {usarCamara && (
+            <button type="button" className="btn btn-suave w-full border-dashed" onClick={() => camara.current?.click()} disabled={disabled || procesando}>
+              <FiCamera aria-hidden /> {procesando ? 'Preparando…' : 'Tomar foto'}
+            </button>
+          )}
+          <button type="button" className="btn btn-suave w-full border-dashed" onClick={() => entrada.current?.click()} disabled={disabled || procesando}>
+            <FiImage aria-hidden /> {procesando ? 'Preparando…' : usarCamara ? 'Subir foto' : 'Elegir imagen'}
+          </button>
+        </div>
       )}
       {error && <p className="ayuda font-semibold text-rojo" role="alert">{error}</p>}
     </div>

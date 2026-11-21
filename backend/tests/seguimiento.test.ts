@@ -100,3 +100,25 @@ describe('recorrido visible', () => {
     expect(lista[1]!.creadoEn).toEqual(fecha(5));
   });
 });
+
+describe('búsqueda por código de consolidación', () => {
+  it('caso feliz: el operador encuentra el envío con «Consolidación XXXXXX» o solo con el código', async () => {
+    const operador = await crearPersonalYEntrar(entorno, 'OPERADOR');
+    const cliente = await registrarCliente(entorno);
+    const alerta = await cliente.agente.post('/api/envios').send({ trackings: ['COD-100000001'], tienda: 'Shein', valoresUsd: [5] });
+    await operador.agente.post('/api/staff/escaneo').send({ texto: 'COD-100000001' });
+    const consolidado = await cliente.agente.post('/api/envios/consolidar').send({ paqueteIds: [alerta.body.envio.paquetes[0].id], modalidad: 'M1', transportista: 'MRW' });
+    const id = consolidado.body.envio.id as string;
+    const codigo = id.replace(/[^A-Za-z0-9]/g, '').slice(-6).toUpperCase();
+    const conPalabra = await operador.agente.get(`/api/envios?q=${encodeURIComponent(`Consolidación ${codigo}`)}`);
+    expect(conPalabra.body.envios.map((e: { id: string }) => e.id)).toContain(id);
+    const soloCodigo = await operador.agente.get(`/api/envios?q=${codigo.toLowerCase()}`);
+    expect(soloCodigo.body.envios.map((e: { id: string }) => e.id)).toContain(id);
+  });
+
+  it('error: un código que no existe no devuelve envíos', async () => {
+    const operador = await crearPersonalYEntrar(entorno, 'OPERADOR');
+    const r = await operador.agente.get('/api/envios?q=ZZZZZZ');
+    expect(r.body.envios).toHaveLength(0);
+  });
+});

@@ -11,7 +11,7 @@ import { enviarPorWhatsApp, pedirMensaje } from '../../lib/whatsapp';
 
 const ESTADOS_ALERTA_ACTIVOS = ['PREALERTADO', 'RECIBIDO_PARCIAL', 'RECIBIDO_COMPLETO'];
 
-export function PaquetesCliente({ paquetes }: { paquetes: PaqueteVista[] }) {
+export function PaquetesCliente({ paquetes, etiquetaEnvio }: { paquetes: PaqueteVista[]; etiquetaEnvio?: string }) {
   return (
     <ul className="space-y-2">
       {paquetes.map((paquete) => (
@@ -21,12 +21,12 @@ export function PaquetesCliente({ paquetes }: { paquetes: PaqueteVista[] }) {
               {paquete.recibido ? <FiCheck className="shrink-0 text-xl text-verde" aria-hidden /> : <FiClock className="shrink-0 text-xl text-suave" aria-hidden />}
               <div className="min-w-0">
                 <p className="codigo truncate">{paquete.tracking}</p>
-                <p className="text-xs text-suave">{paquete.recibido ? (paquete.pesoKg ? `En bodega · ${formatearKg(paquete.pesoKg)}` : 'En bodega') : 'En camino a nuestra oficina'}</p>
+                <p className="text-xs text-suave">{etiquetaEnvio ?? (paquete.recibido ? (paquete.pesoKg ? `En bodega · ${formatearKg(paquete.pesoKg)}` : 'En bodega') : 'En camino a nuestra oficina')}</p>
               </div>
             </div>
             {paquete.tieneFoto && <ImagenPrivada ruta={paquete.fotoRuta} alt={`Foto del paquete ${paquete.tracking}`} className="h-12 w-12" />}
           </div>
-          <SeguimientoPaquete paquete={paquete} />
+          {!etiquetaEnvio && <SeguimientoPaquete paquete={paquete} />}
         </li>
       ))}
     </ul>

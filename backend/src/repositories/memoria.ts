@@ -272,6 +272,7 @@ export class EnvioMemoria implements EnvioRepository, ConInstantanea {
     if (!partes) return true;
     const cliente = this.usuarios.leerSinCopiar(envio.clienteId);
     return coincideBusqueda(partes, {
+      id: envio.id,
       nombre: cliente?.nombre ?? '',
       codigo: cliente?.codigo ?? '',
       telefono: cliente?.telefono ?? '',

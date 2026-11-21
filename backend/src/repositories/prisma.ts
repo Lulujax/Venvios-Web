@@ -5,7 +5,7 @@ import type { TipoHito } from '../domain/hitos';
 import { EnvioConHitos } from './conHitos';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
-import { MIN_DIGITOS_TELEFONO, partesBusqueda } from './busqueda';
+import { MIN_DIGITOS_TELEFONO, codigoDeConsolidacion, partesBusqueda } from './busqueda';
 import type {
   CambiosEnvio,
   CambiosPago,
@@ -142,6 +142,8 @@ function condicionDeBusqueda(texto: string | undefined): Prisma.EnvioWhereInput 
     { guiaVenezolana: contiene },
   ];
   if (partes.digitos.length >= MIN_DIGITOS_TELEFONO) opciones.push({ cliente: { telefono: { contains: partes.digitos } } });
+  const codigoEnvio = codigoDeConsolidacion(partes.texto);
+  if (codigoEnvio) opciones.push({ id: { endsWith: codigoEnvio, mode: 'insensitive' } });
   return { OR: opciones };
 }
 

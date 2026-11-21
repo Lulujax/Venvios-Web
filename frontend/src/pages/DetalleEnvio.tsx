@@ -7,6 +7,7 @@ import { EntregaForm } from '../components/envio/EntregaForm';
 import { EntregaDelPerfil } from '../components/envio/EntregaDelPerfil';
 import { Historial } from '../components/envio/Historial';
 import { LineaEstado } from '../components/envio/LineaEstado';
+import { SeguimientoEnvio } from '../components/envio/SeguimientoPaquete';
 import { SelectorModalidad } from '../components/envio/ModalidadYValor';
 import { PagoCliente } from '../components/envio/PagoCliente';
 import { ListaPagos, PagosPersonal } from '../components/envio/PagosPersonal';
@@ -193,12 +194,19 @@ export default function DetalleEnvio({ personal }: { personal: boolean }) {
 
           {etapaPago && <VerPaquetes envio={envio} alCambiar={alCambiar} />}
 
+          {!personal && !esAlerta && (
+            <Seccion titulo="Seguimiento del envío">
+              <SeguimientoEnvio envio={envio} />
+              {envio.guia.numero && <p className="mt-4 text-sm">Guía de {transportista}: <span className="codigo">{envio.guia.numero}</span></p>}
+            </Seccion>
+          )}
+
           {(esAlerta || !personal) && (
             <Seccion
               titulo="Paquetes"
               derecha={esAlerta && envio.faltan > 0 ? <span className="insignia bg-oro-100 text-marino-900">Faltan {envio.faltan}</span> : esAlerta ? <span className="insignia bg-verde-100 text-verde">Todos llegaron</span> : undefined}
             >
-              {personal ? <PaquetesPersonal envio={envio} alCambiar={alCambiar} /> : <PaquetesCliente paquetes={envio.paquetes} />}
+              {personal ? <PaquetesPersonal envio={envio} alCambiar={alCambiar} /> : <PaquetesCliente paquetes={envio.paquetes} etiquetaEnvio={esAlerta ? undefined : envio.etiquetaEstado} />}
               {!personal && hayEnBodega && (
                 <div className="mt-4 rounded-2xl bg-oro-50 p-4">
                   <p className="text-sm font-semibold text-marino-900">Tienes paquetes en bodega.</p>

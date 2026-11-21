@@ -5,7 +5,7 @@ import { PieTandas, useTandas } from '../../components/Tandas';
 import { Alerta, Cargando, ErrorCarga, InsigniaEstado, Marca, Vacio } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { ETIQUETAS_ESTADO, formatearUsd, nombreTransportista, primerNombre } from '../../lib/formato';
+import { ETIQUETAS_ESTADO, formatearUsd, nombreEnvio, nombreTransportista, primerNombre } from '../../lib/formato';
 import type { Envio, EstadoEnvio, Resumen, TasaVista } from '../../lib/tipos';
 import { useCarga } from '../../lib/useCarga';
 
@@ -154,7 +154,7 @@ export function ListaEnvios() {
       <div className="mb-5 grid gap-3 sm:grid-cols-[1fr_220px]">
         <div>
           <label htmlFor="buscar-envios" className="sr-only">Buscar</label>
-          <input id="buscar-envios" className="campo" type="search" placeholder="Buscar por nombre, teléfono, tracking o guía" defaultValue={q} onChange={(e) => cambiar('q', e.target.value)} />
+          <input id="buscar-envios" className="campo" type="search" placeholder="Código de consolidación, nombre, teléfono, tracking o guía" defaultValue={q} onChange={(e) => cambiar('q', e.target.value)} />
         </div>
         <div>
           <label htmlFor="filtro-estado" className="sr-only">Estado</label>
@@ -174,7 +174,8 @@ export function ListaEnvios() {
             <Link to={`/panel/envios/${envio.id}`} className="tarjeta block p-4 transition hover:border-marino/40">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate font-display text-lg font-bold text-marino-900">{envio.cliente.nombre}</p>
+                  <p className="truncate font-display text-lg font-bold text-marino-900">{envio.tipo === 'CONSOLIDADO' ? nombreEnvio(envio) : envio.cliente.nombre}</p>
+                  {envio.tipo === 'CONSOLIDADO' && <p className="truncate text-sm font-semibold">{envio.cliente.nombre}</p>}
                   <p className="codigo truncate text-suave">{envio.paquetes.map((p) => p.tracking).join(' · ')}</p>
                 </div>
                 <InsigniaEstado estado={envio.estado} />

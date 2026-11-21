@@ -120,7 +120,7 @@ export function PagoCliente({ envio, alCambiar }: { envio: Envio; alCambiar: (en
           <Seleccion etiqueta="Moneda" value={moneda} onChange={() => undefined} disabled opciones={[{ valor: moneda, texto: TEXTO_MONEDA[moneda] }]} />
           <Campo etiqueta={`Monto a pagar (${moneda === 'USD' ? '$' : 'Bs'})`} value={moneda === 'USD' ? formatearUsd(info.saldoCentavos) : formatearBs(info.saldoBsCentavos)} readOnly aria-readonly="true" className="[&_input]:bg-papel [&_input]:font-bold" ayuda="Paga exactamente este monto." />
           {metodo === 'BINANCE' ? (
-            <Campo etiqueta="ID de la transacción de Binance" autoCapitalize="none" autoComplete="off" value={referencia} onChange={(e) => setReferencia(e.target.value.replace(/[^A-Za-z0-9]/g, ''))} error={errores.referencia} ayuda="Recomendado: el ID completo de la transacción. Solo letras y números." placeholder="4F9A2B7C1D5E" />
+            <Campo etiqueta="ID de transacción" autoCapitalize="none" autoComplete="off" value={referencia} onChange={(e) => setReferencia(e.target.value.replace(/[^A-Za-z0-9]/g, ''))} error={errores.referencia} />
           ) : (
             <Campo etiqueta="Últimos 6 a 12 dígitos de la referencia" inputMode="numeric" maxLength={12} autoComplete="off" value={referencia} onChange={(e) => setReferencia(e.target.value.replace(/\D/g, '').slice(0, 12))} error={errores.referencia} ayuda="Recomendado: entre 6 y 12 dígitos, solo números." placeholder="123456" />
           )}

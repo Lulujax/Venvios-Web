@@ -1,11 +1,14 @@
 import { formatearFecha } from '../../lib/formato';
-import type { PaqueteVista } from '../../lib/tipos';
+import type { Envio, HitoVista, PaqueteVista } from '../../lib/tipos';
 
-export function SeguimientoPaquete({ paquete }: { paquete: PaqueteVista }) {
-  const pasos = paquete.seguimiento ?? [];
+export function seguimientoDelEnvio(envio: Envio): HitoVista[] {
+  return envio.paquetes.reduce<HitoVista[]>((mejor, paquete) => ((paquete.seguimiento ?? []).length > mejor.length ? paquete.seguimiento : mejor), []);
+}
+
+export function ListaPasos({ pasos, etiqueta }: { pasos: HitoVista[]; etiqueta: string }) {
   if (pasos.length === 0) return null;
   return (
-    <ol className="mt-3 space-y-1.5 border-l-2 border-linea pl-4" aria-label={`Seguimiento del paquete ${paquete.tracking}`}>
+    <ol className="mt-3 space-y-1.5 border-l-2 border-linea pl-4" aria-label={etiqueta}>
       {pasos.map((paso, indice) => {
         const actual = indice === pasos.length - 1;
         return (
@@ -18,4 +21,14 @@ export function SeguimientoPaquete({ paquete }: { paquete: PaqueteVista }) {
       })}
     </ol>
   );
+}
+
+export function SeguimientoPaquete({ paquete }: { paquete: PaqueteVista }) {
+  return <ListaPasos pasos={paquete.seguimiento ?? []} etiqueta={`Seguimiento del paquete ${paquete.tracking}`} />;
+}
+
+export function SeguimientoEnvio({ envio }: { envio: Envio }) {
+  const pasos = seguimientoDelEnvio(envio);
+  if (pasos.length === 0) return <p className="text-sm text-suave">Todavía no hay pasos registrados.</p>;
+  return <ListaPasos pasos={pasos} etiqueta="Seguimiento del envío" />;
 }

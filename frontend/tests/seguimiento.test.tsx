@@ -36,3 +36,31 @@ describe('Seguimiento del paquete', () => {
     expect(screen.getByText('—')).toBeTruthy();
   });
 });
+
+describe('Foto con cámara o desde el teléfono', () => {
+  it('caso feliz: con cámara ofrece «Tomar foto» y «Subir foto»', async () => {
+    const { FotoInput } = await import('../src/components/FotoInput');
+    render(<FotoInput etiqueta="Foto de la guía" archivo={null} onChange={() => undefined} usarCamara />);
+    expect(screen.getByRole('button', { name: /tomar foto/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /subir foto/i })).toBeTruthy();
+    expect(document.querySelectorAll('input[type="file"][capture]')).toHaveLength(1);
+    expect(document.querySelectorAll('input[type="file"]:not([capture])')).toHaveLength(1);
+  });
+
+  it('límite: sin cámara solo deja elegir una imagen', async () => {
+    const { FotoInput } = await import('../src/components/FotoInput');
+    render(<FotoInput etiqueta="Captura del pago" archivo={null} onChange={() => undefined} />);
+    expect(screen.getByRole('button', { name: /elegir imagen/i })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /tomar foto/i })).toBeNull();
+  });
+});
+
+describe('Paquetes de un consolidado', () => {
+  it('error corregido: un paquete de un envío entregado ya no dice «En bodega»', async () => {
+    const { PaquetesCliente } = await import('../src/components/envio/PaquetesLista');
+    render(<PaquetesCliente paquetes={[paquete([{ tipo: 'ENTREGADO', etiqueta: 'Entregado', fecha: '2026-11-20T10:00:00Z' }])]} etiquetaEnvio="Entregado" />);
+    expect(screen.queryByText('En bodega')).toBeNull();
+    expect(screen.getByText('Entregado')).toBeTruthy();
+    expect(screen.queryByRole('list', { name: /seguimiento del paquete/i })).toBeNull();
+  });
+});
