@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { CampoContrasena, CampoTelefono, RequisitosContrasenaLista } from '../src/components/ui';
-import { construirAlertas, esCobrable, filtrarAlertas, filtrarPedidos, paquetesEnBodega, resumirCuenta, valorSugeridoCentavos } from '../src/lib/cuenta';
+import { construirAlertas, esCobrable, filtrarAlertas, filtrarPedidos, paquetesEnBodega, resumirCuenta, sumaValoresCentavos } from '../src/lib/cuenta';
 import { monedaDelMetodo } from '../src/lib/pago';
 import { PAISES, componerTelefono, validarTelefonoLocal } from '../src/lib/telefono';
 import type { Envio, EstadoEnvio } from '../src/lib/tipos';
@@ -17,7 +17,7 @@ function envioDe(estado: EstadoEnvio, extra: Partial<Envio> = {}): Envio {
     estado,
     tienda: 'Shein',
     creadoEn: '2026-11-10T12:00:00Z',
-    paquetes: [{ id: `p-${estado}`, tracking: `XC-${estado}`, recibido: estado !== 'PREALERTADO', recibidoEn: null, pesoKg: null }],
+    paquetes: [{ id: `p-${estado}`, tracking: `XC-${estado}`, recibido: estado !== 'PREALERTADO', recibidoEn: null, pesoKg: null, valorDeclaradoCentavos: 6000 }],
     valorDeclaradoCentavos: 6000,
     precio: { pesoCobrableKg: 2, precioPorKgCentavos: 950, fleteCentavos: 1900, seguroCentavos: 300, totalCentavos: 2200, totalBsCentavos: 200000 },
     pagadoCentavos: 0,
@@ -120,7 +120,7 @@ describe('método y moneda de pago', () => {
 describe('clasificación de la cuenta del cliente', () => {
   const envios = [
     envioDe('PREALERTADO'),
-    envioDe('RECIBIDO_PARCIAL', { id: 'parcial', paquetes: [{ id: 'a', tracking: 'AAA-1', recibido: true }, { id: 'b', tracking: 'BBB-2', recibido: false }] as Envio['paquetes'] }),
+    envioDe('RECIBIDO_PARCIAL', { id: 'parcial', paquetes: [{ id: 'a', tracking: 'AAA-1', recibido: true, valorDeclaradoCentavos: 1500 }, { id: 'b', tracking: 'BBB-2', recibido: false, valorDeclaradoCentavos: 2500 }] as Envio['paquetes'] }),
     envioDe('RECIBIDO_COMPLETO'),
     envioDe('POR_CONSOLIDAR', { precio: null }),
     envioDe('POR_PAGAR'),
@@ -143,11 +143,16 @@ describe('clasificación de la cuenta del cliente', () => {
     expect(paquetesEnBodega([])).toEqual([]);
   });
 
-  it('el valor sugerido suma las alertas elegidas completas', () => {
+  it('el valor del envío suma el valor de cada paquete elegido, no el de toda la alerta', () => {
     const bodega = paquetesEnBodega(envios);
     const completa = bodega.filter((p) => p.tracking === 'XC-RECIBIDO_COMPLETO');
-    expect(valorSugeridoCentavos(completa, bodega)).toBe(6000);
-    expect(valorSugeridoCentavos([], bodega)).toBe(0);
+    expect(sumaValoresCentavos(completa)).toBe(6000);
+    const solo = bodega.filter((p) => p.tracking === 'AAA-1');
+    expect(sumaValoresCentavos(solo)).toBe(1500);
+  });
+
+  it('límite: sin paquetes elegidos el valor es cero', () => {
+    expect(sumaValoresCentavos([])).toBe(0);
   });
 
   it('Alertas: Pendiente mientras no llega y Atendida cuando llegó', () => {

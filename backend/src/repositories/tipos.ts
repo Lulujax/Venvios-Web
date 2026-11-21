@@ -59,6 +59,7 @@ export interface Paquete {
   trackingNormalizado: string;
   estado: EstadoPaquete;
   pesoCentesimas: number | null;
+  valorDeclaradoCentavos: number;
   fotoPath: string | null;
   avisadoEn: Date | null;
   avisadoPorId: string | null;
@@ -141,6 +142,7 @@ export interface IntentoGuardado {
 export interface NuevoPaquete {
   trackingTexto: string;
   trackingNormalizado: string;
+  valorDeclaradoCentavos?: number;
 }
 
 export interface NuevoEnvio {

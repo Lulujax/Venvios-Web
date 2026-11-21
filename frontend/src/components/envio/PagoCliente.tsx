@@ -39,7 +39,7 @@ export function PagoCliente({ envio, alCambiar }: { envio: Envio; alCambiar: (en
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
-    const nuevos = { referencia: validarReferencia(referencia) ?? undefined, archivo: archivo ? undefined : 'Sube la captura de tu pago.' };
+    const nuevos = { referencia: validarReferencia(referencia, metodo) ?? undefined, archivo: archivo ? undefined : 'Sube la captura de tu pago.' };
     setErrores(nuevos);
     if (Object.values(nuevos).some(Boolean) || !archivo || !info) return;
     const montoExacto = moneda === 'USD' ? info.saldoCentavos : info.saldoBsCentavos;
@@ -112,10 +112,18 @@ export function PagoCliente({ envio, alCambiar }: { envio: Envio; alCambiar: (en
       <form onSubmit={enviar} className="space-y-4 rounded-2xl border border-linea bg-white p-4" noValidate>
         <h3 className="text-base">Subir comprobante</h3>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Seleccion etiqueta="Pagaste por" value={metodo} onChange={(e) => setMetodo(e.target.value)} opciones={[{ valor: 'PAGO_MOVIL', texto: 'Pago móvil' }, { valor: 'TRANSFERENCIA', texto: 'Transferencia' }, { valor: 'BINANCE', texto: 'Binance' }]} />
+          <Seleccion etiqueta="Pagaste por" value={metodo} onChange={(e) => {
+            setMetodo(e.target.value);
+            setReferencia('');
+            setErrores({});
+          }} opciones={[{ valor: 'PAGO_MOVIL', texto: 'Pago móvil' }, { valor: 'TRANSFERENCIA', texto: 'Transferencia' }, { valor: 'BINANCE', texto: 'Binance' }]} />
           <Seleccion etiqueta="Moneda" value={moneda} onChange={() => undefined} disabled opciones={[{ valor: moneda, texto: TEXTO_MONEDA[moneda] }]} />
           <Campo etiqueta={`Monto a pagar (${moneda === 'USD' ? '$' : 'Bs'})`} value={moneda === 'USD' ? formatearUsd(info.saldoCentavos) : formatearBs(info.saldoBsCentavos)} readOnly aria-readonly="true" className="[&_input]:bg-papel [&_input]:font-bold" ayuda="Paga exactamente este monto." />
-          <Campo etiqueta="Últimos 6 dígitos de la referencia" inputMode="numeric" maxLength={6} autoComplete="off" value={referencia} onChange={(e) => setReferencia(e.target.value.replace(/\D/g, '').slice(0, 6))} error={errores.referencia} placeholder="123456" />
+          {metodo === 'BINANCE' ? (
+            <Campo etiqueta="ID de la transacción de Binance" autoCapitalize="none" maxLength={40} autoComplete="off" value={referencia} onChange={(e) => setReferencia(e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 40))} error={errores.referencia} ayuda="Lo ves en el detalle de tu pago en Binance. Son letras y números." placeholder="4F9A2B7C1D5E" />
+          ) : (
+            <Campo etiqueta="Últimos 6 dígitos de la referencia" inputMode="numeric" maxLength={6} autoComplete="off" value={referencia} onChange={(e) => setReferencia(e.target.value.replace(/\D/g, '').slice(0, 6))} error={errores.referencia} placeholder="123456" />
+          )}
         </div>
         <Alerta tono="aviso">Paga el monto exacto. Si pagaste un monto distinto, escríbele a administración por WhatsApp antes de subir el comprobante.</Alerta>
         <FotoInput etiqueta="Captura del pago" archivo={archivo} onChange={setArchivo} />

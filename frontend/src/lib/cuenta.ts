@@ -99,23 +99,15 @@ export function paquetesEnBodega(envios: Envio[]): PaqueteEnBodega[] {
         tienda: envio.tienda,
         pesoKg: paquete.pesoKg,
         recibidoEn: paquete.recibidoEn,
-        valorDeclaradoCentavos: envio.valorDeclaradoCentavos,
+        valorDeclaradoCentavos: paquete.valorDeclaradoCentavos,
       });
     }
   }
   return lista.sort((a, b) => (a.recibidoEn ?? '').localeCompare(b.recibidoEn ?? ''));
 }
 
-export function valorSugeridoCentavos(elegidos: PaqueteEnBodega[], todos: PaqueteEnBodega[]): number {
-  const alertasCompletas = new Set<string>();
-  const porAlerta = new Map<string, number>();
-  for (const paquete of todos) porAlerta.set(paquete.envioId, (porAlerta.get(paquete.envioId) ?? 0) + 1);
-  const elegidosPorAlerta = new Map<string, number>();
-  for (const paquete of elegidos) elegidosPorAlerta.set(paquete.envioId, (elegidosPorAlerta.get(paquete.envioId) ?? 0) + 1);
-  for (const [envioId, cantidad] of elegidosPorAlerta) if (cantidad === porAlerta.get(envioId)) alertasCompletas.add(envioId);
-  let total = 0;
-  for (const envioId of alertasCompletas) total += todos.find((p) => p.envioId === envioId)?.valorDeclaradoCentavos ?? 0;
-  return total;
+export function sumaValoresCentavos(elegidos: PaqueteEnBodega[]): number {
+  return elegidos.reduce((suma, paquete) => suma + paquete.valorDeclaradoCentavos, 0);
 }
 
 export interface ResumenCuenta {

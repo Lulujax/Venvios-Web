@@ -107,7 +107,8 @@ export interface NuevaPrealerta {
   clienteId?: string;
   trackings: string[];
   tienda: string;
-  valorDeclaradoUsd: number;
+  valorDeclaradoUsd?: number;
+  valoresUsd?: number[];
   modalidad?: Modalidad;
   transportista?: Transportista;
 }
@@ -117,7 +118,7 @@ export interface NuevoConsolidado {
   paqueteIds: string[];
   modalidad: Modalidad;
   transportista: Transportista;
-  valorDeclaradoUsd: number;
+  valorDeclaradoUsd?: number;
   pesoKg?: number;
 }
 
@@ -225,6 +226,7 @@ export class EnvioService {
         tracking: p.trackingTexto,
         recibido: p.estado === 'RECIBIDO',
         pesoKg: p.pesoCentesimas ? p.pesoCentesimas / 100 : null,
+        valorDeclaradoCentavos: p.valorDeclaradoCentavos,
         tieneFoto: Boolean(p.fotoPath),
         fotoRuta: p.fotoPath,
         avisado: Boolean(p.avisadoEn),
@@ -396,6 +398,7 @@ export class EnvioService {
       return this.repos.envios.actualizar(envio.id, { estado: 'CANCELADO' }, envio.estado);
     }
     const limpio = {
+      valorDeclaradoCentavos: this.sumaDeValores(envio.paquetes),
       pesoTotalCentesimas: null,
       pesoCobrableCentesimas: null,
       fleteCentavos: null,
@@ -417,6 +420,20 @@ export class EnvioService {
     return { envio, paquete };
   }
 
+  private valoresPorPaquete(datos: NuevaPrealerta, cantidad: number): number[] {
+    if (datos.valoresUsd !== undefined) {
+      if (!Array.isArray(datos.valoresUsd) || datos.valoresUsd.length !== cantidad) throw AppError.badRequest('Escribe el valor declarado de cada paquete.');
+      return datos.valoresUsd.map((valor) => validarValorDeclarado(Number(valor)));
+    }
+    const total = validarValorDeclarado(Number(datos.valorDeclaradoUsd ?? 0));
+    const base = Math.floor(total / cantidad);
+    return Array.from({ length: cantidad }, (_, indice) => (indice === 0 ? total - base * (cantidad - 1) : base));
+  }
+
+  private sumaDeValores(paquetes: Paquete[]): number {
+    return paquetes.reduce((suma, paquete) => suma + paquete.valorDeclaradoCentavos, 0);
+  }
+
   async crearPrealerta(actor: Actor, datos: NuevaPrealerta): Promise<EnvioVista> {
     logger.info('Creando prealerta', { actor: actor.id, paquetes: datos.trackings?.length });
     const clienteId = esPersonal(actor) ? datos.clienteId : actor.id;
@@ -429,17 +446,18 @@ export class EnvioService {
     }
     if (datos.trackings.length > MAX_TRACKINGS) throw AppError.badRequest(`Máximo ${MAX_TRACKINGS} paquetes por alerta.`);
 
+    const valores = this.valoresPorPaquete(datos, datos.trackings.length);
     const vistos = new Set<string>();
-    const paquetes = datos.trackings.map((texto) => {
+    const paquetes = datos.trackings.map((texto, indice) => {
       const trackingTexto = limpiarTexto(texto, 80);
       const trackingNormalizado = normalizarTracking(trackingTexto);
       if (vistos.has(trackingNormalizado)) throw AppError.badRequest('Repetiste un tracking en la lista.');
       vistos.add(trackingNormalizado);
-      return { trackingTexto, trackingNormalizado };
+      return { trackingTexto, trackingNormalizado, valorDeclaradoCentavos: valores[indice]! };
     });
 
     const nuevos: typeof paquetes = [];
-    const reclamados: Array<{ paqueteId: string; origenId: string }> = [];
+    const reclamados: Array<{ paqueteId: string; origenId: string; valorDeclaradoCentavos: number }> = [];
     for (const paquete of paquetes) {
       const existente = await this.repos.envios.porTracking(paquete.trackingNormalizado);
       if (!existente) {
@@ -450,7 +468,7 @@ export class EnvioService {
       const reclamable =
         hallado?.estado === 'RECIBIDO' && existente.tipo === 'ALERTA' && ESTADOS_ALERTA_ACTIVOS.includes(existente.estado) && (await this.esSinDueno(existente));
       if (reclamable && hallado) {
-        reclamados.push({ paqueteId: hallado.id, origenId: existente.id });
+        reclamados.push({ paqueteId: hallado.id, origenId: existente.id, valorDeclaradoCentavos: paquete.valorDeclaradoCentavos ?? 0 });
         continue;
       }
       const puedeVer = esPersonal(actor) || existente.clienteId === actor.id;
@@ -462,12 +480,13 @@ export class EnvioService {
       modalidad,
       transportista,
       tienda: limpiarTexto(datos.tienda, 80) || 'Sin indicar',
-      valorDeclaradoCentavos: validarValorDeclarado(Number(datos.valorDeclaradoUsd)),
+      valorDeclaradoCentavos: valores.reduce((suma, valor) => suma + valor, 0),
       paquetes: nuevos,
     });
     await this.evento(envio.id, actor, 'PREALERTA', `Alerta con ${paquetes.length} paquete(s)`);
     if (reclamados.length > 0) {
       await this.repos.envios.moverPaquetes(reclamados.map((r) => r.paqueteId), envio.id, reclamados.map((r) => r.origenId));
+      for (const reclamado of reclamados) await this.repos.envios.actualizarPaquete(reclamado.paqueteId, { valorDeclaradoCentavos: reclamado.valorDeclaradoCentavos });
       for (const origenId of new Set(reclamados.map((r) => r.origenId))) {
         await this.refrescarAlerta(origenId);
         await this.evento(origenId, actor, 'RECLAMO', 'Un cliente reclamó este paquete al registrar su alerta');
@@ -669,8 +688,8 @@ export class EnvioService {
     if (!entregaDelPerfil && !esPersonal(actor)) {
       throw AppError.badRequest('Completa tus datos de entrega de esta transportista en tu perfil antes de pedir el envío.', 'PERFIL_INCOMPLETO');
     }
-    const valor = validarValorDeclarado(Number(datos.valorDeclaradoUsd));
     const elegidos = await this.paquetesParaConsolidar(clienteId, datos.paqueteIds);
+    const valor = this.sumaDeValores(elegidos.map((e) => e.paquete));
     const tiendas = [...new Set(elegidos.map((e) => e.envio.tienda).filter((t) => t !== TIENDA_SIN_PREALERTA && t !== TIENDA_DEVUELTO && t !== 'Sin indicar'))];
     const consolidado = await this.repos.envios.crear({
       tipo: 'CONSOLIDADO',

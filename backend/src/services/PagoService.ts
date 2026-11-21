@@ -77,7 +77,7 @@ export class PagoService {
     if (monedaDelMetodo(datos.metodo) !== datos.moneda) {
       throw AppError.badRequest('Ese método de pago no admite esa moneda: Binance es en dólares; pago móvil y transferencia, en bolívares.', 'METODO_MONEDA');
     }
-    const referencia = validarReferenciaPago(datos.referencia);
+    const referencia = validarReferenciaPago(datos.referencia, datos.metodo);
     const comprobante = validarImagen(datos.archivo);
     const previos = await this.repos.pagos.deEnvio(envioId);
     if (previos.some((p) => p.estado === 'POR_CONFIRMAR')) {

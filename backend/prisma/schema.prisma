@@ -149,6 +149,7 @@ model Paquete {
   trackingNormalizado  String        @unique
   estado               EstadoPaquete @default(ESPERADO)
   pesoCentesimas       Int?
+  valorDeclaradoCentavos Int         @default(0)
   fotoPath             String?
   avisadoEn            DateTime?
   avisadoPorId         String?

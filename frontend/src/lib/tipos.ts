@@ -61,6 +61,7 @@ export interface PaqueteVista {
   tracking: string;
   recibido: boolean;
   pesoKg: number | null;
+  valorDeclaradoCentavos: number;
   tieneFoto: boolean;
   fotoRuta: string | null;
   avisado: boolean;

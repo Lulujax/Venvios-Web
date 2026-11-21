@@ -135,7 +135,7 @@ describe('cifrado', () => {
 describe('cambios simultáneos', () => {
   it('confirmar dos veces el mismo pago aplica solo la primera', async () => {
     const { cliente, operador, envioId, total } = await cotizado();
-    const subido = await pagar(cliente.agente, envioId, total, '111222');
+    const subido = await pagar(cliente.agente, envioId, total, 'BIN111222111222');
     const pagoId = subido.body.envio.pagos[0].id as string;
     const [a, b] = await Promise.all([operador.post(`/api/staff/pagos/${pagoId}/confirmar`), operador.post(`/api/staff/pagos/${pagoId}/confirmar`)]);
     expect([a.status, b.status].sort()).toEqual([200, 400]);

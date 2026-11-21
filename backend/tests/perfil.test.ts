@@ -185,7 +185,7 @@ describe('consolidar con los datos del perfil', () => {
       .field('metodo', 'BINANCE')
       .field('moneda', 'USD')
       .field('monto', (total / 100).toFixed(2))
-      .field('referencia', '112233')
+      .field('referencia', 'BIN112233112233')
       .attach('archivo', PNG_MINIMO, { filename: 'p.png', contentType: 'image/png' });
     expect(pago.status).toBe(201);
     await operador.agente.post(`/api/staff/pagos/${pago.body.envio.pagos[0].id}/confirmar`);

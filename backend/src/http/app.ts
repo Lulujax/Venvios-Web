@@ -75,7 +75,8 @@ const esquemaPrealerta = z.object({
   clienteId: z.string().optional(),
   trackings: z.array(z.string()).min(1),
   tienda: z.string().default(''),
-  valorDeclaradoUsd: z.coerce.number(),
+  valorDeclaradoUsd: z.coerce.number().optional(),
+  valoresUsd: z.array(z.coerce.number()).optional(),
   modalidad: z.enum(['M1', 'M2']).optional(),
   transportista: z.enum(['MRW', 'ZOOM']).optional(),
 });
@@ -85,7 +86,7 @@ const esquemaConsolidado = z.object({
   paqueteIds: z.array(z.string()).min(1),
   modalidad: z.enum(['M1', 'M2']),
   transportista: z.enum(['MRW', 'ZOOM']),
-  valorDeclaradoUsd: z.coerce.number(),
+  valorDeclaradoUsd: z.coerce.number().optional(),
   pesoKg: z.coerce.number().optional(),
 });
 

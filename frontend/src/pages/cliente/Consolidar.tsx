@@ -4,10 +4,10 @@ import { FiCheckSquare, FiSquare } from 'react-icons/fi';
 import { ContenidoCuenta, EncabezadoCuenta, useEnviosCliente } from '../../components/CuentaPiezas';
 import { ElegirModalidad, ElegirTransportista } from '../../components/OpcionesEnvio';
 import { ResumenEntregaPerfil, entregaPerfilCompleta } from '../../components/envio/ResumenEntrega';
-import { Alerta, Campo, Cargando, ErrorCarga, Vacio } from '../../components/ui';
+import { Alerta, Cargando, ErrorCarga, Vacio } from '../../components/ui';
 import { api, mensajeDeError } from '../../lib/api';
-import { paquetesEnBodega, valorSugeridoCentavos } from '../../lib/cuenta';
-import { aNumero, formatearFecha, formatearKg } from '../../lib/formato';
+import { paquetesEnBodega, sumaValoresCentavos } from '../../lib/cuenta';
+import { formatearFecha, formatearKg, formatearUsd } from '../../lib/formato';
 import type { Envio, Modalidad, PerfilVista, Transportista } from '../../lib/tipos';
 import { useCarga } from '../../lib/useCarga';
 
@@ -18,16 +18,13 @@ export function Consolidar() {
   const [elegidos, setElegidos] = useState<string[]>([]);
   const [modalidad, setModalidad] = useState<Modalidad>('M1');
   const [transportista, setTransportista] = useState<Transportista>('MRW');
-  const [valor, setValor] = useState('');
-  const [valorTocado, setValorTocado] = useState(false);
-  const [errores, setErrores] = useState<{ elegidos?: string; valor?: string }>({});
+  const [errores, setErrores] = useState<{ elegidos?: string }>({});
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
   const bodega = datos ? paquetesEnBodega(datos) : [];
   const seleccion = bodega.filter((p) => elegidos.includes(p.paqueteId));
-  const sugerido = valorSugeridoCentavos(seleccion, bodega);
-  const valorMostrado = valorTocado ? valor : sugerido > 0 ? (sugerido / 100).toFixed(2) : valor;
+  const valorTotalCentavos = sumaValoresCentavos(seleccion);
 
   function alternar(paqueteId: string) {
     setElegidos((actuales) => (actuales.includes(paqueteId) ? actuales.filter((id) => id !== paqueteId) : [...actuales, paqueteId]));
@@ -35,13 +32,9 @@ export function Consolidar() {
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
-    const valorUsd = valorMostrado.trim() === '' ? NaN : aNumero(valorMostrado);
-    const nuevos = {
-      elegidos: elegidos.length === 0 ? 'Elige al menos un paquete.' : undefined,
-      valor: Number.isFinite(valorUsd) && valorUsd >= 0 ? undefined : 'Escribe el valor total de lo que envías, en dólares (0 si no sabes).',
-    };
+    const nuevos = { elegidos: elegidos.length === 0 ? 'Elige al menos un paquete.' : undefined };
     setErrores(nuevos);
-    if (nuevos.elegidos || nuevos.valor) return;
+    if (nuevos.elegidos) return;
     if (perfil.datos && !entregaPerfilCompleta(perfil.datos, transportista)) {
       setErrorEnvio('Completa tus datos de entrega en tu perfil antes de pedir el envío.');
       return;
@@ -49,7 +42,7 @@ export function Consolidar() {
     setEnviando(true);
     setErrorEnvio(null);
     try {
-      const r = await api.post<{ envio: Envio }>('/envios/consolidar', { paqueteIds: elegidos, modalidad, transportista, valorDeclaradoUsd: valorUsd });
+      const r = await api.post<{ envio: Envio }>('/envios/consolidar', { paqueteIds: elegidos, modalidad, transportista });
       navegar(`/cuenta/envios/${r.envio.id}`, { replace: true });
     } catch (falla) {
       setErrorEnvio(mensajeDeError(falla));
@@ -109,17 +102,11 @@ export function Consolidar() {
               <ElegirTransportista valor={transportista} alCambiar={setTransportista} />
               <ElegirModalidad valor={modalidad} alCambiar={setModalidad} />
               <ResumenEntregaPerfil perfil={perfil.datos} transportista={transportista} />
-              <Campo
-                etiqueta="Valor declarado total ($)"
-                inputMode="decimal"
-                value={valorMostrado}
-                onChange={(e) => {
-                  setValorTocado(true);
-                  setValor(e.target.value);
-                }}
-                error={errores.valor}
-                ayuda="Lo que costó todo lo que envías. Con esto se calcula el seguro de carga."
-              />
+              <div className="rounded-2xl bg-marino-50 p-4 text-sm">
+                <p className="text-suave">Valor declarado del envío</p>
+                <p className="font-display text-2xl font-bold text-marino-900">{formatearUsd(valorTotalCentavos)}</p>
+                <p className="ayuda">Es la suma del valor de los paquetes que elegiste. Con esto se calcula el seguro de carga.</p>
+              </div>
             </section>
 
             {errorEnvio && <Alerta tono="error">{errorEnvio}</Alerta>}

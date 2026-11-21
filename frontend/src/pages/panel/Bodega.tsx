@@ -15,7 +15,6 @@ function FormularioConsolidar({ elegidos, alTerminar }: { elegidos: ItemBodega[]
   const navegar = useNavigate();
   const [modalidad, setModalidad] = useState<Modalidad>('M1');
   const [transportista, setTransportista] = useState<Transportista>('MRW');
-  const [valor, setValor] = useState('');
   const [peso, setPeso] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
@@ -23,14 +22,12 @@ function FormularioConsolidar({ elegidos, alTerminar }: { elegidos: ItemBodega[]
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
-    const valorUsd = aNumero(valor || '0');
     const pesoKg = peso.trim() ? aNumero(peso) : undefined;
-    if (!Number.isFinite(valorUsd) || valorUsd < 0) return setError('Escribe el valor declarado en dólares (0 si no se sabe).');
     if (pesoKg !== undefined && (!Number.isFinite(pesoKg) || pesoKg <= 0)) return setError('El peso debe ser mayor que cero, o déjalo vacío para pesarlo después.');
     setOcupado(true);
     setError(null);
     try {
-      const r = await api.post<{ envio: Envio }>('/envios/consolidar', { clienteId: cliente.id, paqueteIds: elegidos.map((e) => e.paqueteId), modalidad, transportista, valorDeclaradoUsd: valorUsd, pesoKg });
+      const r = await api.post<{ envio: Envio }>('/envios/consolidar', { clienteId: cliente.id, paqueteIds: elegidos.map((e) => e.paqueteId), modalidad, transportista, pesoKg });
       alTerminar();
       navegar(`/panel/envios/${r.envio.id}`);
     } catch (falla) {
@@ -47,7 +44,6 @@ function FormularioConsolidar({ elegidos, alTerminar }: { elegidos: ItemBodega[]
       <ElegirTransportista valor={transportista} alCambiar={setTransportista} nombre="transportista-bodega" />
       <ElegirModalidad valor={modalidad} alCambiar={setModalidad} nombre="modalidad-bodega" />
       <div className="grid gap-4 sm:grid-cols-2">
-        <Campo etiqueta="Valor declarado total ($)" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0.00" />
         <Campo etiqueta="Peso total (kg)" inputMode="decimal" value={peso} onChange={(e) => setPeso(e.target.value)} placeholder="Vacío si lo pesas después" />
       </div>
       {error && <Alerta tono="error">{error}</Alerta>}

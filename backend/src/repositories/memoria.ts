@@ -177,6 +177,7 @@ export class EnvioMemoria implements EnvioRepository, ConInstantanea {
       trackingNormalizado: nuevo.trackingNormalizado,
       estado: 'ESPERADO',
       pesoCentesimas: null,
+      valorDeclaradoCentavos: nuevo.valorDeclaradoCentavos ?? 0,
       fotoPath: null,
       avisadoEn: null,
       avisadoPorId: null,

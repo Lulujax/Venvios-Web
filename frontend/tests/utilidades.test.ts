@@ -71,6 +71,10 @@ describe('validaciones del formulario', () => {
     expect(validarReferencia('123456')).toBeNull();
     expect(validarReferencia('12345')).not.toBeNull();
     expect(validarReferencia('BIN-12')).not.toBeNull();
+    expect(validarReferencia('4F9A2B7C1D', 'BINANCE')).toBeNull();
+    expect(validarReferencia('1234567', 'BINANCE')).not.toBeNull();
+    expect(validarReferencia('A'.repeat(41), 'BINANCE')).not.toBeNull();
+    expect(validarReferencia('BIN-12345678', 'BINANCE')).not.toBeNull();
     expect(validarTracking('XC-0001')).toBeNull();
     expect(validarTracking('--')).not.toBeNull();
   });

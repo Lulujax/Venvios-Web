@@ -219,19 +219,19 @@ describe('flujo completo de un envío', () => {
     expect(info.body.saldoCentavos).toBe(4433);
     expect(info.body.datosPago.esPrueba).toBe(true);
 
-    const deMas = await subirPago(cliente.agente, consolidado.id, { metodo: 'BINANCE', moneda: 'USD', monto: '50', referencia: '998877' });
+    const deMas = await subirPago(cliente.agente, consolidado.id, { metodo: 'BINANCE', moneda: 'USD', monto: '50', referencia: 'BIN998877998877' });
     expect(deMas.status).toBe(400);
     expect(deMas.body.error.codigo).toBe('MONTO_NO_EXACTO');
     expect(deMas.body.error.mensaje).toContain('WhatsApp');
     const referenciaMala = await subirPago(cliente.agente, consolidado.id, { metodo: 'BINANCE', moneda: 'USD', monto: '44.33', referencia: 'BIN-998877' });
     expect(referenciaMala.body.error.codigo).toBe('REFERENCIA_INVALIDA');
-    const sinComprobante = await cliente.agente.post(`/api/envios/${consolidado.id}/pagos`).field('metodo', 'BINANCE').field('moneda', 'USD').field('monto', '44.33').field('referencia', '998877');
+    const sinComprobante = await cliente.agente.post(`/api/envios/${consolidado.id}/pagos`).field('metodo', 'BINANCE').field('moneda', 'USD').field('monto', '44.33').field('referencia', 'BIN998877998877');
     expect(sinComprobante.status).toBe(400);
 
-    const subido = await subirPago(cliente.agente, consolidado.id, { metodo: 'BINANCE', moneda: 'USD', monto: '44.33', referencia: '998877' });
+    const subido = await subirPago(cliente.agente, consolidado.id, { metodo: 'BINANCE', moneda: 'USD', monto: '44.33', referencia: 'BIN998877998877' });
     expect(subido.status).toBe(201);
     expect(subido.body.envio.estado).toBe('POR_CONFIRMAR');
-    const otraVez = await subirPago(cliente.agente, consolidado.id, { metodo: 'BINANCE', moneda: 'USD', monto: '44.33', referencia: '998877' });
+    const otraVez = await subirPago(cliente.agente, consolidado.id, { metodo: 'BINANCE', moneda: 'USD', monto: '44.33', referencia: 'BIN998877998877' });
     expect(otraVez.body.error.codigo).toBe('PAGO_EN_REVISION');
 
     const confirmado = await operador.post(`/api/staff/pagos/${subido.body.envio.pagos[0].id}/confirmar`);
@@ -433,7 +433,7 @@ describe('bodega y casos especiales', () => {
 
   it('deshacer un consolidado devuelve los paquetes a la bodega; con un pago en revisión no se puede', async () => {
     const { cliente, envioId, total } = await consolidadoCotizado(4);
-    const subido = await subirPago(cliente.agente, envioId, { metodo: 'BINANCE', moneda: 'USD', monto: (total / 100).toFixed(2), referencia: '123456' });
+    const subido = await subirPago(cliente.agente, envioId, { metodo: 'BINANCE', moneda: 'USD', monto: (total / 100).toFixed(2), referencia: 'BIN123456123456' });
     expect(subido.status).toBe(201);
     expect((await cliente.agente.post(`/api/envios/${envioId}/deshacer`).send({})).body.error.codigo).toBe('ENVIO_BLOQUEADO');
 
@@ -477,7 +477,7 @@ describe('pagos', () => {
 
   it('rechazar devuelve el envío a «listo para pagar» y deja el motivo para el aviso', async () => {
     const { cliente, operador, envioId } = await consolidadoCotizado();
-    const subido = await subirPago(cliente.agente, envioId, { metodo: 'BINANCE', moneda: 'USD', monto: '38', referencia: '123456' });
+    const subido = await subirPago(cliente.agente, envioId, { metodo: 'BINANCE', moneda: 'USD', monto: '38', referencia: 'BIN123456123456' });
     const rechazo = await operador.post(`/api/staff/pagos/${subido.body.envio.pagos[0].id}/rechazar`).send({ motivo: 'No aparece el depósito' });
     expect(rechazo.body.envio.estado).toBe('POR_PAGAR');
     const aviso = await operador.get(`/api/staff/envios/${envioId}/mensaje/pagoRechazado?motivo=${encodeURIComponent('No aparece el depósito')}`);
@@ -490,7 +490,7 @@ describe('pagos', () => {
     const abono = await operador.post(`/api/staff/envios/${envioId}/pago-manual`).send({ metodo: 'MANUAL', moneda: 'USD', monto: 20, referencia: 'efectivo' });
     expect(abono.body.envio.estado).toBe('POR_PAGAR');
     expect(abono.body.envio.pagadoCentavos).toBe(2000);
-    const resto = await subirPago(cliente.agente, envioId, { metodo: 'BINANCE', moneda: 'USD', monto: '18', referencia: '654321' });
+    const resto = await subirPago(cliente.agente, envioId, { metodo: 'BINANCE', moneda: 'USD', monto: '18', referencia: 'BIN654321654321' });
     expect(resto.status).toBe(201);
     const pendiente = resto.body.envio.pagos.find((p: { estado: string }) => p.estado === 'POR_CONFIRMAR');
     expect((await operador.post(`/api/staff/pagos/${pendiente.id}/confirmar`)).body.envio.estado).toBe('PAGADO');
@@ -505,13 +505,13 @@ describe('pagos', () => {
 
   it('errores: monto cero, imagen inválida y envío sin total', async () => {
     const { cliente, envioId } = await consolidadoCotizado();
-    expect((await subirPago(cliente.agente, envioId, { metodo: 'BINANCE', moneda: 'USD', monto: '0', referencia: '000111' })).status).toBe(400);
+    expect((await subirPago(cliente.agente, envioId, { metodo: 'BINANCE', moneda: 'USD', monto: '0', referencia: 'BIN000111000111' })).status).toBe(400);
     const imagenMala = await cliente.agente
       .post(`/api/envios/${envioId}/pagos`)
       .field('metodo', 'BINANCE')
       .field('moneda', 'USD')
       .field('monto', '38')
-      .field('referencia', '000111')
+      .field('referencia', 'BIN000111000111')
       .attach('archivo', Buffer.from('no soy imagen'), { filename: 'p.txt', contentType: 'text/plain' });
     expect(imagenMala.status).toBe(400);
     const otro = await prealertar(cliente.agente, ['SIN-12345678']);
@@ -618,7 +618,7 @@ describe('público y tasa', () => {
 describe('guía del despacho por foto o por número', () => {
   async function listoParaDespachar() {
     const base = await consolidadoCotizado(4);
-    const subido = await subirPago(base.cliente.agente, base.envioId, { metodo: 'BINANCE', moneda: 'USD', monto: (base.total / 100).toFixed(2), referencia: '554433' });
+    const subido = await subirPago(base.cliente.agente, base.envioId, { metodo: 'BINANCE', moneda: 'USD', monto: (base.total / 100).toFixed(2), referencia: 'BIN554433554433' });
     expect(subido.status).toBe(201);
     await base.operador.post(`/api/staff/pagos/${subido.body.envio.pagos[0].id}/confirmar`);
     const entrega = await base.operador.put(`/api/envios/${base.envioId}/entrega`).send({
