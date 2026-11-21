@@ -2,9 +2,15 @@
 
 Una tarea a la vez. Cada una incluye sus pruebas unitarias. La casilla se marca solo cuando Luis confirma que la prueba manual pasó.
 
-## Estado (20-11-2026)
+## Estado (21-11-2026)
 
-Todo lo de la parte 1 ya está programado y con pruebas automáticas que pasan (backend 128, frontend 76). Ninguna casilla está marcada porque faltan las pruebas manuales de Luis. No se ha podido probar sin cuentas reales: la migración contra Supabase, el almacenamiento real de imágenes y el despliegue en Netlify; ni el escáner con cámaras reales de Android y iPhone.
+Programado y con pruebas automáticas que pasan (backend 181, frontend 136), a la espera de tu prueba manual: V-1 a V-9 y las tareas T-1, T-1b, T-1d, T-2, T-3, T-4a, T-4b, T-4c, T-4d, T-5, T-6, T-7 y T-8. Ninguna casilla está marcada porque faltan tus pruebas.
+
+Programado solo en parte:
+- **T-1c**: las pantallas ya muestran de 10 en 10 con «Ver 10 más», buscador por tracking y «Elegir todos» (Consolidar, agregar de bodega, bodega, envíos, pedidos y alertas). Falta que el servidor entregue las listas por tandas con el total exacto (hoy descarga todo y la pantalla recorta) y aplicarlo al historial.
+- **T-9**: el operador ya recorre el flujo (cotizar, pagos por revisar, enviar, en ruta), pero falta ordenarlo por módulos; depende de la Parte 3.
+
+Sin hacer: **T-10** (producción: se hace al final, para no quitar los datos de prueba mientras pruebas). No se ha podido probar sin cuentas reales: la migración contra Supabase (hay que aplicar el esquema nuevo y `backend/prisma/migrar-valores-por-guia.sql`), el almacenamiento real de imágenes, el despliegue en Netlify, `npm run e2e` ni las cámaras reales de Android y iPhone.
 
 ## Parte 1 · Lo ya construido: falta tu prueba manual
 
