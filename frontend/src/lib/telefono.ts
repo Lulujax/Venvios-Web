@@ -41,3 +41,11 @@ export function validarTelefonoLocal(codigoPais: string, numeroLocal: string): s
   if (total < 10 || total > 15) return `Revisa el número: debe verse como ${pais.ejemplo}.`;
   return null;
 }
+
+export function separarTelefono(completo: string): { pais: string; numero: string } {
+  const digitos = completo.replace(/\D/g, '');
+  const candidatos = [...PAISES].sort((a, b) => b.prefijo.length - a.prefijo.length);
+  const pais = candidatos.find((candidato) => digitos.startsWith(candidato.prefijo));
+  if (!pais) return { pais: PAIS_PREDETERMINADO, numero: digitos };
+  return { pais: pais.codigo, numero: digitos.slice(pais.prefijo.length) };
+}

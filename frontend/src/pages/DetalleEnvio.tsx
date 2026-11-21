@@ -4,6 +4,7 @@ import { FiArrowLeft, FiPhone } from 'react-icons/fi';
 import { AjusteAdmin } from '../components/envio/AjusteAdmin';
 import { DespachoForm } from '../components/envio/DespachoForm';
 import { EntregaForm } from '../components/envio/EntregaForm';
+import { EntregaDelPerfil } from '../components/envio/EntregaDelPerfil';
 import { Historial } from '../components/envio/Historial';
 import { LineaEstado } from '../components/envio/LineaEstado';
 import { SelectorModalidad } from '../components/envio/ModalidadYValor';
@@ -194,7 +195,11 @@ export default function DetalleEnvio({ personal }: { personal: boolean }) {
 
           {((!personal && !esAlerta && envio.estado !== 'CANCELADO') || etapaEnvio) && (
             <Seccion titulo="Datos de entrega en Venezuela">
-              <EntregaForm key={`${envio.entrega.cedula}-${envio.estado}`} envio={envio} alCambiar={alCambiar} bloqueado={['DESPACHADO', 'CERRADO', 'CANCELADO'].includes(envio.estado)} />
+              {personal ? (
+                <EntregaForm key={`${envio.entrega.cedula}-${envio.estado}`} envio={envio} alCambiar={alCambiar} bloqueado={['DESPACHADO', 'CERRADO', 'CANCELADO'].includes(envio.estado)} />
+              ) : (
+                <EntregaDelPerfil envio={envio} alCambiar={alCambiar} bloqueado={['DESPACHADO', 'CERRADO', 'CANCELADO'].includes(envio.estado)} />
+              )}
             </Seccion>
           )}
 

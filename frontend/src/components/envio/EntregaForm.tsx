@@ -3,8 +3,8 @@ import { Alerta, Campo, Seleccion, useAviso } from '../ui';
 import { api, mensajeDeError } from '../../lib/api';
 import type { Envio } from '../../lib/tipos';
 import { validarCedula, validarNombre, validarTelefono } from '../../lib/validar';
+import { ESTADOS_VENEZUELA } from '../../lib/venezuela';
 
-const ESTADOS_VENEZUELA = ['Amazonas', 'Anzoátegui', 'Apure', 'Aragua', 'Barinas', 'Bolívar', 'Carabobo', 'Cojedes', 'Delta Amacuro', 'Distrito Capital', 'Falcón', 'Guárico', 'La Guaira', 'Lara', 'Mérida', 'Miranda', 'Monagas', 'Nueva Esparta', 'Portuguesa', 'Sucre', 'Táchira', 'Trujillo', 'Yaracuy', 'Zulia'];
 
 export function EntregaForm({ envio, alCambiar, bloqueado }: { envio: Envio; alCambiar: (envio: Envio) => void; bloqueado: boolean }) {
   const avisar = useAviso();

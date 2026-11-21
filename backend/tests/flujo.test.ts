@@ -237,9 +237,7 @@ describe('flujo completo de un envío', () => {
     const confirmado = await operador.post(`/api/staff/pagos/${subido.body.envio.pagos[0].id}/confirmar`);
     expect(confirmado.body.envio.estado).toBe('PAGADO');
 
-    const sinEntrega = await operador.post(`/api/staff/envios/${consolidado.id}/despachar`).field('guia', 'MRW123456');
-    expect(sinEntrega.body.error.codigo).toBe('DESPACHO_INCOMPLETO');
-    const entrega = await cliente.agente.put(`/api/envios/${consolidado.id}/entrega`).send({
+    const entrega = await operador.put(`/api/envios/${consolidado.id}/entrega`).send({
       nombre: 'Ana Pérez',
       cedula: '12345678',
       telefono: '584141234567',
@@ -623,7 +621,7 @@ describe('guía del despacho por foto o por número', () => {
     const subido = await subirPago(base.cliente.agente, base.envioId, { metodo: 'BINANCE', moneda: 'USD', monto: (base.total / 100).toFixed(2), referencia: '554433' });
     expect(subido.status).toBe(201);
     await base.operador.post(`/api/staff/pagos/${subido.body.envio.pagos[0].id}/confirmar`);
-    const entrega = await base.cliente.agente.put(`/api/envios/${base.envioId}/entrega`).send({
+    const entrega = await base.operador.put(`/api/envios/${base.envioId}/entrega`).send({
       nombre: 'Ana Pérez',
       cedula: '12345678',
       telefono: '584141234567',

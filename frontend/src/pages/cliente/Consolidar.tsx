@@ -3,15 +3,18 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FiCheckSquare, FiSquare } from 'react-icons/fi';
 import { ContenidoCuenta, EncabezadoCuenta, useEnviosCliente } from '../../components/CuentaPiezas';
 import { ElegirModalidad, ElegirTransportista } from '../../components/OpcionesEnvio';
+import { ResumenEntregaPerfil, entregaPerfilCompleta } from '../../components/envio/ResumenEntrega';
 import { Alerta, Campo, Cargando, ErrorCarga, Vacio } from '../../components/ui';
 import { api, mensajeDeError } from '../../lib/api';
 import { paquetesEnBodega, valorSugeridoCentavos } from '../../lib/cuenta';
 import { aNumero, formatearFecha, formatearKg } from '../../lib/formato';
-import type { Envio, Modalidad, Transportista } from '../../lib/tipos';
+import type { Envio, Modalidad, PerfilVista, Transportista } from '../../lib/tipos';
+import { useCarga } from '../../lib/useCarga';
 
 export function Consolidar() {
   const navegar = useNavigate();
   const { datos, cargando, error, recargar } = useEnviosCliente();
+  const perfil = useCarga(() => api.get<PerfilVista>('/perfil'));
   const [elegidos, setElegidos] = useState<string[]>([]);
   const [modalidad, setModalidad] = useState<Modalidad>('M1');
   const [transportista, setTransportista] = useState<Transportista>('MRW');
@@ -39,6 +42,10 @@ export function Consolidar() {
     };
     setErrores(nuevos);
     if (nuevos.elegidos || nuevos.valor) return;
+    if (perfil.datos && !entregaPerfilCompleta(perfil.datos, transportista)) {
+      setErrorEnvio('Completa tus datos de entrega en tu perfil antes de pedir el envío.');
+      return;
+    }
     setEnviando(true);
     setErrorEnvio(null);
     try {
@@ -101,6 +108,7 @@ export function Consolidar() {
               <h2 id="titulo-opciones" className="text-xl">Cómo se envía</h2>
               <ElegirTransportista valor={transportista} alCambiar={setTransportista} />
               <ElegirModalidad valor={modalidad} alCambiar={setModalidad} />
+              <ResumenEntregaPerfil perfil={perfil.datos} transportista={transportista} />
               <Campo
                 etiqueta="Valor declarado total ($)"
                 inputMode="decimal"

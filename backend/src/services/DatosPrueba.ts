@@ -9,12 +9,21 @@ import { logger } from '../utils/logger';
 export const RUTA_DATOS_PRUEBA = path.resolve(__dirname, '../../datos-prueba/paquetes-prueba.json');
 export const CONTRASENA_CLIENTES_PRUEBA = 'ClavePrueba2026!';
 
+const esquemaDestino = z.object({
+  agencia: z.string().min(2),
+  ciudad: z.string().min(2),
+  estado: z.string().min(2),
+});
+
 const esquemaCliente = z.object({
   clave: z.string().min(1),
   nombre: z.string().min(3),
   cedula: z.string().regex(/^\d{5,10}$/),
   email: z.string().email(),
   telefono: z.string().regex(/^\d{10,15}$/),
+  entrega: z
+    .object({ MRW: esquemaDestino.optional(), ZOOM: esquemaDestino.optional() })
+    .optional(),
 });
 
 const esquemaPaquete = z.object({
@@ -140,6 +149,7 @@ async function crearClientes(contexto: Contexto, fixture: FixtureDatosPrueba): P
       contrasena: CONTRASENA_CLIENTES_PRUEBA,
     });
     idsPorClave.set(cliente.clave, sesion.usuario.id);
+    if (cliente.entrega) await contexto.perfil.guardarEntrega(sesion.usuario.id, cliente.entrega);
   }
   logger.info('Clientes de prueba creados', { cantidad: idsPorClave.size });
   return idsPorClave;

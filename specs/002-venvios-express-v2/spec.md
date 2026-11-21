@@ -202,6 +202,7 @@ En todo el recorrido, el cliente ve el **seguimiento de cada paquete** con sus p
 - **RF-114** EN Finanzas, Pedidos y el detalle del envío, EL SISTEMA llamará a cada envío consolidado «Consolidación» seguida de un código corto de 6 caracteres que lo identifica (por ejemplo «Consolidación 7K2M9Q»), y no por la tienda de sus paquetes, porque un consolidado puede mezclar paquetes de varias tiendas. El mismo código se ve en el cliente y en el panel.
 - **RF-115** EN el menú del operador y en el botón del inicio, EL SISTEMA llamará «Registrar» a lo que hoy se llama «Escanear», porque lo que hace el operador es registrar lo que va llegando. La cámara conserva su botón «Escanear siguiente paquete».
 - **RF-116** CUANDO se carguen los datos de prueba, EL SISTEMA dejará a cada cliente de prueba con sus datos de entrega ya llenos en su perfil (RF-106), para probar el flujo sin escribirlos.
+- **RF-117** EL SISTEMA no le pedirá al cliente subir ninguna foto suya ni de sus documentos: ni al registrarse ni en su perfil. La única imagen que sube el cliente es la captura de su comprobante de pago.
 
 ## Tarifa
 

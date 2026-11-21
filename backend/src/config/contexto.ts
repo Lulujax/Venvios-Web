@@ -7,6 +7,7 @@ import { ConfigService } from '../services/ConfigService';
 import { EnvioService } from '../services/EnvioService';
 import { MensajeService } from '../services/MensajeService';
 import { PagoService } from '../services/PagoService';
+import { PerfilService } from '../services/PerfilService';
 import { PublicoService } from '../services/PublicoService';
 import { TasaService, type ConsultaTasa } from '../services/TasaService';
 import { logger } from '../utils/logger';
@@ -20,6 +21,7 @@ export interface Contexto {
   tasas: TasaService;
   envios: EnvioService;
   pagos: PagoService;
+  perfil: PerfilService;
   mensajes: MensajeService;
   publico: PublicoService;
   produccion: boolean;
@@ -45,6 +47,7 @@ export function crearContexto(opciones: OpcionesContexto): Contexto {
   const auth = new AuthService(opciones.repos.usuarios, cifrado, opciones.secretoJwt, limitador);
   const envios = new EnvioService(opciones.repos, cifrado, config, tasas, opciones.almacenamiento);
   const pagos = new PagoService(opciones.repos, tasas, config, opciones.almacenamiento, envios);
+  const perfil = new PerfilService(opciones.repos.usuarios, opciones.repos.eventosCuenta, cifrado, auth);
   const mensajes = new MensajeService(envios, config, opciones.urlApp);
   const publico = new PublicoService(config, tasas);
   return {
@@ -56,6 +59,7 @@ export function crearContexto(opciones: OpcionesContexto): Contexto {
     tasas,
     envios,
     pagos,
+    perfil,
     mensajes,
     publico,
     produccion: opciones.produccion ?? false,

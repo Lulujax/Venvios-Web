@@ -8,6 +8,33 @@ export type MetodoPago = 'BINANCE' | 'PAGO_MOVIL' | 'TRANSFERENCIA' | 'MANUAL';
 export type MonedaPago = 'USD' | 'BS';
 export type EstadoPago = 'POR_CONFIRMAR' | 'CONFIRMADO' | 'RECHAZADO';
 
+export interface DestinoEntrega {
+  agencia: string;
+  ciudad: string;
+  estado: string;
+}
+
+export interface ReceptorEntrega {
+  nombreCifrado: string;
+  cedulaCifrada: string;
+  telefonoCifrado: string;
+}
+
+export interface PerfilEntrega {
+  receptor: ReceptorEntrega | null;
+  destinos: Partial<Record<Transportista, DestinoEntrega>>;
+}
+
+export interface EventoCuenta {
+  id: string;
+  usuarioId: string;
+  actorId: string | null;
+  tipo: string;
+  detalle: string;
+  datos: Record<string, unknown> | null;
+  creadoEn: Date;
+}
+
 export interface Usuario {
   id: string;
   nombre: string;
@@ -21,6 +48,7 @@ export interface Usuario {
   activo: boolean;
   debeCambiarClave: boolean;
   sesionVersion: number;
+  perfilEntrega: PerfilEntrega | null;
   creadoEn: Date;
 }
 
@@ -102,7 +130,8 @@ export interface TasaGuardada {
   fuente: 'API' | 'MANUAL';
 }
 
-export type NuevoUsuario = Omit<Usuario, 'id' | 'creadoEn' | 'sesionVersion'>;
+export type NuevoUsuario = Omit<Usuario, 'id' | 'creadoEn' | 'sesionVersion' | 'perfilEntrega'> & { perfilEntrega?: PerfilEntrega | null };
+export type CambiosUsuario = Partial<Omit<Usuario, 'id' | 'creadoEn' | 'sesionVersion'>>;
 
 export interface IntentoGuardado {
   cuenta: number;
@@ -146,8 +175,13 @@ export interface UsuarioRepository {
   porCodigo(codigo: string): Promise<Usuario | null>;
   porIds(ids: string[]): Promise<Usuario[]>;
   listar(roles?: Rol[]): Promise<Usuario[]>;
-  actualizar(id: string, cambios: Partial<Omit<Usuario, 'id' | 'creadoEn' | 'sesionVersion'>>): Promise<Usuario>;
+  actualizar(id: string, cambios: CambiosUsuario): Promise<Usuario>;
   renovarSesiones(id: string): Promise<Usuario>;
+}
+
+export interface EventoCuentaRepository {
+  agregar(evento: Omit<EventoCuenta, 'id' | 'creadoEn'>): Promise<EventoCuenta>;
+  deUsuario(usuarioId: string): Promise<EventoCuenta[]>;
 }
 
 export interface EnvioRepository {
@@ -190,6 +224,7 @@ export interface ConfigRepository {
 
 export interface Repositorios {
   usuarios: UsuarioRepository;
+  eventosCuenta: EventoCuentaRepository;
   envios: EnvioRepository;
   pagos: PagoRepository;
   config: ConfigRepository;

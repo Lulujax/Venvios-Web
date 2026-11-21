@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { FiBell, FiCreditCard, FiHome, FiLayers, FiLogOut, FiPackage, FiPlus } from 'react-icons/fi';
+import { FiBell, FiCreditCard, FiHome, FiLayers, FiLogOut, FiPackage, FiPlus, FiUser } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
 import { BotonWhatsAppFlotante } from '../../components/CuentaPiezas';
 import { Marca } from '../../components/ui';
@@ -41,6 +41,9 @@ export function CuentaLayout() {
             ))}
           </nav>
           <Link to="/cuenta/nuevo" className="btn btn-acento mt-6 w-full"><FiPlus aria-hidden /> Crear alerta</Link>
+          <NavLink to="/cuenta/perfil" className={({ isActive }) => `mt-3 flex min-h-[46px] items-center gap-3 rounded-2xl px-4 text-sm font-bold ${isActive ? 'bg-marino text-white' : 'text-marino hover:bg-marino-50'}`}>
+            <FiUser aria-hidden className="text-lg" /> Mi perfil
+          </NavLink>
         </div>
         <div className="space-y-2 text-sm">
           <p className="truncate font-bold">{usuario?.nombre}</p>
@@ -52,7 +55,10 @@ export function CuentaLayout() {
       <div className="min-w-0 bg-papel pb-24 lg:pb-0">
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-linea bg-papel/95 px-4 backdrop-blur lg:hidden">
           <Link to="/cuenta" aria-label="Inicio de mi cuenta"><Marca /></Link>
-          <button type="button" className="btn btn-suave btn-chico" onClick={cerrarSesion} aria-label="Salir"><FiLogOut aria-hidden /></button>
+          <div className="flex items-center gap-2">
+            <Link to="/cuenta/perfil" className="btn btn-suave btn-chico" aria-label="Mi perfil"><FiUser aria-hidden /></Link>
+            <button type="button" className="btn btn-suave btn-chico" onClick={cerrarSesion} aria-label="Salir"><FiLogOut aria-hidden /></button>
+          </div>
         </header>
         <Outlet />
       </div>

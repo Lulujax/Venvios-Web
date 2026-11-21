@@ -8,6 +8,7 @@ import type {
   CambiosEnvio,
   CambiosPago,
   CambiosPaquete,
+  CambiosUsuario,
   ConfigRepository,
   EntregaGuardada,
   Envio,
@@ -15,6 +16,8 @@ import type {
   EstadoPago,
   EstadoPaquete,
   Evento,
+  EventoCuenta,
+  EventoCuentaRepository,
   FiltroEnvios,
   IntentoGuardado,
   IntentoRepository,
@@ -24,6 +27,7 @@ import type {
   Pago,
   PagoRepository,
   Paquete,
+  PerfilEntrega,
   Repositorios,
   Rol,
   TasaGuardada,
@@ -136,6 +140,18 @@ function condicionDeBusqueda(texto: string | undefined): Prisma.EnvioWhereInput 
   return { OR: opciones };
 }
 
+type FilaUsuario = Omit<Usuario, 'perfilEntrega'> & { perfilEntrega: Prisma.JsonValue | null };
+
+function aUsuario(fila: FilaUsuario): Usuario {
+  return { ...fila, perfilEntrega: (fila.perfilEntrega ?? null) as PerfilEntrega | null };
+}
+
+function aDatosUsuario(cambios: CambiosUsuario): Prisma.UsuarioUncheckedUpdateInput {
+  const { perfilEntrega, ...resto } = cambios;
+  if (perfilEntrega === undefined) return resto;
+  return { ...resto, perfilEntrega: perfilEntrega === null ? Prisma.JsonNull : (perfilEntrega as unknown as Prisma.InputJsonValue) };
+}
+
 export class UsuarioPrisma implements UsuarioRepository {
   constructor(private readonly conexion: Conexion) {}
 
@@ -143,48 +159,82 @@ export class UsuarioPrisma implements UsuarioRepository {
     return this.conexion.bd;
   }
 
-  crear(datos: NuevoUsuario): Promise<Usuario> {
-    return this.bd.usuario.create({ data: datos });
+  async crear(datos: NuevoUsuario): Promise<Usuario> {
+    const { perfilEntrega, ...resto } = datos;
+    const fila = await this.bd.usuario.create({
+      data: { ...resto, perfilEntrega: perfilEntrega ? (perfilEntrega as unknown as Prisma.InputJsonValue) : Prisma.JsonNull },
+    });
+    return aUsuario(fila);
   }
 
-  porId(id: string): Promise<Usuario | null> {
-    return this.bd.usuario.findUnique({ where: { id } });
+  async porId(id: string): Promise<Usuario | null> {
+    const fila = await this.bd.usuario.findUnique({ where: { id } });
+    return fila ? aUsuario(fila) : null;
   }
 
-  porIds(ids: string[]): Promise<Usuario[]> {
-    if (ids.length === 0) return Promise.resolve([]);
-    return this.bd.usuario.findMany({ where: { id: { in: [...new Set(ids)] } } });
+  async porIds(ids: string[]): Promise<Usuario[]> {
+    if (ids.length === 0) return [];
+    return (await this.bd.usuario.findMany({ where: { id: { in: [...new Set(ids)] } } })).map(aUsuario);
   }
 
-  porCedulaHuella(huella: string): Promise<Usuario | null> {
-    return this.bd.usuario.findUnique({ where: { cedulaHuella: huella } });
+  async porCedulaHuella(huella: string): Promise<Usuario | null> {
+    const fila = await this.bd.usuario.findUnique({ where: { cedulaHuella: huella } });
+    return fila ? aUsuario(fila) : null;
   }
 
-  porTelefono(telefono: string): Promise<Usuario | null> {
-    return this.bd.usuario.findUnique({ where: { telefono } });
+  async porTelefono(telefono: string): Promise<Usuario | null> {
+    const fila = await this.bd.usuario.findUnique({ where: { telefono } });
+    return fila ? aUsuario(fila) : null;
   }
 
-  porEmail(email: string): Promise<Usuario | null> {
-    return this.bd.usuario.findUnique({ where: { email } });
+  async porEmail(email: string): Promise<Usuario | null> {
+    const fila = await this.bd.usuario.findUnique({ where: { email } });
+    return fila ? aUsuario(fila) : null;
   }
 
-  porCodigo(codigo: string): Promise<Usuario | null> {
-    return this.bd.usuario.findUnique({ where: { codigo } });
+  async porCodigo(codigo: string): Promise<Usuario | null> {
+    const fila = await this.bd.usuario.findUnique({ where: { codigo } });
+    return fila ? aUsuario(fila) : null;
   }
 
-  listar(roles?: Rol[]): Promise<Usuario[]> {
-    return this.bd.usuario.findMany({
+  async listar(roles?: Rol[]): Promise<Usuario[]> {
+    const filas = await this.bd.usuario.findMany({
       where: roles ? { rol: { in: roles } } : undefined,
       orderBy: { creadoEn: 'desc' },
     });
+    return filas.map(aUsuario);
   }
 
-  actualizar(id: string, cambios: Partial<Omit<Usuario, 'id' | 'creadoEn' | 'sesionVersion'>>): Promise<Usuario> {
-    return this.bd.usuario.update({ where: { id }, data: cambios });
+  async actualizar(id: string, cambios: CambiosUsuario): Promise<Usuario> {
+    return aUsuario(await this.bd.usuario.update({ where: { id }, data: aDatosUsuario(cambios) }));
   }
 
-  renovarSesiones(id: string): Promise<Usuario> {
-    return this.bd.usuario.update({ where: { id }, data: { sesionVersion: { increment: 1 } } });
+  async renovarSesiones(id: string): Promise<Usuario> {
+    return aUsuario(await this.bd.usuario.update({ where: { id }, data: { sesionVersion: { increment: 1 } } }));
+  }
+}
+
+export class EventoCuentaPrisma implements EventoCuentaRepository {
+  constructor(private readonly conexion: Conexion) {}
+
+  private get bd(): ClienteBd {
+    return this.conexion.bd;
+  }
+
+  private aEvento(fila: { id: string; usuarioId: string; actorId: string | null; tipo: string; detalle: string; datos: Prisma.JsonValue | null; creadoEn: Date }): EventoCuenta {
+    return { ...fila, datos: (fila.datos ?? null) as Record<string, unknown> | null };
+  }
+
+  async agregar(evento: Omit<EventoCuenta, 'id' | 'creadoEn'>): Promise<EventoCuenta> {
+    const fila = await this.bd.eventoCuenta.create({
+      data: { ...evento, datos: evento.datos ? (evento.datos as Prisma.InputJsonValue) : Prisma.JsonNull },
+    });
+    return this.aEvento(fila);
+  }
+
+  async deUsuario(usuarioId: string): Promise<EventoCuenta[]> {
+    const filas = await this.bd.eventoCuenta.findMany({ where: { usuarioId }, orderBy: { creadoEn: 'desc' } });
+    return filas.map((fila) => this.aEvento(fila));
   }
 }
 
@@ -400,6 +450,7 @@ export function crearRepositoriosPrisma(): Repositorios {
   const conexion = new Conexion(obtenerPrisma());
   return {
     usuarios: new UsuarioPrisma(conexion),
+    eventosCuenta: new EventoCuentaPrisma(conexion),
     envios: new EnvioPrisma(conexion),
     pagos: new PagoPrisma(conexion),
     config: new ConfigPrisma(conexion),

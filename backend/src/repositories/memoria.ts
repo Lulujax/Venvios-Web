@@ -8,6 +8,7 @@ import type {
   CambiosEnvio,
   CambiosPago,
   CambiosPaquete,
+  CambiosUsuario,
   ConfigRepository,
   EntregaGuardada,
   Envio,
@@ -15,6 +16,8 @@ import type {
   EstadoPago,
   EstadoPaquete,
   Evento,
+  EventoCuenta,
+  EventoCuentaRepository,
   FiltroEnvios,
   IntentoGuardado,
   IntentoRepository,
@@ -70,7 +73,7 @@ export class UsuarioMemoria implements UsuarioRepository, ConInstantanea {
       (u) => u.cedulaHuella === nuevo.cedulaHuella || u.telefono === nuevo.telefono || u.email === nuevo.email || u.codigo === nuevo.codigo,
     );
     if (existente) throw AppError.conflict('Ya existe una cuenta con esa cédula, ese correo o ese teléfono.');
-    const usuario: Usuario = { ...nuevo, sesionVersion: 0, id: randomUUID(), creadoEn: new Date() };
+    const usuario: Usuario = { ...nuevo, perfilEntrega: nuevo.perfilEntrega ?? null, sesionVersion: 0, id: randomUUID(), creadoEn: new Date() };
     this.datos.set(usuario.id, usuario);
     return copiar(usuario);
   }
@@ -113,7 +116,7 @@ export class UsuarioMemoria implements UsuarioRepository, ConInstantanea {
     return [...this.datos.values()].filter((u) => !roles || roles.includes(u.rol)).map(copiar);
   }
 
-  async actualizar(id: string, cambios: Partial<Omit<Usuario, 'id' | 'creadoEn' | 'sesionVersion'>>): Promise<Usuario> {
+  async actualizar(id: string, cambios: CambiosUsuario): Promise<Usuario> {
     const actual = this.datos.get(id);
     if (!actual) throw AppError.notFound('El usuario no existe.');
     const actualizado = { ...actual, ...cambios };
@@ -127,6 +130,27 @@ export class UsuarioMemoria implements UsuarioRepository, ConInstantanea {
     const actualizado = { ...actual, sesionVersion: actual.sesionVersion + 1 };
     this.datos.set(id, actualizado);
     return copiar(actualizado);
+  }
+}
+
+export class EventoCuentaMemoria implements EventoCuentaRepository, ConInstantanea {
+  private readonly datos = new Map<string, EventoCuenta>();
+
+  instantanea(): Restaurar {
+    return instantaneaDeMapa(this.datos);
+  }
+
+  async agregar(evento: Omit<EventoCuenta, 'id' | 'creadoEn'>): Promise<EventoCuenta> {
+    const creado: EventoCuenta = { ...copiar(evento), id: randomUUID(), creadoEn: new Date() };
+    this.datos.set(creado.id, creado);
+    return copiar(creado);
+  }
+
+  async deUsuario(usuarioId: string): Promise<EventoCuenta[]> {
+    return [...this.datos.values()]
+      .filter((e) => e.usuarioId === usuarioId)
+      .sort((a, b) => b.creadoEn.getTime() - a.creadoEn.getTime())
+      .map(copiar);
   }
 }
 
@@ -457,9 +481,11 @@ export function crearRepositoriosMemoria(): Repositorios {
   const envios = new EnvioMemoria(usuarios);
   const pagos = new PagoMemoria();
   const config = new ConfigMemoria();
-  const transacciones = new TransaccionesMemoria([usuarios, envios, pagos, config]);
+  const eventosCuenta = new EventoCuentaMemoria();
+  const transacciones = new TransaccionesMemoria([usuarios, envios, pagos, config, eventosCuenta]);
   return {
     usuarios,
+    eventosCuenta,
     envios,
     pagos,
     config,

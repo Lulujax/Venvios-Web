@@ -27,6 +27,35 @@ export interface Usuario {
   debeCambiarClave: boolean;
 }
 
+export interface DestinoEntrega {
+  agencia: string;
+  ciudad: string;
+  estado: string;
+}
+
+export interface ReceptorPerfil {
+  nombre: string;
+  cedula: string;
+  telefono: string;
+}
+
+export interface PerfilVista {
+  datos: Usuario;
+  entrega: {
+    receptor: ReceptorPerfil | null;
+    receptorPorDefecto: ReceptorPerfil;
+    destinos: Record<Transportista, DestinoEntrega | null>;
+    completo: Record<Transportista, boolean>;
+  };
+}
+
+export interface EventoCuentaVista {
+  id: string;
+  tipo: string;
+  detalle: string;
+  creadoEn: string;
+}
+
 export interface PaqueteVista {
   id: string;
   tracking: string;

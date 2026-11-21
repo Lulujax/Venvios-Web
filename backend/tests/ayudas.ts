@@ -45,11 +45,20 @@ export function datosCliente(sobrescribir: Partial<Record<'nombre' | 'cedula' | 
   };
 }
 
-export async function registrarCliente(entorno: Entorno, sobrescribir = {}) {
+export const ENTREGA_PERFIL_PRUEBA = {
+  MRW: { agencia: 'MRW Chacao', ciudad: 'Caracas', estado: 'Miranda' },
+  ZOOM: { agencia: 'Zoom Valencia Centro', ciudad: 'Valencia', estado: 'Carabobo' },
+};
+
+export async function registrarCliente(entorno: Entorno, sobrescribir = {}, opciones: { conPerfil?: boolean } = {}) {
   const agente = entorno.agente();
   const datos = datosCliente(sobrescribir);
   const respuesta = await agente.post('/api/auth/registro').send(datos);
   if (respuesta.status !== 201) throw new Error(`Registro falló: ${JSON.stringify(respuesta.body)}`);
+  if (opciones.conPerfil !== false) {
+    const perfil = await agente.put('/api/perfil/entrega').send(ENTREGA_PERFIL_PRUEBA);
+    if (perfil.status !== 200) throw new Error(`Perfil falló: ${JSON.stringify(perfil.body)}`);
+  }
   return { agente, datos, usuario: respuesta.body.usuario as { id: string } };
 }
 

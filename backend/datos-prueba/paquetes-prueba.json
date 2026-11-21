@@ -1,13 +1,13 @@
 {
   "clientes": [
-    { "clave": "ana", "nombre": "Ana Prueba Rojas", "cedula": "20000101", "email": "ana.prueba1@ejemplo.com", "telefono": "573001110001" },
-    { "clave": "carlos", "nombre": "Carlos Prueba Mena", "cedula": "20000102", "email": "carlos.prueba2@ejemplo.com", "telefono": "573001110002" },
-    { "clave": "rosa", "nombre": "Rosa Prueba Silva", "cedula": "20000103", "email": "rosa.prueba3@ejemplo.com", "telefono": "573001110003" },
-    { "clave": "pedro", "nombre": "Pedro Prueba Diaz", "cedula": "20000104", "email": "pedro.prueba4@ejemplo.com", "telefono": "573001110004" },
-    { "clave": "maria", "nombre": "Maria Prueba Lopez", "cedula": "20000105", "email": "maria.prueba5@ejemplo.com", "telefono": "573001110005" },
-    { "clave": "jose", "nombre": "Jose Prueba Vera", "cedula": "20000106", "email": "jose.prueba6@ejemplo.com", "telefono": "573001110006" },
-    { "clave": "lucia", "nombre": "Lucia Prueba Torres", "cedula": "20000107", "email": "lucia.prueba7@ejemplo.com", "telefono": "573001110007" },
-    { "clave": "andres", "nombre": "Andres Prueba Ruiz", "cedula": "20000108", "email": "andres.prueba8@ejemplo.com", "telefono": "573001110008" }
+    { "clave": "ana", "nombre": "Ana Prueba Rojas", "cedula": "20000101", "email": "ana.prueba1@ejemplo.com", "telefono": "573001110001", "entrega": { "MRW": { "agencia": "MRW Chacao", "ciudad": "Caracas", "estado": "Miranda" }, "ZOOM": { "agencia": "Zoom Valencia Centro", "ciudad": "Valencia", "estado": "Carabobo" } } },
+    { "clave": "carlos", "nombre": "Carlos Prueba Mena", "cedula": "20000102", "email": "carlos.prueba2@ejemplo.com", "telefono": "573001110002", "entrega": { "MRW": { "agencia": "MRW Maracay Centro", "ciudad": "Maracay", "estado": "Aragua" }, "ZOOM": { "agencia": "Zoom Maracay", "ciudad": "Maracay", "estado": "Aragua" } } },
+    { "clave": "rosa", "nombre": "Rosa Prueba Silva", "cedula": "20000103", "email": "rosa.prueba3@ejemplo.com", "telefono": "573001110003", "entrega": { "MRW": { "agencia": "MRW Barquisimeto", "ciudad": "Barquisimeto", "estado": "Lara" }, "ZOOM": { "agencia": "Zoom Barquisimeto Este", "ciudad": "Barquisimeto", "estado": "Lara" } } },
+    { "clave": "pedro", "nombre": "Pedro Prueba Diaz", "cedula": "20000104", "email": "pedro.prueba4@ejemplo.com", "telefono": "573001110004", "entrega": { "MRW": { "agencia": "MRW Maracaibo Norte", "ciudad": "Maracaibo", "estado": "Zulia" }, "ZOOM": { "agencia": "Zoom Maracaibo", "ciudad": "Maracaibo", "estado": "Zulia" } } },
+    { "clave": "maria", "nombre": "Maria Prueba Lopez", "cedula": "20000105", "email": "maria.prueba5@ejemplo.com", "telefono": "573001110005", "entrega": { "MRW": { "agencia": "MRW San Cristobal", "ciudad": "San Cristobal", "estado": "Tachira" }, "ZOOM": { "agencia": "Zoom San Cristobal", "ciudad": "San Cristobal", "estado": "Tachira" } } },
+    { "clave": "jose", "nombre": "Jose Prueba Vera", "cedula": "20000106", "email": "jose.prueba6@ejemplo.com", "telefono": "573001110006", "entrega": { "MRW": { "agencia": "MRW Puerto La Cruz", "ciudad": "Puerto La Cruz", "estado": "Anzoategui" }, "ZOOM": { "agencia": "Zoom Lecheria", "ciudad": "Lecheria", "estado": "Anzoategui" } } },
+    { "clave": "lucia", "nombre": "Lucia Prueba Torres", "cedula": "20000107", "email": "lucia.prueba7@ejemplo.com", "telefono": "573001110007", "entrega": { "MRW": { "agencia": "MRW Merida Centro", "ciudad": "Merida", "estado": "Merida" }, "ZOOM": { "agencia": "Zoom Merida", "ciudad": "Merida", "estado": "Merida" } } },
+    { "clave": "andres", "nombre": "Andres Prueba Ruiz", "cedula": "20000108", "email": "andres.prueba8@ejemplo.com", "telefono": "573001110008", "entrega": { "MRW": { "agencia": "MRW Ciudad Guayana", "ciudad": "Puerto Ordaz", "estado": "Bolivar" }, "ZOOM": { "agencia": "Zoom Puerto Ordaz", "ciudad": "Puerto Ordaz", "estado": "Bolivar" } } }
   ],
   "secciones": [
     {

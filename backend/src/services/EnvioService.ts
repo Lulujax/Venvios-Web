@@ -15,6 +15,7 @@ import {
   type EstadoEnvio,
   type TipoEnvio,
 } from '../domain/estados';
+import { entregaDesdePerfil } from '../domain/perfil';
 import { calcularPrecio, kilosACentesimas, modalidadPropuesta, type Modalidad } from '../domain/tarifas';
 import { codigoContieneTracking, coincidenTrackings, normalizarTracking } from '../domain/tracking';
 import { limpiarTexto, validarCedula, validarPesoKg, validarTelefono, validarValorDeclarado } from '../domain/validaciones';
@@ -661,9 +662,13 @@ export class EnvioService {
   async crearConsolidado(actor: Actor, datos: NuevoConsolidado): Promise<EnvioVista> {
     const clienteId = esPersonal(actor) ? datos.clienteId : actor.id;
     if (!clienteId) throw AppError.badRequest('Indica el cliente del envío.');
-    await this.clienteActivo(clienteId);
+    const dueno = await this.clienteActivo(clienteId);
     const modalidad = validarModalidad(datos.modalidad);
     const transportista = validarTransportista(datos.transportista);
+    const entregaDelPerfil = entregaDesdePerfil(dueno, transportista, this.cifrado);
+    if (!entregaDelPerfil && !esPersonal(actor)) {
+      throw AppError.badRequest('Completa tus datos de entrega de esta transportista en tu perfil antes de pedir el envío.', 'PERFIL_INCOMPLETO');
+    }
     const valor = validarValorDeclarado(Number(datos.valorDeclaradoUsd));
     const elegidos = await this.paquetesParaConsolidar(clienteId, datos.paqueteIds);
     const tiendas = [...new Set(elegidos.map((e) => e.envio.tienda).filter((t) => t !== TIENDA_SIN_PREALERTA && t !== TIENDA_DEVUELTO && t !== 'Sin indicar'))];
@@ -676,6 +681,7 @@ export class EnvioService {
       valorDeclaradoCentavos: valor,
       paquetes: [],
     });
+    if (entregaDelPerfil) await this.repos.envios.actualizar(consolidado.id, { entrega: entregaDelPerfil });
     await this.repos.envios.moverPaquetes(elegidos.map((e) => e.paquete.id), consolidado.id, elegidos.map((e) => e.envio.id));
     for (const origenId of new Set(elegidos.map((e) => e.envio.id))) await this.refrescarAlerta(origenId);
     await this.evento(consolidado.id, actor, 'CONSOLIDACION', `Consolidado con ${elegidos.length} paquete(s)${esPersonal(actor) ? ' por el personal' : ' por el cliente'}`);
@@ -783,7 +789,22 @@ export class EnvioService {
     return this.vista(await this.cargar(envio.id));
   }
 
+  async actualizarEntregaConPerfil(actor: Actor, envioId: string): Promise<EnvioVista> {
+    const envio = await this.obtenerEnvio(actor, envioId);
+    if (envio.tipo !== 'CONSOLIDADO') throw AppError.badRequest('Los datos de entrega se cargan en el envío consolidado.');
+    if (['DESPACHADO', 'CERRADO', 'CANCELADO'].includes(envio.estado)) {
+      throw AppError.badRequest('El envío ya salió; los datos de entrega no se pueden cambiar.', 'ENVIO_BLOQUEADO');
+    }
+    const dueno = await this.clienteActivo(envio.clienteId);
+    const entrega = entregaDesdePerfil(dueno, envio.transportista, this.cifrado);
+    if (!entrega) throw AppError.badRequest('El perfil no tiene los datos de entrega de esta transportista.', 'PERFIL_INCOMPLETO');
+    const actualizado = await this.repos.envios.actualizar(envioId, { entrega });
+    await this.evento(envioId, actor, 'ENTREGA', 'Datos de entrega actualizados con el perfil');
+    return this.vista(actualizado);
+  }
+
   async guardarEntrega(actor: Actor, envioId: string, datos: DatosEntrega): Promise<EnvioVista> {
+    this.exigirPersonal(actor);
     const envio = await this.obtenerEnvio(actor, envioId);
     if (envio.tipo !== 'CONSOLIDADO') throw AppError.badRequest('Los datos de entrega se cargan en el envío consolidado.');
     if (['DESPACHADO', 'CERRADO', 'CANCELADO'].includes(envio.estado)) {

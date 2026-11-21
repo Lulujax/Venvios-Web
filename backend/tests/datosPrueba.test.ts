@@ -63,6 +63,26 @@ describe('datos de prueba en memoria', () => {
     expect(paquete.pesoCentesimas).toBe(50);
   });
 
+  it('caso feliz: cada cliente de prueba carga con sus datos de entrega de MRW y Zoom ya llenos', async () => {
+    const entorno = await crearEntorno();
+    const fixture = leerFixtureDatosPrueba();
+    await cargarDatosDePrueba(entorno.contexto, fixture);
+    const clientes = await entorno.contexto.repos.usuarios.listar(['CLIENTE']);
+    expect(clientes).toHaveLength(fixture.clientes.length);
+    for (const cliente of clientes) {
+      const perfil = await entorno.contexto.perfil.obtener(cliente.id);
+      expect(perfil.entrega.completo).toEqual({ MRW: true, ZOOM: true });
+    }
+  });
+
+  it('límite: un cliente de prueba sin datos de entrega queda con el perfil vacío', async () => {
+    const entorno = await crearEntorno();
+    await cargarDatosDePrueba(entorno.contexto, validarFixture(fixtureMinimo()));
+    const [cliente] = await entorno.contexto.repos.usuarios.listar(['CLIENTE']);
+    const perfil = await entorno.contexto.perfil.obtener(cliente!.id);
+    expect(perfil.entrega.completo).toEqual({ MRW: false, ZOOM: false });
+  });
+
   it('límite: una sección sin envíos no crea envíos, pero sí los clientes', async () => {
     const entorno = await crearEntorno();
     const fixture = validarFixture(conEnvios([]));

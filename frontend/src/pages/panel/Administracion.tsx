@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { CorregirCedula } from '../../components/CorregirCedula';
 import { Alerta, Campo, CampoTelefono, Cargando, ErrorCarga, RequisitosContrasenaLista, Seccion, useAviso } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 import { api, mensajeDeError } from '../../lib/api';
@@ -8,10 +9,11 @@ import { useCarga } from '../../lib/useCarga';
 import { PAIS_PREDETERMINADO, componerTelefono, validarTelefonoLocal } from '../../lib/telefono';
 import { validarCedula, validarContrasena, validarEmail, validarNombre } from '../../lib/validar';
 
-type Pestana = 'usuarios' | 'tarifas' | 'pagos' | 'mensajes' | 'transporte' | 'tasa';
+type Pestana = 'usuarios' | 'clientes' | 'tarifas' | 'pagos' | 'mensajes' | 'transporte' | 'tasa';
 
 const PESTANAS: Array<{ id: Pestana; texto: string }> = [
   { id: 'usuarios', texto: 'Usuarios' },
+  { id: 'clientes', texto: 'Clientes' },
   { id: 'tarifas', texto: 'Tarifas' },
   { id: 'pagos', texto: 'Datos de pago' },
   { id: 'mensajes', texto: 'Mensajes' },
@@ -352,6 +354,7 @@ export default function Administracion() {
       </div>
       <div role="tabpanel">
         {pestana === 'usuarios' && <Usuarios />}
+        {pestana === 'clientes' && <CorregirCedula />}
         {pestana === 'tarifas' && <EditorTarifas />}
         {pestana === 'pagos' && <EditorDatosPago />}
         {pestana === 'mensajes' && <EditorMensajes />}

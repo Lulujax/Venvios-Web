@@ -200,6 +200,48 @@ export function crearApp(contexto: Contexto): express.Express {
     }),
   );
 
+  const soloCliente = [exigirSesion, exigirRol('CLIENTE')];
+
+  api.get('/perfil', ...soloCliente, ruta(async (req, res) => res.json(await contexto.perfil.obtener(req.usuario!.id))));
+
+  api.put(
+    '/perfil/datos',
+    ...soloCliente,
+    limiteAuth,
+    rutaTx(async (req, res) => {
+      const cambios = z
+        .object({
+          nombre: z.string().optional(),
+          email: z.string().optional(),
+          telefono: z.string().optional(),
+          contrasenaActual: z.string().optional(),
+          contrasenaNueva: z.string().optional(),
+        })
+        .parse(req.body);
+      const resultado = await contexto.perfil.actualizarDatos(req.usuario!.id, cambios);
+      if (resultado.token) fijarCookie(res, resultado.token);
+      res.json(resultado.perfil);
+    }),
+  );
+
+  api.put(
+    '/perfil/entrega',
+    ...soloCliente,
+    rutaTx(async (req, res) => {
+      const destino = z.object({ agencia: z.string().optional(), ciudad: z.string().optional(), estado: z.string().optional() }).nullable().optional();
+      const entrada = z
+        .object({
+          receptor: z.object({ nombre: z.string().optional(), cedula: z.string().optional(), telefono: z.string().optional() }).nullable().optional(),
+          MRW: destino,
+          ZOOM: destino,
+        })
+        .parse(req.body);
+      res.json(await contexto.perfil.guardarEntrega(req.usuario!.id, entrada));
+    }),
+  );
+
+  api.post('/envios/:id/entrega/perfil', exigirSesion, rutaTx(async (req, res) => res.json({ envio: await contexto.envios.actualizarEntregaConPerfil(actorDe(req), req.params.id!) })));
+
   api.get(
     '/envios',
     exigirSesion,
@@ -376,6 +418,11 @@ export function crearApp(contexto: Contexto): express.Express {
     const c = z.object({ activo: z.boolean() }).parse(req.body);
     res.json({ usuario: await contexto.auth.cambiarEstadoActivo(req.params.id!, c.activo, actorDe(req).id) });
   }));
+  administracion.put('/clientes/:id/cedula', rutaTx(async (req, res) => {
+    const { cedula, motivo } = z.object({ cedula: z.string(), motivo: z.string() }).parse(req.body);
+    res.json({ cliente: await contexto.perfil.corregirCedula(actorDe(req), req.params.id!, cedula, motivo) });
+  }));
+  administracion.get('/clientes/:id/historial', ruta(async (req, res) => res.json({ eventos: await contexto.perfil.historial(actorDe(req), req.params.id!) })));
   administracion.post('/envios/:id/ajuste', rutaTx(async (req, res) => {
     const c = z.object({ pesoTotalKg: z.coerce.number().optional(), valorDeclaradoUsd: z.coerce.number().optional(), totalUsd: z.coerce.number().optional(), motivo: z.string() }).parse(req.body);
     res.json({ envio: await contexto.envios.ajusteAdmin(actorDe(req), req.params.id!, c) });

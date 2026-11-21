@@ -13,6 +13,7 @@ import { CuentaLayout } from './pages/cliente/Cuenta';
 import { Finanzas } from './pages/cliente/Finanzas';
 import { Inicio as InicioCuenta } from './pages/cliente/Inicio';
 import { Pedidos } from './pages/cliente/Pedidos';
+import { Perfil } from './pages/cliente/Perfil';
 import { Inicio, ListaEnvios, PanelLayout } from './pages/panel/Panel';
 import PagosPendientes from './pages/panel/PagosPendientes';
 
@@ -63,6 +64,7 @@ export default function App() {
           <Route path="alertas" element={<Alertas />} />
           <Route path="consolidar" element={<Consolidar />} />
           <Route path="finanzas" element={<Finanzas />} />
+          <Route path="perfil" element={<Perfil />} />
           <Route path="nuevo" element={<NuevaPrealerta personal={false} />} />
           <Route path="envios/:id" element={<DetalleEnvio personal={false} />} />
         </Route>

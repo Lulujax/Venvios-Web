@@ -116,14 +116,13 @@ describe('cifrado', () => {
   it('los datos de entrega se guardan cifrados y se leen completos', async () => {
     const { cliente, operador, envioId } = await cotizado();
     const entrega = { nombre: 'Rosa Perez', cedula: '12345678', telefono: '584141234567', agencia: 'MRW Centro', ciudad: 'Caracas', estado: 'Distrito Capital' };
-    const r = await cliente.agente.put(`/api/envios/${envioId}/entrega`).send(entrega);
+    const r = await operador.put(`/api/envios/${envioId}/entrega`).send(entrega);
     expect(r.status).toBe(200);
     expect(r.body.envio.entrega.nombre).toBe('Rosa Perez');
     expect(r.body.envio.entrega.telefono).toBe('584141234567');
     const crudo = await entorno.contexto.repos.envios.porId(envioId);
     expect(JSON.stringify(crudo?.entrega)).not.toContain('Rosa');
     expect(JSON.stringify(crudo?.entrega)).not.toContain('584141234567');
-    expect(operador).toBeDefined();
   });
 
   it('cifrarOpcional deja pasar el vacío', () => {
