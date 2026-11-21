@@ -7,7 +7,7 @@ Specs en `specs/002-venvios-express-v2/` (spec, plan, tareas). Antes de programa
 ## Estructura
 - `backend/`: TypeScript. `src/domain` reglas puras, `src/services` casos de uso, `src/repositories` acceso a datos (Prisma y memoria), `src/http` rutas Express.
 - `frontend/`: React + Vite + Tailwind, PWA.
-- `netlify/functions/api.ts`: expone el backend como función de Netlify.
+- `backend/netlify/functions/api.ts`: expone el backend como función de Netlify. Vive dentro de `backend/` para que encuentre `@prisma/client` en `backend/node_modules`.
 
 ## Comandos
 - `npm install`

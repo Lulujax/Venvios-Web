@@ -1,8 +1,8 @@
 import serverless from 'serverless-http';
 import type { Handler } from '@netlify/functions';
-import { crearContextoDesdeEntorno } from '../../backend/src/config/contexto';
-import { crearApp } from '../../backend/src/http/app';
-import { sembrarConfiguracion } from '../../backend/src/services/Semilla';
+import { crearContextoDesdeEntorno } from '../../src/config/contexto';
+import { crearApp } from '../../src/http/app';
+import { sembrarConfiguracion } from '../../src/services/Semilla';
 
 let manejador: ReturnType<typeof serverless> | null = null;
 

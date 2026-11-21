@@ -12,5 +12,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "prisma/**/*.ts", "../netlify/functions/**/*.ts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts", "prisma/**/*.ts", "netlify/functions/**/*.ts"]
 }

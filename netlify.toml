@@ -1,12 +1,12 @@
 [build]
   command = "npm run build"
   publish = "frontend/dist"
-  functions = "netlify/functions"
+  functions = "backend/netlify/functions"
 
 [functions]
   node_bundler = "esbuild"
   external_node_modules = ["@prisma/client", "@node-rs/argon2"]
-  included_files = ["backend/prisma/**"]
+  included_files = ["backend/prisma/**", "backend/node_modules/.prisma/client/**"]
 
 [[redirects]]
   from = "/api/*"
