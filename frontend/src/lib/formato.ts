@@ -41,15 +41,15 @@ export function aNumero(texto: string): number {
 }
 
 export const ETIQUETAS_ESTADO: Record<EstadoEnvio, string> = {
-  PREALERTADO: 'Esperando paquetes',
-  RECIBIDO_PARCIAL: 'Llegada parcial',
+  PREALERTADO: 'Prealertado',
+  RECIBIDO_PARCIAL: 'Recibido parcial',
   RECIBIDO_COMPLETO: 'En bodega',
   ARCHIVADO: 'Archivado',
   POR_CONSOLIDAR: 'Por consolidar',
-  POR_PAGAR: 'Listo para pagar',
+  POR_PAGAR: 'Por pagar',
   POR_CONFIRMAR: 'Pago en revisión',
-  PAGADO: 'Pagado',
-  DESPACHADO: 'En camino a Venezuela',
+  PAGADO: 'Enviando a Venezuela',
+  DESPACHADO: 'En ruta',
   CERRADO: 'Entregado',
   CANCELADO: 'Descartado',
 };
@@ -86,6 +86,21 @@ export const DESCRIPCION_MODALIDAD: Record<Modalidad, string> = {
 
 export function nombreTransportista(codigo: string): string {
   return codigo === 'ZOOM' ? 'Zoom' : codigo === 'MRW' ? 'MRW' : codigo;
+}
+
+const LARGO_CODIGO_ENVIO = 6;
+
+export function codigoCortoEnvio(id: string): string {
+  const codigo = id.replace(/[^a-zA-Z0-9]/g, '').slice(-LARGO_CODIGO_ENVIO).toUpperCase();
+  if (codigo.length === 0) throw new Error('El envío no tiene un id para sacar su código.');
+  return codigo;
+}
+
+export function nombreEnvio(envio: { id: string; tipo: string; tienda: string }): string {
+  if (envio.tipo === 'CONSOLIDADO') return `Consolidación ${codigoCortoEnvio(envio.id)}`;
+  if (envio.tienda === 'Sin prealerta') return 'Paquete sin prealerta';
+  if (envio.tienda === 'Devuelto a bodega') return 'Paquete en bodega';
+  return envio.tienda;
 }
 
 export function primerNombre(nombre: string): string {

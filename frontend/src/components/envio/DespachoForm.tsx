@@ -38,13 +38,15 @@ export function DespachoForm({ envio, alCambiar }: { envio: Envio; alCambiar: (e
 
   const despachar = () =>
     hacer(async () => {
-      if (guia.trim().length < 3) throw new Error('Escribe el número de guía de la transportista.');
+      const numero = guia.trim();
+      if (numero.length === 0 && !foto) throw new Error('Sube la foto de la guía o escribe su número.');
+      if (numero.length > 0 && numero.length < 3) throw new Error('El número de guía es muy corto. Revísalo o sube solo la foto.');
       const formulario = new FormData();
-      formulario.set('guia', guia.trim());
+      if (numero.length > 0) formulario.set('guia', numero);
       if (foto) formulario.set('archivo', foto);
       const r = await api.post<{ envio: Envio }>(`/staff/envios/${envio.id}/despachar`, formulario);
       alCambiar(r.envio);
-      avisar('Envío despachado. Ahora avisa al cliente.');
+      avisar('Guía registrada. Ahora envíala al cliente por WhatsApp.');
     });
 
   const avisarCliente = () =>
@@ -66,7 +68,7 @@ export function DespachoForm({ envio, alCambiar }: { envio: Envio; alCambiar: (e
       <div className="space-y-4">
         <div className="rounded-2xl bg-marino-50 p-4">
           <p className="text-sm text-suave">{nombreTransportista(envio.transportista)} · guía</p>
-          <p className="codigo text-xl">{envio.guia.numero}</p>
+          <p className="codigo text-xl">{envio.guia.numero ?? 'Solo con foto'}</p>
         </div>
         {envio.guia.tieneFoto && <ImagenPrivada ruta={envio.guia.fotoRuta} alt="Foto de la guía" className="max-h-80 w-full object-contain bg-papel sm:w-auto" />}
         {error && <Alerta tono="error">{error}</Alerta>}
@@ -91,10 +93,11 @@ export function DespachoForm({ envio, alCambiar }: { envio: Envio; alCambiar: (e
           {faltantes.length === 0 ? 'Datos de entrega completos' : `Faltan datos de entrega: ${faltantes.join(', ')}`}
         </li>
       </ul>
-      <Campo etiqueta={`Guía de ${nombreTransportista(envio.transportista)}`} value={guia} onChange={(e) => setGuia(e.target.value)} className="max-w-sm" />
+      <p className="text-sm text-suave">Sube la foto de la guía, escribe su número o ambos. Con uno basta.</p>
       <div className="max-w-sm"><FotoInput etiqueta="Foto de la guía" archivo={foto} onChange={setFoto} usarCamara /></div>
+      <Campo etiqueta={`Número de guía de ${nombreTransportista(envio.transportista)} (opcional)`} value={guia} onChange={(e) => setGuia(e.target.value)} className="max-w-sm" />
       {error && <Alerta tono="error">{error}</Alerta>}
-      <button type="button" className="btn btn-primario" disabled={ocupado || faltantes.length > 0} onClick={() => void despachar()}>Despachar a Venezuela</button>
+      <button type="button" className="btn btn-primario" disabled={ocupado || faltantes.length > 0 || (guia.trim().length === 0 && !foto)} onClick={() => void despachar()}>Registrar guía y despachar</button>
     </div>
   );
 }

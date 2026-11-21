@@ -75,9 +75,6 @@ test('flujo completo: registro, prealerta, recepción, pago, entrega y despacho'
     await operador.getByLabel('O escríbelo a mano').fill(tracking.toLowerCase());
     await operador.getByRole('button', { name: 'Buscar' }).click();
     await expect(operador.getByText(/Recibido: Maria Gonzalez/)).toBeVisible();
-    await operador.getByLabel(/Peso del paquete/).fill(tracking.endsWith('001') ? '2.40' : '1.95');
-    await operador.getByRole('button', { name: 'Guardar peso' }).click();
-    await expect(operador.getByLabel(/Peso del paquete/)).toBeDisabled();
     await operador.getByRole('button', { name: 'Siguiente paquete' }).click();
   }
   await operador.getByLabel('O escríbelo a mano').fill(`XC${sufijo}003`);
@@ -105,7 +102,7 @@ test('flujo completo: registro, prealerta, recepción, pago, entrega y despacho'
   await paginaAdmin.goto(`/panel/envios/${urlEnvio}`);
   await paginaAdmin.getByLabel('Peso total del envío (kg)').fill('4.35');
   await paginaAdmin.getByRole('button', { name: 'Calcular total' }).click();
-  await expect(paginaAdmin.getByText('Listo para pagar').first()).toBeVisible();
+  await expect(paginaAdmin.getByText('Por pagar').first()).toBeVisible();
   await expect(paginaAdmin.getByText(/44,33/).first()).toBeVisible();
 
   await cliente.reload();

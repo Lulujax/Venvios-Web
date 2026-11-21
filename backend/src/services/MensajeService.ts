@@ -52,7 +52,7 @@ export class MensajeService {
     const transportista = transportistas.find((t) => t.codigo === envio.transportista);
     const paquete = opciones.paqueteId ? envio.paquetes.find((p) => p.id === opciones.paqueteId) : envio.paquetes[0];
     if (opciones.paqueteId && !paquete) throw AppError.notFound('El paquete no pertenece a este envío.');
-    if (tipo === 'despacho' && !envio.guia.numero) throw AppError.badRequest('Primero registra la guía del despacho.');
+    if (tipo === 'despacho' && !envio.guia.numero && !envio.guia.tieneFoto) throw AppError.badRequest('Primero registra la guía del despacho.');
     if (tipo === 'pagoRechazado' && !(opciones.motivo ?? '').trim()) throw AppError.badRequest('Indica el motivo del rechazo.');
     if (envio.sinDueno) throw AppError.badRequest('Este paquete no tiene dueño. Asígnalo a un cliente antes de escribirle.', 'SIN_DUENO');
     if (tipo === 'cotizacion' && !envio.precio) throw AppError.badRequest('Primero registra el peso del envío consolidado.');
@@ -77,7 +77,7 @@ export class MensajeService {
       enlace_cuenta: `${this.urlApp}/cuenta/envios/${envio.id}`,
       enlace_consolidar: `${this.urlApp}/cuenta/consolidar`,
       transportista: nombreTransportista,
-      guia: envio.guia.numero,
+      guia: envio.guia.numero ?? 'está en la foto que te enviamos',
       enlace_rastreo: enlaceRastreo,
       motivo: opciones.motivo ?? '',
     });

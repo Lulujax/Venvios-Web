@@ -19,6 +19,7 @@ Casillero internacional Cúcuta → Venezuela. El sistema ya está programado de
 | Cédula y datos de entrega | AES-256-GCM con llave en variable de entorno; huella HMAC para detectar repetidas | Texto plano |
 | Fotos y comprobantes | Bucket privado de Supabase Storage, comprimidas en el navegador, enlace firmado de corta duración | Disco local, URLs públicas |
 | Lector de códigos | Lector nativo del navegador (`BarcodeDetector`) cuando existe; `zxing-wasm` de respaldo y para fotos. La cámara se muestra primero y el lector carga después | `@zxing/library` (más lento y flojo con QR chicos; se quitó); solo QR |
+| Nombre de consolidación | «Consolidación» + los últimos 6 caracteres del id del envío en mayúsculas; no necesita columna nueva ni migración | Número correlativo (requiere contador en la base y migración); la tienda como nombre (un consolidado mezcla tiendas) |
 | Escaneo continuo | Una lectura por paquete: la cámara se apaga sola y se vuelve a encender con «Escanear siguiente paquete» | Cámara siempre encendida (repetía lecturas y movía la pantalla) |
 | Pruebas | Vitest (unitarias y de flujo) + Playwright (flujo completo en Chrome) | Jest |
 | Tasa BCV | El servidor consulta `ve.dolarapi.com/v1/dolares/oficial` (campo `promedio`), guarda con fecha, fallback a la última y carga manual del admin | Consultar desde el navegador |
@@ -57,7 +58,7 @@ Se conserva y se reutiliza; las pantallas nuevas no inventan colores ni componen
 - **Pública.** Portada con tarifas, tasa BCV del día, calculadora y rastreador MRW/Zoom; botón de WhatsApp.
 - **Acceso.** Registro con casillero `VENV-…`, login con correo o casillero, bloqueo por intentos, cambio de clave, clave temporal.
 - **Cliente** (`/cuenta`): Inicio, Pedidos, Alertas, Consolidar, Finanzas, nueva prealerta y detalle de envío con pago y datos de entrega.
-- **Operador** (`/panel`): Inicio con resumen, Escanear (cámara con lector nativo o wasm, foto, entrada manual), Bodega, Envíos con filtros, detalle de envío, Pagos por confirmar y Nueva prealerta.
+- **Operador** (`/panel`): Inicio con resumen, Registrar (antes Escanear; cámara con lector nativo o wasm, foto, entrada manual), Bodega, Envíos con filtros, detalle de envío, Pagos por confirmar y Nueva prealerta.
 - **Administrador** (`/panel/admin`): personal, tarifas M1 y M2, datos de pago (pago móvil, cuenta, Binance), rastreo de transportistas, contacto público y tasa BCV.
 - **Servidor.** Servicios de envíos, pagos, autenticación, mensajes de WhatsApp, tasa y configuración; historial por envío; transacciones por petición y control de cambios simultáneos.
 - **Seguridad.** Hash de contraseñas, cifrado de cédula y datos de entrega, protección por filas, logs sin datos personales.

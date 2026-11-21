@@ -15,8 +15,8 @@ export default function PagosPendientes() {
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">
-      <h1 className="mb-1 text-3xl">Pagos por confirmar</h1>
-      <p className="mb-6 text-suave">Revisa el comprobante, confirma o rechaza. Al confirmar un pago completo se abre WhatsApp para pedir los datos de entrega.</p>
+      <h1 className="mb-1 text-3xl">Pagos por revisar</h1>
+      <p className="mb-6 text-suave">Revisa el comprobante, confirma o rechaza. Al confirmar un pago completo se abre WhatsApp para avisar que el envío sale hacia Venezuela.</p>
       {cargando && <Cargando />}
       {error && <ErrorCarga mensaje={error} reintentar={() => void recargar()} />}
       {datos && datos.length === 0 && <Vacio titulo="Todo al día" texto="No hay comprobantes esperando revisión." />}

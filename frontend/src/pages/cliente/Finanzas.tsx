@@ -4,7 +4,7 @@ import { ContenidoCuenta, EncabezadoCuenta, useEnviosCliente } from '../../compo
 import { PagoCliente } from '../../components/envio/PagoCliente';
 import { Cargando, ErrorCarga, InsigniaEstado, Vacio } from '../../components/ui';
 import { esCobrable, saldoPendienteCentavos } from '../../lib/cuenta';
-import { NOMBRE_METODO, formatearBs, formatearFecha, formatearUsd } from '../../lib/formato';
+import { NOMBRE_METODO, formatearBs, formatearFecha, formatearUsd, nombreEnvio } from '../../lib/formato';
 import type { Envio } from '../../lib/tipos';
 
 function saldoEnBs(envio: Envio): number | null {
@@ -43,7 +43,7 @@ export function Finanzas() {
                     <li key={envio.id} className="rounded-2xl border border-linea">
                       <div className="flex flex-wrap items-center justify-between gap-3 p-4">
                         <div className="min-w-0">
-                          <p className="truncate font-display text-lg font-bold text-marino-900">{envio.tienda === 'Sin prealerta' ? 'Paquete sin prealerta' : envio.tienda}</p>
+                          <p className="truncate font-display text-lg font-bold text-marino-900">{nombreEnvio(envio)}</p>
                           <div className="mt-1"><InsigniaEstado estado={envio.estado} /></div>
                         </div>
                         <div className="text-right">
@@ -74,7 +74,7 @@ export function Finanzas() {
               {pagos.map(({ pago, envio }) => (
                 <li key={pago.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
                   <div className="min-w-0">
-                    <p className="truncate font-bold text-marino-900">{envio.tienda === 'Sin prealerta' ? 'Paquete sin prealerta' : envio.tienda}</p>
+                    <p className="truncate font-bold text-marino-900">{nombreEnvio(envio)}</p>
                     <p className="text-suave">{formatearFecha(pago.creadoEn)} · {NOMBRE_METODO[pago.metodo] ?? pago.metodo}</p>
                   </div>
                   <div className="text-right">

@@ -20,7 +20,7 @@ export function PanelLayout() {
   const navegar = useNavigate();
   const secciones: Seccion[] = [
     { a: '/panel', texto: 'Inicio', icono: FiHome, fin: true },
-    { a: '/panel/escanear', texto: 'Escanear', icono: FiCamera },
+    { a: '/panel/escanear', texto: 'Registrar', icono: FiCamera },
     { a: '/panel/bodega', texto: 'Bodega', icono: FiArchive },
     { a: '/panel/envios', texto: 'Envíos', icono: FiList },
     { a: '/panel/pagos', texto: 'Pagos', icono: FiCreditCard },
@@ -81,9 +81,9 @@ const TARJETAS: Array<{ clave: keyof Resumen; texto: string; a: string; tono: st
   { clave: 'porAvisar', texto: 'Llegados sin avisar', a: '/panel/bodega', tono: 'bg-oro-100 text-marino-900' },
   { clave: 'sinDueno', texto: 'Sin dueño en bodega', a: '/panel/bodega?sinDueno=1', tono: 'bg-rojo-100 text-rojo-700' },
   { clave: 'porConsolidar', texto: 'Por pesar y cotizar', a: '/panel/envios?estado=POR_CONSOLIDAR', tono: 'bg-marino text-white' },
-  { clave: 'porCobrar', texto: 'Listos para cobrar', a: '/panel/envios?estado=POR_PAGAR', tono: 'bg-oro text-marino-900' },
-  { clave: 'pagosPorConfirmar', texto: 'Pagos por confirmar', a: '/panel/pagos', tono: 'bg-rojo-100 text-rojo-700' },
-  { clave: 'porDespachar', texto: 'Pagados por despachar', a: '/panel/envios?estado=PAGADO', tono: 'bg-verde-100 text-verde' },
+  { clave: 'porCobrar', texto: 'Por pagar', a: '/panel/envios?estado=POR_PAGAR', tono: 'bg-oro text-marino-900' },
+  { clave: 'pagosPorConfirmar', texto: 'Pagos por revisar', a: '/panel/pagos', tono: 'bg-rojo-100 text-rojo-700' },
+  { clave: 'porDespachar', texto: 'Enviando: falta la guía', a: '/panel/envios?estado=PAGADO', tono: 'bg-verde-100 text-verde' },
   { clave: 'enBodega', texto: 'Paquetes en bodega', a: '/panel/bodega', tono: 'bg-white text-marino-900 border border-linea' },
 ];
 
@@ -98,7 +98,7 @@ export function Inicio() {
       <h1 className="mb-6 text-3xl sm:text-4xl">Hola, {usuario ? primerNombre(usuario.nombre) : ''}</h1>
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2">
-        <Link to="/panel/escanear" className="btn btn-primario min-h-[64px] text-lg"><FiCamera aria-hidden /> Escanear un paquete</Link>
+        <Link to="/panel/escanear" className="btn btn-primario min-h-[64px] text-lg"><FiCamera aria-hidden /> Registrar un paquete</Link>
         <Link to="/panel/nuevo" className="btn btn-suave min-h-[64px] text-lg"><FiPlus aria-hidden /> Nueva prealerta</Link>
       </div>
 

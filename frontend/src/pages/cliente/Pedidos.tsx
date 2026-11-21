@@ -4,7 +4,7 @@ import { FiChevronRight } from 'react-icons/fi';
 import { ContenidoCuenta, EncabezadoCuenta, useEnviosCliente } from '../../components/CuentaPiezas';
 import { Cargando, ErrorCarga, InsigniaEstado, Vacio } from '../../components/ui';
 import { filtrarPedidos, type FiltroPedidos } from '../../lib/cuenta';
-import { formatearBs, formatearFecha, formatearUsd, nombreTransportista } from '../../lib/formato';
+import { formatearBs, formatearFecha, formatearUsd, nombreEnvio, nombreTransportista } from '../../lib/formato';
 
 const FILTROS: Array<{ valor: FiltroPedidos; texto: string }> = [
   { valor: 'TODOS', texto: 'Todos' },
@@ -49,7 +49,7 @@ export function Pedidos() {
                     <Link to={`/cuenta/envios/${envio.id}`} className="grid items-center gap-2 px-3 py-4 hover:bg-marino-50/60 md:grid-cols-[1.1fr_1.2fr_1fr_1fr_28px] md:gap-4">
                       <span className="text-sm text-suave">{formatearFecha(envio.creadoEn)}</span>
                       <span className="min-w-0">
-                        <span className="block truncate font-bold text-marino-900">{envio.tienda === 'Sin prealerta' ? 'Paquete sin prealerta' : envio.tienda}</span>
+                        <span className="block truncate font-bold text-marino-900">{nombreEnvio(envio)}</span>
                         <span className="block text-xs text-suave">{envio.paquetes.length} {envio.paquetes.length === 1 ? 'paquete' : 'paquetes'} · {nombreTransportista(envio.transportista)}</span>
                       </span>
                       <span className="text-sm font-bold text-marino-900">

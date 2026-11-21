@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { FaWhatsapp } from 'react-icons/fa';
-import { FiCamera, FiCheck, FiClock, FiPackage } from 'react-icons/fi';
+import { FiCheck, FiClock, FiPackage } from 'react-icons/fi';
 import { CambiarDueno, DescartarPaquete } from './AccionesPaquete';
-import { FotoInput } from '../FotoInput';
 import { Alerta, ImagenPrivada, useAviso } from '../ui';
 import { api, mensajeDeError } from '../../lib/api';
-import { aNumero, formatearKg } from '../../lib/formato';
+import { formatearKg } from '../../lib/formato';
 import type { Envio, PaqueteVista } from '../../lib/tipos';
 import { enviarPorWhatsApp, pedirMensaje } from '../../lib/whatsapp';
 
@@ -38,17 +37,12 @@ interface PaqueteProps {
 
 function PaquetePersonal({ envio, paquete, alCambiar }: PaqueteProps) {
   const avisar = useAviso();
-  const [peso, setPeso] = useState(paquete.pesoKg ? String(paquete.pesoKg) : '');
-  const [foto, setFoto] = useState<File | null>(null);
-  const [mostrarFoto, setMostrarFoto] = useState(false);
   const [abierto, setAbierto] = useState(false);
   const [accion, setAccion] = useState<'dueno' | 'descartar' | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const alertaActiva = envio.tipo === 'ALERTA' && ESTADOS_ALERTA_ACTIVOS.includes(envio.estado);
-  const consolidadoAbierto = envio.tipo === 'CONSOLIDADO' && ['POR_CONSOLIDAR', 'POR_PAGAR'].includes(envio.estado);
-  const pesoEditable = alertaActiva || envio.estado === 'POR_CONSOLIDAR';
 
   async function hacer(tarea: () => Promise<void>) {
     setOcupado(true);
@@ -73,27 +67,6 @@ function PaquetePersonal({ envio, paquete, alCambiar }: PaqueteProps) {
       }
     });
 
-  const guardarPeso = () =>
-    hacer(async () => {
-      const kilos = aNumero(peso);
-      if (!Number.isFinite(kilos) || kilos <= 0) throw new Error('Escribe un peso mayor que cero.');
-      const r = await api.post<{ envio: Envio }>(`/staff/paquetes/${paquete.id}/peso`, { pesoKg: kilos });
-      alCambiar(r.envio);
-      avisar('Peso guardado.');
-    });
-
-  const subirFoto = () =>
-    hacer(async () => {
-      if (!foto) throw new Error('Toma primero la foto.');
-      const formulario = new FormData();
-      formulario.set('archivo', foto);
-      const r = await api.post<{ envio: Envio }>(`/staff/paquetes/${paquete.id}/foto`, formulario);
-      alCambiar(r.envio);
-      setFoto(null);
-      setMostrarFoto(false);
-      avisar('Foto guardada.');
-    });
-
   const avisarWhatsApp = () =>
     hacer(async () => {
       const mensaje = await pedirMensaje(envio.id, 'llegada', { paqueteId: paquete.id });
@@ -108,13 +81,6 @@ function PaquetePersonal({ envio, paquete, alCambiar }: PaqueteProps) {
       alCambiar(r.envio);
       setAbierto(false);
       avisar('Aviso registrado.');
-    });
-
-  const quitar = () =>
-    hacer(async () => {
-      const r = await api.post<{ envio: Envio }>(`/staff/envios/${envio.id}/quitar-paquete`, { paqueteId: paquete.id });
-      alCambiar(r.envio);
-      avisar('Paquete devuelto a la bodega del cliente.');
     });
 
   return (
@@ -133,16 +99,9 @@ function PaquetePersonal({ envio, paquete, alCambiar }: PaqueteProps) {
 
       {paquete.recibido && (
         <div className="mt-4 space-y-3">
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="min-w-[140px] flex-1">
-              <label htmlFor={`peso-${paquete.id}`} className="etiqueta">Peso del paquete (kg, opcional)</label>
-              <input id={`peso-${paquete.id}`} className="campo" inputMode="decimal" value={peso} onChange={(e) => setPeso(e.target.value)} disabled={!pesoEditable} placeholder="0.00" />
-            </div>
-            {pesoEditable && <button type="button" className="btn btn-suave" disabled={ocupado} onClick={() => void guardarPeso()}>Guardar peso</button>}
-          </div>
+          {paquete.tieneFoto && <ImagenPrivada ruta={paquete.fotoRuta} alt={`Foto del paquete ${paquete.tracking}`} className="h-24 w-24" />}
 
           <div className="flex flex-wrap gap-2">
-            {pesoEditable && <button type="button" className="btn btn-suave btn-chico" onClick={() => setMostrarFoto((v) => !v)}><FiCamera aria-hidden /> {paquete.tieneFoto ? 'Cambiar foto' : 'Foto del paquete'}</button>}
             {alertaActiva && (
               <button type="button" className="btn btn-chico bg-[#25D366] text-marino-900" disabled={ocupado || envio.sinDueno} onClick={() => void avisarWhatsApp()}>
                 <FaWhatsapp aria-hidden /> Avisar llegada
@@ -152,20 +111,11 @@ function PaquetePersonal({ envio, paquete, alCambiar }: PaqueteProps) {
             {paquete.avisado && !abierto && <span className="insignia bg-verde-100 text-verde"><FiCheck aria-hidden /> Cliente avisado</span>}
             {alertaActiva && <button type="button" className="btn btn-suave btn-chico" onClick={() => setAccion(accion === 'dueno' ? null : 'dueno')}>{envio.sinDueno ? 'Asignar dueño' : 'Cambiar dueño'}</button>}
             {alertaActiva && <button type="button" className="btn btn-fantasma btn-chico text-rojo-700" onClick={() => setAccion(accion === 'descartar' ? null : 'descartar')}>Descartar</button>}
-            {consolidadoAbierto && <button type="button" className="btn btn-fantasma btn-chico" disabled={ocupado} onClick={() => void quitar()}>Quitar del envío</button>}
           </div>
           {envio.sinDueno && alertaActiva && <p className="ayuda">Asigna un dueño para poder avisar por WhatsApp.</p>}
 
           {accion === 'dueno' && <CambiarDueno paqueteId={paquete.id} tracking={paquete.tracking} sinDueno={envio.sinDueno} alTerminar={() => { setAccion(null); void recargarEnvio(); }} alCancelar={() => setAccion(null)} />}
           {accion === 'descartar' && <DescartarPaquete paqueteId={paquete.id} tracking={paquete.tracking} alTerminar={(r) => { setAccion(null); alCambiar(r); }} alCancelar={() => setAccion(null)} />}
-
-          {mostrarFoto && (
-            <div className="space-y-3 rounded-2xl bg-papel p-3">
-              <FotoInput etiqueta="Foto del paquete" archivo={foto} onChange={setFoto} usarCamara />
-              {foto && <button type="button" className="btn btn-primario btn-chico" disabled={ocupado} onClick={() => void subirFoto()}>Guardar foto</button>}
-            </div>
-          )}
-          {paquete.tieneFoto && !mostrarFoto && <ImagenPrivada ruta={paquete.fotoRuta} alt={`Foto del paquete ${paquete.tracking}`} className="h-24 w-24" />}
         </div>
       )}
       {error && <Alerta tono="error" className="mt-3">{error}</Alerta>}

@@ -239,9 +239,9 @@ const VARIABLES = '{nombre} {tracking} {resumen_paquetes} {linea_peso} {linea_to
 const MENSAJES: Array<{ clave: 'llegada' | 'cotizacion' | 'pagoVerificado' | 'pagoRechazado' | 'despacho'; titulo: string }> = [
   { clave: 'llegada', titulo: 'Llegó un paquete' },
   { clave: 'cotizacion', titulo: 'Total del envío consolidado' },
-  { clave: 'pagoVerificado', titulo: 'Pago verificado (pide datos de entrega)' },
+  { clave: 'pagoVerificado', titulo: 'Pago verificado (avisa que sale hacia Venezuela)' },
   { clave: 'pagoRechazado', titulo: 'Pago rechazado' },
-  { clave: 'despacho', titulo: 'Envío despachado (guía)' },
+  { clave: 'despacho', titulo: 'En ruta (guía de la transportista)' },
 ];
 
 function EditorMensajes() {

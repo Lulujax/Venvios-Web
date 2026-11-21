@@ -1,12 +1,12 @@
-import { useCallback, useState, type FormEvent } from 'react';
+import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaWhatsapp } from 'react-icons/fa';
-import { FiAlertTriangle, FiCheckCircle, FiSearch } from 'react-icons/fi';
+import { FiAlertTriangle, FiCamera, FiCheckCircle, FiSearch } from 'react-icons/fi';
 import { BuscadorCliente } from '../../components/BuscadorCliente';
 import { Escaner } from '../../components/Escaner';
+import { FotoInput } from '../../components/FotoInput';
 import { Alerta, useAviso } from '../../components/ui';
 import { api, mensajeDeError } from '../../lib/api';
-import { aNumero } from '../../lib/formato';
 import type { Envio, ResultadoEscaneo, Usuario } from '../../lib/tipos';
 import { enviarPorWhatsApp, pedirMensaje } from '../../lib/whatsapp';
 
@@ -17,8 +17,9 @@ interface Lectura {
 
 function TarjetaRecibido({ lectura, alTerminar }: { lectura: Extract<ResultadoEscaneo, { paqueteId: string }>; alTerminar: () => void }) {
   const avisar = useAviso();
-  const [peso, setPeso] = useState('');
-  const [guardado, setGuardado] = useState<Envio | null>(null);
+  const [foto, setFoto] = useState<File | null>(null);
+  const [mostrarFoto, setMostrarFoto] = useState(false);
+  const [fotoGuardada, setFotoGuardada] = useState(false);
   const [abierto, setAbierto] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
@@ -35,16 +36,17 @@ function TarjetaRecibido({ lectura, alTerminar }: { lectura: Extract<ResultadoEs
     }
   }
 
-  const guardarPeso = (evento: FormEvent) => {
-    evento.preventDefault();
-    void hacer(async () => {
-      const kilos = aNumero(peso);
-      if (!Number.isFinite(kilos) || kilos <= 0) throw new Error('Escribe un peso mayor que cero.');
-      const r = await api.post<{ envio: Envio }>(`/staff/paquetes/${lectura.paqueteId}/peso`, { pesoKg: kilos });
-      setGuardado(r.envio);
-      avisar('Peso guardado.');
+  const guardarFoto = () =>
+    hacer(async () => {
+      if (!foto) throw new Error('Toma primero la foto.');
+      const formulario = new FormData();
+      formulario.set('archivo', foto);
+      await api.post(`/staff/paquetes/${lectura.paqueteId}/foto`, formulario);
+      setFotoGuardada(true);
+      setMostrarFoto(false);
+      setFoto(null);
+      avisar('Foto guardada.');
     });
-  };
 
   const avisarWhatsApp = () =>
     hacer(async () => {
@@ -70,13 +72,19 @@ function TarjetaRecibido({ lectura, alTerminar }: { lectura: Extract<ResultadoEs
           <p className="text-sm font-semibold">{lectura.faltan === 0 ? 'Ya llegaron todos los paquetes de este envío.' : `Faltan ${lectura.faltan} paquete(s) de este envío.`}</p>
         </div>
       </div>
-      <form onSubmit={guardarPeso} className="flex flex-wrap items-end gap-2">
-        <div className="min-w-[140px] flex-1">
-          <label htmlFor="peso-rapido" className="etiqueta">Peso del paquete en kg (opcional)</label>
-          <input id="peso-rapido" className="campo" inputMode="decimal" value={peso} onChange={(e) => setPeso(e.target.value)} placeholder="0.00" disabled={Boolean(guardado)} />
+      {fotoGuardada ? (
+        <p className="flex items-center gap-2 text-sm font-semibold text-verde"><FiCheckCircle aria-hidden /> Foto guardada</p>
+      ) : (
+        <div className="space-y-3">
+          <button type="button" className="btn btn-suave btn-chico" onClick={() => setMostrarFoto((visible) => !visible)}><FiCamera aria-hidden /> Tomar foto del paquete (opcional)</button>
+          {mostrarFoto && (
+            <div className="space-y-3 rounded-2xl bg-white p-3">
+              <FotoInput etiqueta="Foto del paquete" archivo={foto} onChange={setFoto} usarCamara />
+              {foto && <button type="button" className="btn btn-primario btn-chico" disabled={ocupado} onClick={() => void guardarFoto()}>Guardar foto</button>}
+            </div>
+          )}
         </div>
-        {!guardado && <button type="submit" className="btn btn-primario" disabled={ocupado}>Guardar peso</button>}
-      </form>
+      )}
       {error && <Alerta tono="error">{error}</Alerta>}
       <div className="flex flex-wrap gap-2">
         <button type="button" className="btn bg-[#25D366] text-marino-900" disabled={ocupado || lectura.sinDueno} onClick={() => void avisarWhatsApp()}><FaWhatsapp aria-hidden /> Avisar por WhatsApp</button>

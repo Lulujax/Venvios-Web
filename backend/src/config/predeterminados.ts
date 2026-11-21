@@ -60,14 +60,10 @@ export const PLANTILLAS_INICIALES: Plantillas = {
   pagoVerificado: [
     '🧾 *Tu pago fue verificado*',
     '',
-    'Por favor déjanos la siguiente información para el envío respectivo:',
-    '☑️ Nombre y apellido.',
-    '☑️ # de C.I.',
-    '☑️ # de teléfono.',
-    '☑️ Agencia por donde quiere retirar, ciudad y estado.',
-    '',
-    'También puedes llenarlo en tu cuenta: {enlace_cuenta}',
-    '¡Quedo atento! 📦',
+    'Hola {nombre}, ya confirmamos tu pago. Tu envío sale hacia Venezuela. 📦',
+    'Cuando tengamos la guía de la transportista te avisamos.',
+    '{nota_modalidad}',
+    'Mira el seguimiento en tu cuenta: {enlace_cuenta}',
   ].join('\n'),
   pagoRechazado: [
     'Hola {nombre}, no pudimos verificar tu pago del envío {tracking}.',

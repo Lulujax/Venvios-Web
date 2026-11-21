@@ -341,7 +341,7 @@ export function crearApp(contexto: Contexto): express.Express {
     '/envios/:id/despachar',
     subida.single('archivo'),
     rutaTx(async (req, res) => {
-      const { guia } = z.object({ guia: z.string() }).parse(req.body);
+      const { guia } = z.object({ guia: z.string().optional() }).parse(req.body);
       res.json({ envio: await contexto.envios.despachar(actorDe(req), req.params.id!, guia, archivoDe(req)) });
     }),
   );

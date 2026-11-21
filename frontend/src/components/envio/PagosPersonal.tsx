@@ -58,7 +58,7 @@ export function PagosPersonal({ envio, alCambiar }: { envio: Envio; alCambiar: (
     ejecutar(pagoId, async () => {
       const r = await api.post<{ envio: Envio }>(`/staff/pagos/${pagoId}/confirmar`);
       alCambiar(r.envio);
-      avisar(r.envio.estado === 'PAGADO' ? 'Pago confirmado. El envío quedó pagado.' : 'Pago parcial confirmado. Aún falta saldo.');
+      avisar(r.envio.estado === 'PAGADO' ? 'Pago confirmado. El envío quedó «Enviando a Venezuela».' : 'Pago parcial confirmado. Aún falta saldo.');
       if (r.envio.estado === 'PAGADO') {
         try {
           const mensaje = await pedirMensaje(envio.id, 'pagoVerificado');

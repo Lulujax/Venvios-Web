@@ -808,7 +808,7 @@ export class EnvioService {
     return this.vista(actualizado);
   }
 
-  async despachar(actor: Actor, envioId: string, guia: string, foto?: ArchivoEntrada): Promise<EnvioVista> {
+  async despachar(actor: Actor, envioId: string, guia: string | undefined, foto?: ArchivoEntrada): Promise<EnvioVista> {
     this.exigirPersonal(actor);
     const envio = await this.cargar(envioId);
     const entrega: DatosEntrega = {
@@ -820,8 +820,10 @@ export class EnvioService {
       estado: envio.entrega.estado,
     };
     validarDespacho({ estado: envio.estado, pagoConfirmado: envio.estado === 'PAGADO', entrega });
-    const numeroGuia = limpiarTexto(guia, 40);
-    if (numeroGuia.length < 3) throw AppError.badRequest('Escribe el número de guía de la transportista.');
+    const numeroEscrito = limpiarTexto(guia ?? '', 40);
+    if (numeroEscrito.length > 0 && numeroEscrito.length < 3) throw AppError.badRequest('El número de guía es muy corto. Revísalo o sube solo la foto.');
+    if (numeroEscrito.length === 0 && !foto) throw AppError.badRequest('Sube la foto de la guía o escribe su número.');
+    const numeroGuia = numeroEscrito.length > 0 ? numeroEscrito : null;
     let guiaFotoPath: string | null = null;
     if (foto) {
       const valida = validarImagen(foto);

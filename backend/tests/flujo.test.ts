@@ -616,3 +616,54 @@ describe('público y tasa', () => {
     await expect(propio.contexto.tasas.cargarManual(0, 'admin')).rejects.toThrow();
   });
 });
+
+describe('guía del despacho por foto o por número', () => {
+  async function listoParaDespachar() {
+    const base = await consolidadoCotizado(4);
+    const subido = await subirPago(base.cliente.agente, base.envioId, { metodo: 'BINANCE', moneda: 'USD', monto: (base.total / 100).toFixed(2), referencia: '554433' });
+    expect(subido.status).toBe(201);
+    await base.operador.post(`/api/staff/pagos/${subido.body.envio.pagos[0].id}/confirmar`);
+    const entrega = await base.cliente.agente.put(`/api/envios/${base.envioId}/entrega`).send({
+      nombre: 'Ana Pérez',
+      cedula: '12345678',
+      telefono: '584141234567',
+      agencia: 'MRW Chacao',
+      ciudad: 'Caracas',
+      estado: 'Miranda',
+    });
+    expect(entrega.status).toBe(200);
+    return base;
+  }
+
+  it('caso feliz: solo con la foto se despacha y el mensaje sale sin número', async () => {
+    const { operador, envioId } = await listoParaDespachar();
+    const despacho = await operador.post(`/api/staff/envios/${envioId}/despachar`).attach('archivo', PNG_MINIMO, { filename: 'guia.png', contentType: 'image/png' });
+    expect(despacho.status, JSON.stringify(despacho.body)).toBe(200);
+    expect(despacho.body.envio.estado).toBe('DESPACHADO');
+    expect(despacho.body.envio.guia.numero).toBeNull();
+    expect(despacho.body.envio.guia.tieneFoto).toBe(true);
+    const aviso = await operador.get(`/api/staff/envios/${envioId}/mensaje/despacho`);
+    expect(aviso.status).toBe(200);
+    expect(aviso.body.tieneFotoGuia).toBe(true);
+    expect(aviso.body.texto).toContain('está en la foto');
+  });
+
+  it('límite: solo con el número también se despacha', async () => {
+    const { operador, envioId } = await listoParaDespachar();
+    const despacho = await operador.post(`/api/staff/envios/${envioId}/despachar`).field('guia', 'MRW-445566');
+    expect(despacho.body.envio.estado).toBe('DESPACHADO');
+    expect(despacho.body.envio.guia.tieneFoto).toBe(false);
+    const aviso = await operador.get(`/api/staff/envios/${envioId}/mensaje/despacho`);
+    expect(aviso.body.texto).toContain('MRW-445566');
+  });
+
+  it('error: sin número ni foto no se despacha, y un número muy corto tampoco', async () => {
+    const { operador, envioId } = await listoParaDespachar();
+    const vacio = await operador.post(`/api/staff/envios/${envioId}/despachar`);
+    expect(vacio.status).toBe(400);
+    expect(vacio.body.error.mensaje).toContain('foto');
+    const corto = await operador.post(`/api/staff/envios/${envioId}/despachar`).field('guia', 'A1');
+    expect(corto.status).toBe(400);
+    expect((await operador.get(`/api/staff/envios/${envioId}/mensaje/despacho`)).status).toBe(400);
+  });
+});

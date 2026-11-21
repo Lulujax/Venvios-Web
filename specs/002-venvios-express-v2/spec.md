@@ -128,8 +128,8 @@ En todo el recorrido, el cliente ve el **seguimiento de cada paquete** con sus p
 
 - **RF-68** CUANDO el personal confirme el pago, EL SISTEMA dejará el envío «Enviando a Venezuela» y listo un mensaje de WhatsApp «Tu pago fue verificado» que avisa que el envío sale hacia Venezuela.
 - **RF-69** SI el envío no tiene un pago confirmado, ENTONCES EL SISTEMA no dejará despacharlo. SI faltan datos de entrega, ENTONCES EL SISTEMA no dejará despacharlo y mostrará qué falta.
-- **RF-70** EL SISTEMA permitirá registrar la transportista venezolana (MRW o Zoom), su número de guía y una foto de esa guía tomada desde el mismo sistema. CUANDO se registre, el envío pasará a «En ruta».
-- **RF-71** CUANDO el operador pulse «Enviar guía por WhatsApp», EL SISTEMA abrirá el chat del cliente con el texto ya escrito (transportista, número de guía y cómo rastrearla) y dejará la foto lista para mandarla en ese mismo chat (ver nota técnica 1).
+- **RF-70** EL SISTEMA permitirá registrar la transportista venezolana (MRW o Zoom) y la guía de esa transportista, con el número escrito, con una foto de la guía tomada o subida desde el mismo sistema, o con ambos. Basta con uno de los dos: no se exige escribir el número si hay foto. SI no hay ni número ni foto, ENTONCES EL SISTEMA no registrará la guía y lo dirá. CUANDO se registre, el envío pasará a «En ruta».
+- **RF-71** CUANDO el operador pulse «Enviar guía por WhatsApp», EL SISTEMA abrirá el chat del cliente con el texto ya escrito (transportista y cómo rastrearla; el número de guía solo si se escribió) y dejará la foto lista para mandarla en ese mismo chat (ver nota técnica 1). El botón aparece apenas se registra la guía, con número, con foto o con ambos.
 - **RF-72** CUANDO el cliente pulse «Ya lo recibí» en un envío «En ruta», EL SISTEMA lo marcará «Entregado» y guardará la fecha.
 - **RF-73** EL SISTEMA permitirá al operador marcar «Entregado» un envío «En ruta» en cualquier momento, sin esperar días, pero le pedirá confirmar en pantalla antes de hacerlo. Queda en el historial quién lo hizo.
 - **RF-74** EN la modalidad de cobro a destino, EL SISTEMA aclarará al cliente que el tramo dentro de Venezuela lo paga directamente a la transportista que eligió, a su llegada, y que ese monto no pasa por el sistema.
@@ -196,6 +196,12 @@ En todo el recorrido, el cliente ve el **seguimiento de cada paquete** con sus p
 - **RF-111** CUANDO una lista tenga más de 10 elementos (bodega, envíos, paquetes de un consolidado, paquetes para agregar o consolidar, pedidos, alertas e historial), EL SISTEMA mostrará solo los 10 primeros, el total («Mostrando 10 de 240») y un botón «Ver 10 más» que agrega los siguientes sin perder lo que ya se ve ni mover la pantalla. SI la lista tiene 10 elementos o menos, ENTONCES EL SISTEMA no muestra el contador ni el botón.
 - **RF-112** EN las listas donde se eligen paquetes (agregar de la bodega del cliente y Consolidar del cliente), EL SISTEMA tendrá un buscador por número de tracking que filtra entre todos los paquetes, no solo entre los que se ven.
 - **RF-113** EN esas mismas listas, EL SISTEMA ofrecerá «Elegir todos», que marca todos los paquetes que coinciden con el buscador (no solo los 10 visibles) y muestra cuántos quedan elegidos antes de enviar la solicitud o agregarlos.
+
+### Nombres en pantalla
+
+- **RF-114** EN Finanzas, Pedidos y el detalle del envío, EL SISTEMA llamará a cada envío consolidado «Consolidación» seguida de un código corto de 6 caracteres que lo identifica (por ejemplo «Consolidación 7K2M9Q»), y no por la tienda de sus paquetes, porque un consolidado puede mezclar paquetes de varias tiendas. El mismo código se ve en el cliente y en el panel.
+- **RF-115** EN el menú del operador y en el botón del inicio, EL SISTEMA llamará «Registrar» a lo que hoy se llama «Escanear», porque lo que hace el operador es registrar lo que va llegando. La cámara conserva su botón «Escanear siguiente paquete».
+- **RF-116** CUANDO se carguen los datos de prueba, EL SISTEMA dejará a cada cliente de prueba con sus datos de entrega ya llenos en su perfil (RF-106), para probar el flujo sin escribirlos.
 
 ## Tarifa
 
