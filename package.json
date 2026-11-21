@@ -15,6 +15,7 @@
     "e2e": "playwright test",
     "db:migrate": "npm run db:migrate -w backend",
     "db:seed": "npm run db:seed -w backend",
+    "db:probar": "npm run db:probar -w backend",
     "db:proteger": "npm run db:proteger -w backend"
   },
   "devDependencies": {
