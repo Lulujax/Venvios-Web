@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, useNavigate, useSearchParams } from 'react-router-dom';
 import { FiArchive, FiCamera, FiCreditCard, FiHome, FiList, FiLogOut, FiPlus, FiSettings } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
+import { BotonMenu, MenuDesplegable, useMenuDesplegable } from '../../components/MenuDesplegable';
 import { PieTandas, useTandas } from '../../components/Tandas';
 import { Alerta, Cargando, ErrorCarga, InsigniaEstado, Marca, Vacio } from '../../components/ui';
 import { api } from '../../lib/api';
@@ -19,6 +20,7 @@ interface Seccion {
 export function PanelLayout() {
   const { usuario, salir } = useAuth();
   const navegar = useNavigate();
+  const menu = useMenuDesplegable();
   const secciones: Seccion[] = [
     { a: '/panel', texto: 'Inicio', icono: FiHome, fin: true },
     { a: '/panel/escanear', texto: 'Registrar', icono: FiCamera },
@@ -29,8 +31,8 @@ export function PanelLayout() {
   if (usuario?.rol === 'ADMIN') secciones.push({ a: '/panel/admin', texto: 'Admin', icono: FiSettings });
 
   return (
-    <div className="min-h-[100dvh] lg:grid lg:grid-cols-[250px_1fr]">
-      <aside className="hidden border-r border-linea bg-white lg:flex lg:flex-col lg:justify-between lg:p-5">
+    <div className="min-h-[100dvh]">
+      <MenuDesplegable abierto={menu.abierto} alCerrar={menu.cerrar} etiqueta="Menú del panel">
         <div>
           <Link to="/panel" className="mb-8 block"><Marca /></Link>
           <nav className="space-y-1" aria-label="Panel">
@@ -47,11 +49,14 @@ export function PanelLayout() {
           <p className="text-suave">{usuario?.rol === 'ADMIN' ? 'Administrador' : 'Operador'}</p>
           <button type="button" className="btn btn-suave btn-chico w-full" onClick={async () => { await salir(); navegar('/'); }}><FiLogOut aria-hidden /> Salir</button>
         </div>
-      </aside>
+      </MenuDesplegable>
 
       <div className="min-w-0 pb-24 lg:pb-0">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-linea bg-papel/95 px-4 backdrop-blur lg:hidden">
-          <Link to="/panel" aria-label="Inicio del panel"><Marca /></Link>
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-linea bg-papel/95 px-4 backdrop-blur lg:h-16 lg:px-8">
+          <div className="flex items-center gap-3">
+            <BotonMenu alAbrir={menu.abrir} />
+            <Link to="/panel" aria-label="Inicio del panel"><Marca /></Link>
+          </div>
           <button type="button" className="btn btn-suave btn-chico" onClick={async () => { await salir(); navegar('/'); }} aria-label="Salir"><FiLogOut aria-hidden /></button>
         </header>
         <Outlet />

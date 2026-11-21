@@ -14,9 +14,9 @@ mkdirSync(CARPETA, { recursive: true });
 writeFileSync(join(CARPETA, 'pixel.png'), PNG);
 const IMAGEN = join(CARPETA, 'pixel.png');
 
-async function entrar(page: Page, identificador: string, contrasena: string) {
-  await page.goto('/ingresar');
-  await page.getByLabel('Correo o número de casillero').fill(identificador);
+async function entrar(page: Page, identificador: string, contrasena: string, personal = false) {
+  await page.goto(personal ? '/admin' : '/ingresar');
+  await page.getByLabel(personal ? 'Correo del personal' : 'Correo o número de casillero').fill(identificador);
   await page.getByLabel('Contraseña', { exact: true }).fill(contrasena);
   await page.getByRole('button', { name: 'Entrar' }).click();
 }
@@ -30,7 +30,7 @@ test.describe.configure({ mode: 'serial' });
 test('flujo completo: registro, prealerta, recepción, pago, entrega y despacho', async ({ browser }) => {
   const admin = await contextoNuevo(browser);
   const paginaAdmin = await admin.newPage();
-  await entrar(paginaAdmin, ADMIN.correo, ADMIN.contrasena);
+  await entrar(paginaAdmin, ADMIN.correo, ADMIN.contrasena, true);
   await expect(paginaAdmin.getByRole('heading', { name: /Hola/ })).toBeVisible();
   const respuestaTasa = await paginaAdmin.request.put('/api/admin/tasa', { data: { bolivaresPorUsd: 900 } });
   expect(respuestaTasa.ok()).toBeTruthy();
@@ -67,7 +67,7 @@ test('flujo completo: registro, prealerta, recepción, pago, entrega y despacho'
 
   const operadorCtx = await contextoNuevo(browser, true);
   const operador = await operadorCtx.newPage();
-  await entrar(operador, ADMIN.correo, ADMIN.contrasena);
+  await entrar(operador, ADMIN.correo, ADMIN.contrasena, true);
   await operador.goto('/panel/escanear');
   await expect(operador.getByRole('heading', { name: 'Recibir paquetes' })).toBeVisible();
   await operador.screenshot({ path: join(CARPETA, 'operador-escaner-movil.png'), fullPage: true });

@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { FiSearch, FiCreditCard, FiHome, FiLayers, FiLogOut, FiPackage, FiPlus, FiUser } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
 import { BotonWhatsAppFlotante } from '../../components/CuentaPiezas';
+import { BotonMenu, MenuDesplegable, useMenuDesplegable } from '../../components/MenuDesplegable';
 import { Marca } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 
@@ -23,14 +24,15 @@ const SECCIONES: Seccion[] = [
 export function CuentaLayout() {
   const { usuario, salir } = useAuth();
   const navegar = useNavigate();
+  const menu = useMenuDesplegable();
   const cerrarSesion = async () => {
     await salir();
     navegar('/');
   };
 
   return (
-    <div className="min-h-[100dvh] lg:grid lg:grid-cols-[260px_1fr]">
-      <aside className="hidden border-r border-linea bg-white lg:flex lg:flex-col lg:justify-between lg:p-5">
+    <div className="min-h-[100dvh]">
+      <MenuDesplegable abierto={menu.abierto} alCerrar={menu.cerrar} etiqueta="Menú de mi cuenta">
         <div>
           <Link to="/cuenta" className="mb-8 block"><Marca /></Link>
           <nav className="space-y-1" aria-label="Mi cuenta">
@@ -50,11 +52,14 @@ export function CuentaLayout() {
           <p className="codigo text-suave">{usuario?.codigo}</p>
           <button type="button" className="btn btn-suave btn-chico w-full" onClick={cerrarSesion}><FiLogOut aria-hidden /> Salir</button>
         </div>
-      </aside>
+      </MenuDesplegable>
 
       <div className="min-w-0 bg-papel pb-24 lg:pb-0">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-linea bg-papel/95 px-4 backdrop-blur lg:hidden">
-          <Link to="/cuenta" aria-label="Inicio de mi cuenta"><Marca /></Link>
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-linea bg-papel/95 px-4 backdrop-blur lg:h-16 lg:px-8">
+          <div className="flex items-center gap-3">
+            <BotonMenu alAbrir={menu.abrir} />
+            <Link to="/cuenta" aria-label="Inicio de mi cuenta"><Marca /></Link>
+          </div>
           <div className="flex items-center gap-2">
             <Link to="/cuenta/perfil" className="btn btn-suave btn-chico" aria-label="Mi perfil"><FiUser aria-hidden /></Link>
             <button type="button" className="btn btn-suave btn-chico" onClick={cerrarSesion} aria-label="Salir"><FiLogOut aria-hidden /></button>

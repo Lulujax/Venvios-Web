@@ -31,7 +31,7 @@ function MarcoAcceso({ titulo, subtitulo, children, pie }: { titulo: string; sub
   );
 }
 
-export function Ingresar() {
+export function Ingresar({ personal = false }: { personal?: boolean }) {
   const { usuario, ingresar } = useAuth();
   const navegar = useNavigate();
   const [identificador, setIdentificador] = useState('');
@@ -48,7 +48,7 @@ export function Ingresar() {
     setEnviando(true);
     setError(null);
     try {
-      const entrado = await ingresar(identificador.trim(), contrasena);
+      const entrado = await ingresar(identificador.trim(), contrasena, personal ? 'PERSONAL' : 'CLIENTE');
       navegar(rutaInicial(entrado), { replace: true });
     } catch (falla) {
       setError(mensajeDeError(falla));
@@ -59,16 +59,16 @@ export function Ingresar() {
 
   return (
     <MarcoAcceso
-      titulo="Ingresar"
-      subtitulo="Entra con tu correo o tu número de casillero y tu contraseña."
-      pie={<>¿Aún no tienes cuenta? <Link to="/registro" className="font-bold text-marino underline underline-offset-4">Crea tu casillero</Link></>}
+      titulo={personal ? 'Entrada del personal' : 'Ingresar'}
+      subtitulo={personal ? 'Solo para operadores y administradores de Venvios.' : 'Entra con tu correo o tu número de casillero y tu contraseña.'}
+      pie={personal ? <>¿Eres cliente? <Link to="/ingresar" className="font-bold text-marino underline underline-offset-4">Entra aquí</Link></> : <>¿Aún no tienes cuenta? <Link to="/registro" className="font-bold text-marino underline underline-offset-4">Crea tu casillero</Link></>}
     >
       <form onSubmit={enviar} className="space-y-4" noValidate>
-        <Campo etiqueta="Correo o número de casillero" autoComplete="username" autoCapitalize="none" value={identificador} onChange={(e) => setIdentificador(e.target.value)} placeholder="nombre@correo.com o VENV-123456" />
+        <Campo etiqueta={personal ? 'Correo del personal' : 'Correo o número de casillero'} autoComplete="username" autoCapitalize="none" value={identificador} onChange={(e) => setIdentificador(e.target.value)} placeholder={personal ? 'nombre@correo.com' : 'nombre@correo.com o VENV-123456'} />
         <CampoContrasena etiqueta="Contraseña" autoComplete="current-password" value={contrasena} onChange={(e) => setContrasena(e.target.value)} />
         {error && <Alerta tono="error">{error}</Alerta>}
         <button type="submit" className="btn btn-primario w-full" disabled={enviando}>{enviando ? 'Entrando…' : 'Entrar'}</button>
-        <p className="text-center text-sm text-suave">¿Olvidaste tu contraseña? Escríbenos por WhatsApp y te damos una temporal.</p>
+        <p className="text-center text-sm text-suave">{personal ? '¿Olvidaste tu contraseña? Pídele una temporal al administrador.' : '¿Olvidaste tu contraseña? Escríbenos por WhatsApp y te damos una temporal.'}</p>
       </form>
     </MarcoAcceso>
   );

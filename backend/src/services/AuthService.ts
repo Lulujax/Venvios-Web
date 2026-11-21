@@ -38,6 +38,8 @@ export interface PayloadSesion {
   v: number;
 }
 
+export type Portal = 'CLIENTE' | 'PERSONAL';
+
 export interface ActorAuth {
   id: string;
   rol: Rol;
@@ -192,7 +194,7 @@ export class AuthService {
     return { clave: this.claveIntentos(`otro:${texto.toLowerCase().slice(0, 40)}`), usuario: null };
   }
 
-  async iniciarSesion(identificador: string, contrasena: string): Promise<SesionEmitida> {
+  async iniciarSesion(identificador: string, contrasena: string, portal: Portal = 'CLIENTE'): Promise<SesionEmitida> {
     const { clave, usuario } = await this.buscarPorIdentificador(identificador);
     await this.limitador.verificar(clave);
     const valida = usuario && usuario.activo ? await verify(usuario.passwordHash, contrasena) : false;
@@ -202,7 +204,16 @@ export class AuthService {
       throw AppError.unauthorized('Correo, número de casillero o contraseña incorrectos.');
     }
     await this.limitador.limpiar(clave);
-    logger.info('Inicio de sesión correcto', { id: usuario.id, rol: usuario.rol });
+    const esCliente = usuario.rol === 'CLIENTE';
+    if (portal === 'PERSONAL' && esCliente) {
+      logger.warn('Un cliente intentó entrar por la entrada del personal', { id: usuario.id });
+      throw AppError.forbidden('Esta entrada es solo para el personal. Entra por la página de clientes: /ingresar');
+    }
+    if (portal === 'CLIENTE' && !esCliente) {
+      logger.warn('El personal intentó entrar por la entrada de clientes', { id: usuario.id, rol: usuario.rol });
+      throw AppError.forbidden('El personal entra por /admin');
+    }
+    logger.info('Inicio de sesión correcto', { id: usuario.id, rol: usuario.rol, portal });
     return this.emitir(usuario);
   }
 

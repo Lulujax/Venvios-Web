@@ -175,8 +175,10 @@ export function crearApp(contexto: Contexto): express.Express {
     '/auth/login',
     limiteAuth,
     ruta(async (req, res) => {
-      const { identificador, contrasena } = z.object({ identificador: z.string(), contrasena: z.string() }).parse(req.body);
-      const sesion = await contexto.auth.iniciarSesion(identificador, contrasena);
+      const { identificador, contrasena, portal } = z
+        .object({ identificador: z.string(), contrasena: z.string(), portal: z.enum(['CLIENTE', 'PERSONAL']).default('CLIENTE') })
+        .parse(req.body);
+      const sesion = await contexto.auth.iniciarSesion(identificador, contrasena, portal);
       fijarCookie(res, sesion.token);
       res.json({ usuario: sesion.usuario });
     }),

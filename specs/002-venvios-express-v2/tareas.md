@@ -49,6 +49,8 @@ Se hace en este orden. Detalle del cómo en `plan.md`.
 
 ## Parte 2b · Mis envíos, Rastrear y menú (aprobado 21-11-2026)
 
+Programadas T-11 a T-15 con pruebas que pasan (backend 187, frontend 152); faltan tus pruebas manuales.
+
 - **T-11** Número de consolidación solo con cifras, único y buscable. Cubre: RF-114. Hecho cuando: un consolidado nuevo se llama «Consolidación 000001» y el operador lo encuentra escribiendo el número. `[ ] Hecha y probada`
 - **T-12** Mis envíos con pestañas Pre-alertas, Activos y Entregados; Alertas fusionada en Pre-alertas. Cubre: RF-21, RF-22. Hecho cuando: cada pestaña muestra solo guía, estado, fecha, valor declarado, total en $ y Rastrear, y la guía abre Rastrear. `[ ] Hecha y probada`
 - **T-13** Sección Rastrear para el cliente. Cubre: RF-118, RF-119. Hecho cuando: el cliente busca un tracking o un número de consolidación suyo y ve pasos, detalles e historial; uno ajeno no aparece. `[ ] Hecha y probada`

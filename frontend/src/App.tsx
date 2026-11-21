@@ -24,7 +24,7 @@ const Bodega = lazy(() => import('./pages/panel/Bodega'));
 function Protegida({ roles }: { roles: Rol[] }) {
   const { usuario, cargando } = useAuth();
   if (cargando) return <div className="contenedor py-10"><Cargando /></div>;
-  if (!usuario) return <Navigate to="/ingresar" replace />;
+  if (!usuario) return <Navigate to={roles.includes('CLIENTE') ? '/ingresar' : '/admin'} replace />;
   if (usuario.debeCambiarClave) return <Navigate to="/cambiar-clave" replace />;
   if (!roles.includes(usuario.rol)) return <Navigate to={rutaInicial(usuario)} replace />;
   return <Outlet />;
@@ -54,6 +54,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/ingresar" element={<Ingresar />} />
+      <Route path="/admin" element={<Ingresar personal />} />
       <Route path="/registro" element={<Registro />} />
       <Route path="/cambiar-clave" element={<CambiarClave />} />
 
