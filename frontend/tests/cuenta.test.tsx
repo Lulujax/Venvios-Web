@@ -17,7 +17,7 @@ function envioDe(estado: EstadoEnvio, extra: Partial<Envio> = {}): Envio {
     estado,
     tienda: 'Shein',
     creadoEn: '2026-11-10T12:00:00Z',
-    paquetes: [{ id: `p-${estado}`, tracking: `XC-${estado}`, recibido: estado !== 'PREALERTADO', recibidoEn: null, pesoKg: null, valorDeclaradoCentavos: 6000 }],
+    paquetes: [{ id: `p-${estado}`, tracking: `XC-${estado}`, recibido: estado !== 'PREALERTADO', recibidoEn: null, pesoKg: null, valorDeclaradoCentavos: 6000, seguimiento: [] }],
     valorDeclaradoCentavos: 6000,
     precio: { pesoCobrableKg: 2, precioPorKgCentavos: 950, fleteCentavos: 1900, seguroCentavos: 300, totalCentavos: 2200, totalBsCentavos: 200000 },
     pagadoCentavos: 0,

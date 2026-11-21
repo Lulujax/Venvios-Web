@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { FaWhatsapp } from 'react-icons/fa';
 import { FiCheck, FiClock, FiPackage } from 'react-icons/fi';
 import { CambiarDueno, DescartarPaquete } from './AccionesPaquete';
+import { SeguimientoPaquete } from './SeguimientoPaquete';
 import { Alerta, ImagenPrivada, useAviso } from '../ui';
 import { api, mensajeDeError } from '../../lib/api';
 import { formatearKg } from '../../lib/formato';
@@ -14,15 +15,18 @@ export function PaquetesCliente({ paquetes }: { paquetes: PaqueteVista[] }) {
   return (
     <ul className="space-y-2">
       {paquetes.map((paquete) => (
-        <li key={paquete.id} className="flex items-center justify-between gap-3 rounded-2xl border border-linea px-4 py-3">
-          <div className="flex min-w-0 items-center gap-3">
-            {paquete.recibido ? <FiCheck className="shrink-0 text-xl text-verde" aria-hidden /> : <FiClock className="shrink-0 text-xl text-suave" aria-hidden />}
-            <div className="min-w-0">
-              <p className="codigo truncate">{paquete.tracking}</p>
-              <p className="text-xs text-suave">{paquete.recibido ? (paquete.pesoKg ? `En bodega · ${formatearKg(paquete.pesoKg)}` : 'En bodega') : 'En camino a nuestra oficina'}</p>
+        <li key={paquete.id} className="rounded-2xl border border-linea px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              {paquete.recibido ? <FiCheck className="shrink-0 text-xl text-verde" aria-hidden /> : <FiClock className="shrink-0 text-xl text-suave" aria-hidden />}
+              <div className="min-w-0">
+                <p className="codigo truncate">{paquete.tracking}</p>
+                <p className="text-xs text-suave">{paquete.recibido ? (paquete.pesoKg ? `En bodega · ${formatearKg(paquete.pesoKg)}` : 'En bodega') : 'En camino a nuestra oficina'}</p>
+              </div>
             </div>
+            {paquete.tieneFoto && <ImagenPrivada ruta={paquete.fotoRuta} alt={`Foto del paquete ${paquete.tracking}`} className="h-12 w-12" />}
           </div>
-          {paquete.tieneFoto && <ImagenPrivada ruta={paquete.fotoRuta} alt={`Foto del paquete ${paquete.tracking}`} className="h-12 w-12" />}
+          <SeguimientoPaquete paquete={paquete} />
         </li>
       ))}
     </ul>
@@ -92,6 +96,8 @@ function PaquetePersonal({ envio, paquete, alCambiar }: PaqueteProps) {
         </div>
         {paquete.recibido ? <span className="insignia bg-verde-100 text-verde">En bodega</span> : <span className="insignia bg-marino-100 text-marino">Esperando</span>}
       </div>
+
+      <SeguimientoPaquete paquete={paquete} />
 
       {!paquete.recibido && alertaActiva && (
         <button type="button" className="btn btn-suave btn-chico mt-3" disabled={ocupado} onClick={() => void recibirManual()}>Marcar como recibido</button>

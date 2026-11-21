@@ -25,7 +25,7 @@ function enrutar(rutas: Record<string, unknown>, llamadas: Llamada[] = []) {
 }
 
 function paquete(id: string, tracking: string): PaqueteVista {
-  return { id, tracking, recibido: true, pesoKg: null, valorDeclaradoCentavos: 3000, tieneFoto: false, fotoRuta: null, avisado: false, recibidoEn: '2026-11-20T10:00:00Z' };
+  return { id, tracking, recibido: true, pesoKg: null, valorDeclaradoCentavos: 3000, seguimiento: [], tieneFoto: false, fotoRuta: null, avisado: false, recibidoEn: '2026-11-20T10:00:00Z' };
 }
 
 function crearEnvio(sobrescribir: Partial<Envio> = {}): Envio {

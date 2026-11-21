@@ -1,6 +1,8 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 import type { EstadoEnvio } from '../domain/estados';
+import type { TipoHito } from '../domain/hitos';
+import { EnvioConHitos } from './conHitos';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { coincideBusqueda, partesBusqueda } from './busqueda';
@@ -19,6 +21,8 @@ import type {
   EventoCuenta,
   EventoCuentaRepository,
   FiltroEnvios,
+  Hito,
+  HitoRepository,
   IntentoGuardado,
   IntentoRepository,
   NuevoEnvio,
@@ -151,6 +155,32 @@ export class EventoCuentaMemoria implements EventoCuentaRepository, ConInstantan
       .filter((e) => e.usuarioId === usuarioId)
       .sort((a, b) => b.creadoEn.getTime() - a.creadoEn.getTime())
       .map(copiar);
+  }
+}
+
+export class HitoMemoria implements HitoRepository, ConInstantanea {
+  private readonly datos = new Map<string, Hito>();
+
+  instantanea(): Restaurar {
+    return instantaneaDeMapa(this.datos);
+  }
+
+  async agregar(paqueteIds: string[], tipo: TipoHito): Promise<void> {
+    const ahora = Date.now();
+    paqueteIds.forEach((paqueteId, indice) => {
+      const hito: Hito = { id: randomUUID(), paqueteId, tipo, creadoEn: new Date(ahora + indice) };
+      this.datos.set(hito.id, hito);
+    });
+  }
+
+  async dePaquetes(paqueteIds: string[]): Promise<Map<string, Hito[]>> {
+    const buscados = new Set(paqueteIds);
+    const resultado = new Map<string, Hito[]>();
+    for (const hito of this.datos.values()) {
+      if (!buscados.has(hito.paqueteId)) continue;
+      resultado.set(hito.paqueteId, [...(resultado.get(hito.paqueteId) ?? []), copiar(hito)]);
+    }
+    return resultado;
   }
 }
 
@@ -484,11 +514,13 @@ export function crearRepositoriosMemoria(): Repositorios {
   const pagos = new PagoMemoria();
   const config = new ConfigMemoria();
   const eventosCuenta = new EventoCuentaMemoria();
-  const transacciones = new TransaccionesMemoria([usuarios, envios, pagos, config, eventosCuenta]);
+  const hitos = new HitoMemoria();
+  const transacciones = new TransaccionesMemoria([usuarios, envios, pagos, config, eventosCuenta, hitos]);
   return {
     usuarios,
     eventosCuenta,
-    envios,
+    hitos,
+    envios: new EnvioConHitos(envios, hitos),
     pagos,
     config,
     intentos: new IntentoMemoria(),

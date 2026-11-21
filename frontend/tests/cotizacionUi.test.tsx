@@ -20,7 +20,7 @@ function simular(llamadas: Llamada[], respuesta: unknown = { envio: { id: 'env-1
   );
 }
 
-const PAQUETE: PaqueteVista = { id: 'p1', tracking: 'SHN26110040', recibido: true, pesoKg: null, valorDeclaradoCentavos: 3000, tieneFoto: false, fotoRuta: null, avisado: false, recibidoEn: null };
+const PAQUETE: PaqueteVista = { id: 'p1', tracking: 'SHN26110040', recibido: true, pesoKg: null, valorDeclaradoCentavos: 3000, seguimiento: [], tieneFoto: false, fotoRuta: null, avisado: false, recibidoEn: null };
 
 function envioConSeguro(manual: boolean): Envio {
   return {

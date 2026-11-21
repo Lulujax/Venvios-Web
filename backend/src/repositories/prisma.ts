@@ -1,6 +1,8 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { Prisma, PrismaClient } from '@prisma/client';
 import type { EstadoEnvio } from '../domain/estados';
+import type { TipoHito } from '../domain/hitos';
+import { EnvioConHitos } from './conHitos';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { MIN_DIGITOS_TELEFONO, partesBusqueda } from './busqueda';
@@ -19,6 +21,8 @@ import type {
   EventoCuenta,
   EventoCuentaRepository,
   FiltroEnvios,
+  Hito,
+  HitoRepository,
   IntentoGuardado,
   IntentoRepository,
   NuevoEnvio,
@@ -239,6 +243,29 @@ export class EventoCuentaPrisma implements EventoCuentaRepository {
   }
 }
 
+export class HitoPrisma implements HitoRepository {
+  constructor(private readonly conexion: Conexion) {}
+
+  private get bd(): ClienteBd {
+    return this.conexion.bd;
+  }
+
+  async agregar(paqueteIds: string[], tipo: TipoHito): Promise<void> {
+    if (paqueteIds.length === 0) return;
+    await this.bd.paqueteHito.createMany({ data: paqueteIds.map((paqueteId) => ({ paqueteId, tipo })) });
+  }
+
+  async dePaquetes(paqueteIds: string[]): Promise<Map<string, Hito[]>> {
+    const resultado = new Map<string, Hito[]>();
+    if (paqueteIds.length === 0) return resultado;
+    const filas = await this.bd.paqueteHito.findMany({ where: { paqueteId: { in: paqueteIds } }, orderBy: { creadoEn: 'asc' } });
+    for (const fila of filas) {
+      resultado.set(fila.paqueteId, [...(resultado.get(fila.paqueteId) ?? []), { id: fila.id, paqueteId: fila.paqueteId, tipo: fila.tipo as TipoHito, creadoEn: fila.creadoEn }]);
+    }
+    return resultado;
+  }
+}
+
 export class EnvioPrisma implements EnvioRepository {
   constructor(private readonly conexion: Conexion) {}
 
@@ -449,10 +476,12 @@ export class IntentoPrisma implements IntentoRepository {
 
 export function crearRepositoriosPrisma(): Repositorios {
   const conexion = new Conexion(obtenerPrisma());
+  const hitos = new HitoPrisma(conexion);
   return {
     usuarios: new UsuarioPrisma(conexion),
     eventosCuenta: new EventoCuentaPrisma(conexion),
-    envios: new EnvioPrisma(conexion),
+    hitos,
+    envios: new EnvioConHitos(new EnvioPrisma(conexion), hitos),
     pagos: new PagoPrisma(conexion),
     config: new ConfigPrisma(conexion),
     intentos: new IntentoPrisma(conexion),

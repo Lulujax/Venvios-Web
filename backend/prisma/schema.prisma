@@ -157,10 +157,22 @@ model Paquete {
   recibidoPorId        String?
   recibidoEn           DateTime?
 
-  envio Envio @relation(fields: [envioId], references: [id], onDelete: Cascade)
+  envio  Envio         @relation(fields: [envioId], references: [id], onDelete: Cascade)
+  hitos  PaqueteHito[]
 
   @@index([envioId])
   @@index([fotoPath])
+}
+
+model PaqueteHito {
+  id        String   @id @default(cuid())
+  paqueteId String
+  tipo      String
+  creadoEn  DateTime @default(now())
+
+  paquete Paquete @relation(fields: [paqueteId], references: [id], onDelete: Cascade)
+
+  @@index([paqueteId, creadoEn])
 }
 
 model Pago {

@@ -1,4 +1,5 @@
 import type { EstadoEnvio, TipoEnvio } from '../domain/estados';
+import type { TipoHito } from '../domain/hitos';
 import type { Modalidad } from '../domain/tarifas';
 
 export type Rol = 'CLIENTE' | 'OPERADOR' | 'ADMIN';
@@ -182,6 +183,18 @@ export interface UsuarioRepository {
   renovarSesiones(id: string): Promise<Usuario>;
 }
 
+export interface Hito {
+  id: string;
+  paqueteId: string;
+  tipo: TipoHito;
+  creadoEn: Date;
+}
+
+export interface HitoRepository {
+  agregar(paqueteIds: string[], tipo: TipoHito): Promise<void>;
+  dePaquetes(paqueteIds: string[]): Promise<Map<string, Hito[]>>;
+}
+
 export interface EventoCuentaRepository {
   agregar(evento: Omit<EventoCuenta, 'id' | 'creadoEn'>): Promise<EventoCuenta>;
   deUsuario(usuarioId: string): Promise<EventoCuenta[]>;
@@ -228,6 +241,7 @@ export interface ConfigRepository {
 export interface Repositorios {
   usuarios: UsuarioRepository;
   eventosCuenta: EventoCuentaRepository;
+  hitos: HitoRepository;
   envios: EnvioRepository;
   pagos: PagoRepository;
   config: ConfigRepository;

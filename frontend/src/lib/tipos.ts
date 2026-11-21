@@ -56,7 +56,14 @@ export interface EventoCuentaVista {
   creadoEn: string;
 }
 
+export interface HitoVista {
+  tipo: string;
+  etiqueta: string;
+  fecha: string;
+}
+
 export interface PaqueteVista {
+  seguimiento: HitoVista[];
   id: string;
   tracking: string;
   recibido: boolean;

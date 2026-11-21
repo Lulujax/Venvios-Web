@@ -15,11 +15,12 @@ import {
   type EstadoEnvio,
   type TipoEnvio,
 } from '../domain/estados';
+import { ETIQUETAS_HITO, recorridoVisible } from '../domain/hitos';
 import { entregaDesdePerfil } from '../domain/perfil';
 import { calcularPrecio, kilosACentesimas, modalidadPropuesta, type Modalidad, type PrecioCalculado } from '../domain/tarifas';
 import { codigoContieneTracking, coincidenTrackings, normalizarTracking } from '../domain/tracking';
 import { limpiarTexto, validarCedula, validarPesoKg, validarTelefono, validarValorDeclarado } from '../domain/validaciones';
-import type { Envio, Pago, Paquete, Repositorios, Rol, Transportista, Usuario } from '../repositories/tipos';
+import type { Envio, Hito, Pago, Paquete, Repositorios, Rol, Transportista, Usuario } from '../repositories/tipos';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { enmascararCedula } from '../utils/mask';
@@ -32,7 +33,15 @@ export interface Actor {
   rol: Rol;
 }
 
+export interface HitoVista {
+  tipo: string;
+  etiqueta: string;
+  fecha: string;
+}
+
 export interface PaqueteVista {
+  seguimiento: HitoVista[];
+  valorDeclaradoCentavos: number;
   id: string;
   tracking: string;
   recibido: boolean;
@@ -199,7 +208,7 @@ export class EnvioService {
     return envio;
   }
 
-  private construirVista(envio: Envio, cliente: Usuario, pagos: Pago[], tasa: TasaVigente | null): EnvioVista {
+  private construirVista(envio: Envio, cliente: Usuario, pagos: Pago[], tasa: TasaVigente | null, hitos: Map<string, Hito[]>): EnvioVista {
     const pesoTotal = envio.pesoTotalCentesimas;
     const recibidos = envio.paquetes.filter((p) => p.estado === 'RECIBIDO');
     const pagadoCentavos = pagos.filter((p) => p.estado === 'CONFIRMADO').reduce((suma, p) => suma + p.montoUsdCentavos, 0);
@@ -228,6 +237,7 @@ export class EnvioService {
         recibido: p.estado === 'RECIBIDO',
         pesoKg: p.pesoCentesimas ? p.pesoCentesimas / 100 : null,
         valorDeclaradoCentavos: p.valorDeclaradoCentavos,
+        seguimiento: recorridoVisible(hitos.get(p.id) ?? []).map((h) => ({ tipo: h.tipo, etiqueta: ETIQUETAS_HITO[h.tipo], fecha: h.creadoEn.toISOString() })),
         tieneFoto: Boolean(p.fotoPath),
         fotoRuta: p.fotoPath,
         avisado: Boolean(p.avisadoEn),
@@ -278,10 +288,11 @@ export class EnvioService {
 
   async vistas(envios: Envio[]): Promise<EnvioVista[]> {
     if (envios.length === 0) return [];
-    const [clientes, pagos, tasa] = await Promise.all([
+    const [clientes, pagos, tasa, hitos] = await Promise.all([
       this.repos.usuarios.porIds(envios.map((e) => e.clienteId)),
       this.repos.pagos.deEnvios(envios.map((e) => e.id)),
       this.tasaOpcional(),
+      this.repos.hitos.dePaquetes(envios.flatMap((e) => e.paquetes.map((p) => p.id))),
     ]);
     const clientePorId = new Map(clientes.map((c) => [c.id, c]));
     const pagosPorEnvio = new Map<string, Pago[]>();
@@ -289,7 +300,7 @@ export class EnvioService {
     return envios.map((envio) => {
       const cliente = clientePorId.get(envio.clienteId);
       if (!cliente) throw new AppError('El envío no tiene cliente asociado.', 500, 'INTERNO');
-      return this.construirVista(envio, cliente, pagosPorEnvio.get(envio.id) ?? [], tasa);
+      return this.construirVista(envio, cliente, pagosPorEnvio.get(envio.id) ?? [], tasa, hitos);
     });
   }
 
