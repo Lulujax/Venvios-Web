@@ -79,6 +79,7 @@ export interface EntregaGuardada {
 
 export interface Envio {
   id: string;
+  numero: number;
   tipo: TipoEnvio;
   clienteId: string;
   modalidad: Modalidad;

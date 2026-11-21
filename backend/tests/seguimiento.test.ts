@@ -101,24 +101,26 @@ describe('recorrido visible', () => {
   });
 });
 
-describe('búsqueda por código de consolidación', () => {
-  it('caso feliz: el operador encuentra el envío con «Consolidación XXXXXX» o solo con el código', async () => {
+describe('búsqueda por número de consolidación', () => {
+  it('caso feliz: el operador encuentra el envío con «Consolidación 000123» o solo con el número', async () => {
     const operador = await crearPersonalYEntrar(entorno, 'OPERADOR');
     const cliente = await registrarCliente(entorno);
     const alerta = await cliente.agente.post('/api/envios').send({ trackings: ['COD-100000001'], tienda: 'Shein', valoresUsd: [5] });
     await operador.agente.post('/api/staff/escaneo').send({ texto: 'COD-100000001' });
     const consolidado = await cliente.agente.post('/api/envios/consolidar').send({ paqueteIds: [alerta.body.envio.paquetes[0].id], modalidad: 'M1', transportista: 'MRW' });
     const id = consolidado.body.envio.id as string;
-    const codigo = id.replace(/[^A-Za-z0-9]/g, '').slice(-6).toUpperCase();
-    const conPalabra = await operador.agente.get(`/api/envios?q=${encodeURIComponent(`Consolidación ${codigo}`)}`);
+    const numero = consolidado.body.envio.numero as number;
+    expect(Number.isInteger(numero) && numero > 0).toBe(true);
+    const conCeros = String(numero).padStart(6, '0');
+    const conPalabra = await operador.agente.get(`/api/envios?q=${encodeURIComponent(`Consolidación ${conCeros}`)}`);
     expect(conPalabra.body.envios.map((e: { id: string }) => e.id)).toContain(id);
-    const soloCodigo = await operador.agente.get(`/api/envios?q=${codigo.toLowerCase()}`);
-    expect(soloCodigo.body.envios.map((e: { id: string }) => e.id)).toContain(id);
+    const soloNumero = await operador.agente.get(`/api/envios?q=${numero}`);
+    expect(soloNumero.body.envios.map((e: { id: string }) => e.id)).toContain(id);
   });
 
   it('error: un código que no existe no devuelve envíos', async () => {
     const operador = await crearPersonalYEntrar(entorno, 'OPERADOR');
-    const r = await operador.agente.get('/api/envios?q=ZZZZZZ');
+    const r = await operador.agente.get('/api/envios?q=999999');
     expect(r.body.envios).toHaveLength(0);
   });
 });

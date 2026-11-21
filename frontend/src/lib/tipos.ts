@@ -106,6 +106,7 @@ export interface Entrega {
 
 export interface Envio {
   id: string;
+  numero: number;
   tipo: TipoEnvio;
   sinDueno: boolean;
   estado: EstadoEnvio;

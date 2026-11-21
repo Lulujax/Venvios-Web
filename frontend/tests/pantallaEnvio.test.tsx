@@ -31,6 +31,7 @@ function paquete(id: string, tracking: string): PaqueteVista {
 function crearEnvio(sobrescribir: Partial<Envio> = {}): Envio {
   return {
     id: 'env-1',
+    numero: 42,
     tipo: 'CONSOLIDADO',
     sinDueno: false,
     estado: 'POR_CONSOLIDAR',

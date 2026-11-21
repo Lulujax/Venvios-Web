@@ -68,6 +68,7 @@ export interface PagoVista {
 
 export interface EnvioVista {
   id: string;
+  numero: number;
   tipo: TipoEnvio;
   estado: EstadoEnvio;
   etiquetaEstado: string;
@@ -215,6 +216,7 @@ export class EnvioService {
 
     return {
       id: envio.id,
+      numero: envio.numero,
       tipo: envio.tipo,
       estado: envio.estado,
       etiquetaEstado: ETIQUETAS_ESTADO[envio.estado],

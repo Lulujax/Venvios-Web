@@ -59,10 +59,10 @@ En todo el recorrido, el cliente ve el **seguimiento de cada paquete** con sus p
 
 ### Cuenta del cliente
 
-- **RF-19** EL SISTEMA mostrará al cliente un panel con menú lateral en la PC y barra inferior en el teléfono, con: Inicio, Pedidos, Alertas, Consolidar y Finanzas, y un acceso a su Perfil (en el teléfono, desde la cabecera, para no llenar la barra inferior).
+- **RF-19** EL SISTEMA mostrará al cliente un menú con: Inicio, Mis envíos, Rastrear, Consolidar y Finanzas, y un acceso a su Perfil. En la PC el menú se abre con un botón y aparece encima del contenido, sin moverlo; se cierra al elegir una opción o al tocar fuera. En el teléfono se mantiene la barra inferior.
 - **RF-20** EN Inicio, EL SISTEMA mostrará su número de casillero, la dirección de envío de su casillero, cómo enviar sus compras a esa dirección y contadores de sus paquetes.
-- **RF-21** EN Alertas, EL SISTEMA listará las prealertas del cliente con estado «Pendiente» mientras el paquete no haya llegado a la oficina y «Atendida» cuando ya llegó, con un botón para crear una nueva alerta.
-- **RF-22** EN Pedidos, EL SISTEMA listará los envíos consolidados del cliente con su estado y el seguimiento de sus paquetes (RF-78).
+- **RF-21** EN Mis envíos, la pestaña «Pre-alertas» reemplaza a la antigua sección Alertas: lista cada tracking del cliente que aún no está consolidado, con estado «Prealertado» mientras no llega y «En oficina» cuando ya llegó, con el botón «Crear alerta» y la opción de eliminar una alerta que aún no llega.
+- **RF-22** EN Mis envíos, EL SISTEMA mostrará tres pestañas: «Pre-alertas» (RF-21), «Activos» (consolidaciones que aún no se entregan) y «Entregados». Cada fila muestra solo: guía (el tracking en Pre-alertas o «Consolidación» con su número en las otras), estado, fecha, valor declarado y total en dólares (sin bolívares). La guía es un enlace que abre Rastrear con ese envío, igual que el botón «Rastrear». No se muestran tipo, destinatario, contenido ni peso. En el teléfono las filas se ven como tarjetas.
 - **RF-23** EN Finanzas, EL SISTEMA listará los envíos por pagar, para pagarlos y subir el comprobante, y el historial de pagos.
 - **RF-24** EL SISTEMA mostrará en el panel del cliente un botón flotante de WhatsApp hacia la atención. No mostrará rastreador dentro de la cuenta.
 - **RF-25** UN cliente solo verá sus propios envíos, paquetes, fotos y comprobantes.
@@ -199,10 +199,18 @@ En todo el recorrido, el cliente ve el **seguimiento de cada paquete** con sus p
 
 ### Nombres en pantalla
 
-- **RF-114** EN Finanzas, Pedidos y el detalle del envío, EL SISTEMA llamará a cada envío consolidado «Consolidación» seguida de un código corto de 6 caracteres que lo identifica (por ejemplo «Consolidación 7K2M9Q»), y no por la tienda de sus paquetes, porque un consolidado puede mezclar paquetes de varias tiendas. El mismo código se ve en el cliente y en el panel.
+- **RF-114** EN Mis envíos, Finanzas, Rastrear y el detalle del envío, EL SISTEMA llamará a cada envío consolidado «Consolidación» seguida de un número único de 6 cifras, solo números (por ejemplo «Consolidación 000123»), y no por la tienda de sus paquetes. El mismo número se ve en el cliente y en el panel, y el personal puede buscar el envío escribiéndolo.
 - **RF-115** EN el menú del operador y en el botón del inicio, EL SISTEMA llamará «Registrar» a lo que hoy se llama «Escanear», porque lo que hace el operador es registrar lo que va llegando. La cámara conserva su botón «Escanear siguiente paquete».
 - **RF-116** CUANDO se carguen los datos de prueba, EL SISTEMA dejará a cada cliente de prueba con sus datos de entrega ya llenos en su perfil (RF-106), para probar el flujo sin escribirlos.
 - **RF-117** EL SISTEMA no le pedirá al cliente subir ninguna foto suya ni de sus documentos: ni al registrarse ni en su perfil. La única imagen que sube el cliente es la captura de su comprobante de pago.
+
+### Rastrear, menú y entradas separadas
+
+- **RF-118** EL SISTEMA tendrá para el cliente una sección «Rastrear» con un buscador por tracking o por número de consolidación, que solo busca entre los envíos del propio cliente. SI no encuentra nada, ENTONCES EL SISTEMA dirá que no hay información de ese tracking.
+- **RF-119** CUANDO el cliente rastree un envío, EL SISTEMA mostrará arriba la línea de pasos del envío; a un lado «Detalles» (estado, llegada a la oficina, peso cobrado si ya se pesó, transportista y guía venezolana con el enlace para rastrearla en MRW o Zoom) y al otro «Historial», con cada paso, su fecha y una frase corta que lo explica.
+- **RF-120** EL SISTEMA tendrá dos entradas: la de clientes (`/ingresar`) y la del personal (`/admin`), con aspecto distinto. SI un cliente usa la entrada del personal, o el personal usa la de clientes, ENTONCES EL SISTEMA no abrirá la sesión y le indicará cuál es su entrada. El cliente nunca ve enlaces al panel del personal.
+- **RF-121** Cuando exista dominio propio, la entrada del personal podrá vivir en un subdominio (por ejemplo `panel.dominio`) apuntando al mismo sitio; hasta entonces se usa `/admin`.
+- **RF-122** EN el panel del personal, EL SISTEMA usará el mismo menú desplegable de RF-19 en la PC.
 
 ## Tarifa
 

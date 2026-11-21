@@ -88,16 +88,15 @@ export function nombreTransportista(codigo: string): string {
   return codigo === 'ZOOM' ? 'Zoom' : codigo === 'MRW' ? 'MRW' : codigo;
 }
 
-const LARGO_CODIGO_ENVIO = 6;
+const CIFRAS_NUMERO_ENVIO = 6;
 
-export function codigoCortoEnvio(id: string): string {
-  const codigo = id.replace(/[^a-zA-Z0-9]/g, '').slice(-LARGO_CODIGO_ENVIO).toUpperCase();
-  if (codigo.length === 0) throw new Error('El envío no tiene un id para sacar su código.');
-  return codigo;
+export function numeroConsolidacion(numero: number): string {
+  if (!Number.isInteger(numero) || numero <= 0) throw new Error('El envío no tiene un número válido.');
+  return String(numero).padStart(CIFRAS_NUMERO_ENVIO, '0');
 }
 
-export function nombreEnvio(envio: { id: string; tipo: string; tienda: string }): string {
-  if (envio.tipo === 'CONSOLIDADO') return `Consolidación ${codigoCortoEnvio(envio.id)}`;
+export function nombreEnvio(envio: { numero: number; tipo: string; tienda: string }): string {
+  if (envio.tipo === 'CONSOLIDADO') return `Consolidación ${numeroConsolidacion(envio.numero)}`;
   if (envio.tienda === 'Sin prealerta') return 'Paquete sin prealerta';
   if (envio.tienda === 'Devuelto a bodega') return 'Paquete en bodega';
   return envio.tienda;

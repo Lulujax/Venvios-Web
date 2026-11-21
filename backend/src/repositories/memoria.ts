@@ -186,6 +186,7 @@ export class HitoMemoria implements HitoRepository, ConInstantanea {
 
 export class EnvioMemoria implements EnvioRepository, ConInstantanea {
   private readonly envios = new Map<string, Envio>();
+  private siguienteNumero = 1;
   private readonly eventos: Evento[] = [];
 
   constructor(private readonly usuarios: UsuarioMemoria) {}
@@ -236,8 +237,11 @@ export class EnvioMemoria implements EnvioRepository, ConInstantanea {
     const id = randomUUID();
     const ahora = new Date();
     const tipo = datos.tipo ?? 'ALERTA';
+    const numero = this.siguienteNumero;
+    this.siguienteNumero += 1;
     const envio: Envio = {
       id,
+      numero,
       tipo,
       clienteId: datos.clienteId,
       modalidad: datos.modalidad,
@@ -272,7 +276,7 @@ export class EnvioMemoria implements EnvioRepository, ConInstantanea {
     if (!partes) return true;
     const cliente = this.usuarios.leerSinCopiar(envio.clienteId);
     return coincideBusqueda(partes, {
-      id: envio.id,
+      numero: envio.numero,
       nombre: cliente?.nombre ?? '',
       codigo: cliente?.codigo ?? '',
       telefono: cliente?.telefono ?? '',

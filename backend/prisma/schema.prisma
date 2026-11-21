@@ -109,6 +109,7 @@ model EventoCuenta {
 
 model Envio {
   id                     String        @id @default(cuid())
+  numero                 Int           @unique @default(autoincrement())
   tipo                   TipoEnvio     @default(ALERTA)
   clienteId              String
   modalidad              Modalidad

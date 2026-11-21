@@ -47,6 +47,14 @@ Se hace en este orden. Detalle del cómo en `plan.md`.
 - **T-9** Pantallas del operador para el flujo: solicitudes de consolidación, cotizar, pagos por revisar, enviando y en ruta, y resumen con los nuevos pendientes. Cubre: RF-52, RF-80. Hecho cuando: el operador recorre el flujo completo sin salir del panel. `[ ] Hecha y probada`
 - **T-10** Preparar producción: quitar el archivo de datos de prueba y la variable que lo activa, dejar el HTTPS de desarrollo solo en desarrollo y reemplazar las plantillas de mensajes guardadas que sigan iguales a las de fábrica. Cubre: RF-96. Hecho cuando: el despliegue arranca sin datos de prueba y los mensajes usan los textos nuevos. `[ ] Hecha y probada`
 
+## Parte 2b · Mis envíos, Rastrear y menú (aprobado 21-11-2026)
+
+- **T-11** Número de consolidación solo con cifras, único y buscable. Cubre: RF-114. Hecho cuando: un consolidado nuevo se llama «Consolidación 000001» y el operador lo encuentra escribiendo el número. `[ ] Hecha y probada`
+- **T-12** Mis envíos con pestañas Pre-alertas, Activos y Entregados; Alertas fusionada en Pre-alertas. Cubre: RF-21, RF-22. Hecho cuando: cada pestaña muestra solo guía, estado, fecha, valor declarado, total en $ y Rastrear, y la guía abre Rastrear. `[ ] Hecha y probada`
+- **T-13** Sección Rastrear para el cliente. Cubre: RF-118, RF-119. Hecho cuando: el cliente busca un tracking o un número de consolidación suyo y ve pasos, detalles e historial; uno ajeno no aparece. `[ ] Hecha y probada`
+- **T-14** Menú desplegable encima del contenido en la PC, en la cuenta del cliente y en el panel. Cubre: RF-19, RF-122. Hecho cuando: el menú se abre con un botón, no mueve el contenido y se cierra al elegir una opción o tocar fuera. `[ ] Hecha y probada`
+- **T-15** Entradas separadas: `/ingresar` para clientes y `/admin` para el personal. Cubre: RF-120. Hecho cuando: un cliente no entra por `/admin` ni el personal por `/ingresar`, y cada uno ve a dónde ir. `[ ] Hecha y probada`
+
 ## Parte 3 · Por definir: panel del operador por módulos y comodidad del escaneo
 
 Todavía no es spec ni tarea: son los pedidos de Luis (20-11-2026) para hacer después del lote. Antes de programar se escriben en `spec.md`.
