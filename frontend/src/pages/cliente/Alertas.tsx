@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiBell, FiChevronRight, FiTrash2 } from 'react-icons/fi';
 import { ContenidoCuenta, EncabezadoCuenta, useEnviosCliente } from '../../components/CuentaPiezas';
+import { PieTandas, useTandas } from '../../components/Tandas';
 import { Alerta, Cargando, ErrorCarga, Vacio, useAviso } from '../../components/ui';
 import { api, mensajeDeError } from '../../lib/api';
 import { construirAlertas, filtrarAlertas, type EstadoAlerta, type FilaAlerta } from '../../lib/cuenta';
@@ -25,6 +26,7 @@ export function Alertas() {
   const [estado, setEstado] = useState<EstadoAlerta | 'TODOS'>('TODOS');
   const todas = datos ? construirAlertas(datos) : [];
   const filas = filtrarAlertas(todas, texto, estado);
+  const tandas = useTandas(filas);
 
   async function eliminar(fila: FilaAlerta) {
     if (!window.confirm(`¿Eliminar la alerta del tracking ${fila.tracking}?`)) return;
@@ -78,7 +80,7 @@ export function Alertas() {
                 <span />
               </div>
               <ul className="divide-y divide-linea">
-                {filas.map((fila) => (
+                {tandas.visibles.map((fila) => (
                   <li key={fila.clave} className="flex items-center gap-2">
                     <Link to={`/cuenta/envios/${fila.envioId}`} className="grid min-w-0 flex-1 items-center gap-1 px-3 py-4 hover:bg-marino-50/60 md:grid-cols-[1fr_1fr_1.6fr_1fr_28px] md:gap-4">
                       <span className="text-sm text-suave">{formatearFecha(fila.fecha)}</span>
@@ -97,6 +99,7 @@ export function Alertas() {
                   </li>
                 ))}
               </ul>
+              <PieTandas total={tandas.total} mostrados={tandas.mostrados} hayMas={tandas.hayMas} verMas={tandas.verMas} />
             </div>
           )}
         </div>

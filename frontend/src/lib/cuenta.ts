@@ -129,3 +129,9 @@ export function resumirCuenta(envios: Envio[]): ResumenCuenta {
     pagados: envios.filter(esPagado).length,
   };
 }
+
+export function coincideTracking(tracking: string, busqueda: string): boolean {
+  const buscado = busqueda.replace(/[^A-Za-z0-9]/g, '').toLowerCase();
+  if (!buscado) return true;
+  return tracking.replace(/[^A-Za-z0-9]/g, '').toLowerCase().includes(buscado);
+}

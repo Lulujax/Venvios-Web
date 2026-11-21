@@ -4,9 +4,10 @@ import { FiCheckSquare, FiSquare } from 'react-icons/fi';
 import { ContenidoCuenta, EncabezadoCuenta, useEnviosCliente } from '../../components/CuentaPiezas';
 import { ElegirModalidad, ElegirTransportista } from '../../components/OpcionesEnvio';
 import { ResumenEntregaPerfil, entregaPerfilCompleta } from '../../components/envio/ResumenEntrega';
-import { Alerta, Cargando, ErrorCarga, Vacio } from '../../components/ui';
+import { PieTandas, useTandas } from '../../components/Tandas';
+import { Alerta, Campo, Cargando, ErrorCarga, Vacio } from '../../components/ui';
 import { api, mensajeDeError } from '../../lib/api';
-import { paquetesEnBodega, sumaValoresCentavos } from '../../lib/cuenta';
+import { coincideTracking, paquetesEnBodega, sumaValoresCentavos } from '../../lib/cuenta';
 import { formatearFecha, formatearKg, formatearUsd } from '../../lib/formato';
 import type { Envio, Modalidad, PerfilVista, Transportista } from '../../lib/tipos';
 import { useCarga } from '../../lib/useCarga';
@@ -16,6 +17,7 @@ export function Consolidar() {
   const { datos, cargando, error, recargar } = useEnviosCliente();
   const perfil = useCarga(() => api.get<PerfilVista>('/perfil'));
   const [elegidos, setElegidos] = useState<string[]>([]);
+  const [busqueda, setBusqueda] = useState('');
   const [modalidad, setModalidad] = useState<Modalidad>('M1');
   const [transportista, setTransportista] = useState<Transportista>('MRW');
   const [errores, setErrores] = useState<{ elegidos?: string }>({});
@@ -24,6 +26,9 @@ export function Consolidar() {
 
   const bodega = datos ? paquetesEnBodega(datos) : [];
   const seleccion = bodega.filter((p) => elegidos.includes(p.paqueteId));
+  const coinciden = bodega.filter((p) => coincideTracking(p.tracking, busqueda));
+  const tandas = useTandas(coinciden);
+  const todosLosQueCoincidenElegidos = coinciden.length > 0 && coinciden.every((p) => elegidos.includes(p.paqueteId));
   const valorTotalCentavos = sumaValoresCentavos(seleccion);
 
   function alternar(paqueteId: string) {
@@ -68,12 +73,30 @@ export function Consolidar() {
             <section className="tarjeta p-5 sm:p-6" aria-labelledby="titulo-bodega">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <h2 id="titulo-bodega" className="text-xl">Tus paquetes en bodega</h2>
-                <button type="button" className="btn btn-suave btn-chico" onClick={() => setElegidos(elegidos.length === bodega.length ? [] : bodega.map((p) => p.paqueteId))}>
-                  {elegidos.length === bodega.length ? 'Quitar todos' : 'Elegir todos'}
+                <button
+                  type="button"
+                  className="btn btn-suave btn-chico"
+                  disabled={coinciden.length === 0}
+                  onClick={() =>
+                    setElegidos((actuales) =>
+                      todosLosQueCoincidenElegidos
+                        ? actuales.filter((id) => !coinciden.some((p) => p.paqueteId === id))
+                        : [...new Set([...actuales, ...coinciden.map((p) => p.paqueteId)])],
+                    )
+                  }
+                >
+                  {todosLosQueCoincidenElegidos ? 'Quitar todos' : busqueda.trim() ? `Elegir los ${coinciden.length} que coinciden` : 'Elegir todos'}
                 </button>
               </div>
+              {bodega.length > 10 && (
+                <div className="mb-4">
+                  <Campo etiqueta="Buscar por tracking" type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} autoComplete="off" ayuda="Busca entre todos tus paquetes, no solo los que ves." />
+                </div>
+              )}
+              <p className="mb-3 text-sm font-bold text-marino" aria-live="polite">{elegidos.length === 0 ? 'Todavía no elegiste paquetes.' : `${elegidos.length} paquete(s) elegidos`}</p>
+              {coinciden.length === 0 && <p className="rounded-2xl border border-dashed border-linea p-4 text-sm text-suave">Ningún paquete coincide con esa búsqueda.</p>}
               <ul className="space-y-2">
-                {bodega.map((paquete) => {
+                {tandas.visibles.map((paquete) => {
                   const marcado = elegidos.includes(paquete.paqueteId);
                   return (
                     <li key={paquete.paqueteId}>
@@ -93,6 +116,7 @@ export function Consolidar() {
                   );
                 })}
               </ul>
+              <PieTandas total={tandas.total} mostrados={tandas.mostrados} hayMas={tandas.hayMas} verMas={tandas.verMas} />
               {errores.elegidos && <p className="ayuda font-semibold text-rojo">{errores.elegidos}</p>}
               <p className="ayuda">Los paquetes que no elijas se quedan guardados en bodega hasta que los envíes.</p>
             </section>

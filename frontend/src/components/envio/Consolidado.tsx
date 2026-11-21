@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { FaWhatsapp } from 'react-icons/fa';
 import { FiCheckSquare, FiPackage, FiSquare } from 'react-icons/fi';
 import { EditarSeguro, EditarValorPaquete } from './EditarCotizacion';
+import { PieTandas, useTandas } from '../Tandas';
 import { EditarValorYTransportista, SelectorModalidad } from './ModalidadYValor';
 import { PrecioCaja } from './PrecioCaja';
 import { Alerta, Campo, ImagenPrivada, Seccion, useAviso } from '../ui';
 import { api, mensajeDeError } from '../../lib/api';
+import { coincideTracking } from '../../lib/cuenta';
 import { aNumero, formatearUsd, nombreTransportista, primerNombre } from '../../lib/formato';
 import type { Envio, ItemBodega, PaqueteVista } from '../../lib/tipos';
 import { useCarga } from '../../lib/useCarga';
@@ -78,7 +80,11 @@ export function AgregarDeBodega({ envio, alCambiar }: PropiedadesEnvio) {
   );
   const [elegidos, setElegidos] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [busqueda, setBusqueda] = useState('');
   const disponibles = (datos ?? []).filter((p) => p.cliente.id === envio.cliente.id && p.tipoEnvio === 'ALERTA');
+  const coinciden = disponibles.filter((p) => coincideTracking(p.tracking, busqueda));
+  const tandas = useTandas(coinciden);
+  const todosElegidos = coinciden.length > 0 && coinciden.every((p) => elegidos.includes(p.paqueteId));
 
   async function agregar() {
     setError(null);
@@ -96,8 +102,21 @@ export function AgregarDeBodega({ envio, alCambiar }: PropiedadesEnvio) {
   if (disponibles.length === 0) return <p className="text-sm text-suave">El cliente no tiene más paquetes en bodega.</p>;
   return (
     <div className="space-y-3">
+      {disponibles.length > 10 && <Campo etiqueta="Buscar por tracking" type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} autoComplete="off" />}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-bold text-marino" aria-live="polite">{elegidos.length === 0 ? 'Todavía no elegiste paquetes.' : `${elegidos.length} paquete(s) elegidos`}</p>
+        <button
+          type="button"
+          className="btn btn-suave btn-chico"
+          disabled={coinciden.length === 0}
+          onClick={() => setElegidos((actuales) => (todosElegidos ? actuales.filter((id) => !coinciden.some((p) => p.paqueteId === id)) : [...new Set([...actuales, ...coinciden.map((p) => p.paqueteId)])]))}
+        >
+          {todosElegidos ? 'Quitar todos' : busqueda.trim() ? `Elegir los ${coinciden.length} que coinciden` : 'Elegir todos'}
+        </button>
+      </div>
+      {coinciden.length === 0 && <p className="text-sm text-suave">Ningún paquete coincide con esa búsqueda.</p>}
       <ul className="space-y-2">
-        {disponibles.map((p) => {
+        {tandas.visibles.map((p) => {
           const marcado = elegidos.includes(p.paqueteId);
           return (
             <li key={p.paqueteId}>
@@ -110,6 +129,7 @@ export function AgregarDeBodega({ envio, alCambiar }: PropiedadesEnvio) {
           );
         })}
       </ul>
+      <PieTandas total={tandas.total} mostrados={tandas.mostrados} hayMas={tandas.hayMas} verMas={tandas.verMas} />
       {error && <Alerta tono="error">{error}</Alerta>}
       <button type="button" className="btn btn-primario w-full sm:w-auto" disabled={elegidos.length === 0} onClick={() => void agregar()}>
         {elegidos.length > 0 ? `Agregar ${elegidos.length} paquete(s) al envío` : 'Elige paquetes para agregar'}

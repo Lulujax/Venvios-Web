@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { FiCheckSquare, FiSquare } from 'react-icons/fi';
 import { CambiarDueno, DescartarPaquete } from '../../components/envio/AccionesPaquete';
+import { PieTandas, useTandas } from '../../components/Tandas';
 import { ElegirModalidad, ElegirTransportista } from '../../components/OpcionesEnvio';
 import { Alerta, Campo, Cargando, ErrorCarga, InsigniaEstado, Vacio } from '../../components/ui';
 import { api, mensajeDeError } from '../../lib/api';
@@ -71,6 +72,7 @@ export default function Bodega() {
   };
 
   const items = datos ?? [];
+  const tandas = useTandas(items);
   const seleccion = items.filter((i) => elegidos.includes(i.paqueteId));
 
   function alternar(item: ItemBodega) {
@@ -111,7 +113,7 @@ export default function Bodega() {
           {error && <ErrorCarga mensaje={error} reintentar={() => void recargar()} />}
           {datos && items.length === 0 && <Vacio titulo={sinDueno ? 'No hay paquetes sin dueño' : 'La bodega está vacía'} texto={q ? 'Prueba con otra búsqueda.' : 'Lo que escanees aparecerá aquí.'} />}
           <ul className="space-y-3">
-            {items.map((item) => {
+            {tandas.visibles.map((item) => {
               const dias = diasEnBodega(item.recibidoEn);
               const seleccionable = !item.sinDueno && item.tipoEnvio === 'ALERTA';
               const marcado = elegidos.includes(item.paqueteId);
@@ -149,6 +151,7 @@ export default function Bodega() {
               );
             })}
           </ul>
+          <PieTandas total={tandas.total} mostrados={tandas.mostrados} hayMas={tandas.hayMas} verMas={tandas.verMas} />
         </div>
 
         <aside className="xl:sticky xl:top-6 xl:self-start">

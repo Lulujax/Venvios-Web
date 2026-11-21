@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, useNavigate, useSearchParams } from 'react-router-dom';
 import { FiArchive, FiCamera, FiCreditCard, FiHome, FiList, FiLogOut, FiPlus, FiSettings } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
+import { PieTandas, useTandas } from '../../components/Tandas';
 import { Alerta, Cargando, ErrorCarga, InsigniaEstado, Marca, Vacio } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -135,6 +136,7 @@ export function ListaEnvios() {
   if (estado) consulta.set('estado', estado);
   if (q) consulta.set('q', q);
   const { datos, cargando, error, recargar } = useCarga(() => api.get<{ envios: Envio[] }>(`/envios?${consulta.toString()}`).then((r) => r.envios), [estado, q]);
+  const tandas = useTandas(datos ?? []);
 
   const cambiar = (clave: string, valor: string) => {
     const nuevos = new URLSearchParams(params);
@@ -167,7 +169,7 @@ export function ListaEnvios() {
       {error && <ErrorCarga mensaje={error} reintentar={() => void recargar()} />}
       {datos && datos.length === 0 && <Vacio titulo="No hay envíos con esos filtros" texto="Prueba con otro estado o borra la búsqueda." />}
       <ul className="space-y-3">
-        {datos?.map((envio) => (
+        {tandas.visibles.map((envio) => (
           <li key={envio.id}>
             <Link to={`/panel/envios/${envio.id}`} className="tarjeta block p-4 transition hover:border-marino/40">
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -185,6 +187,7 @@ export function ListaEnvios() {
           </li>
         ))}
       </ul>
+      <PieTandas total={tandas.total} mostrados={tandas.mostrados} hayMas={tandas.hayMas} verMas={tandas.verMas} />
     </div>
   );
 }

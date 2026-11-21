@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiChevronRight } from 'react-icons/fi';
 import { ContenidoCuenta, EncabezadoCuenta, useEnviosCliente } from '../../components/CuentaPiezas';
+import { PieTandas, useTandas } from '../../components/Tandas';
 import { Cargando, ErrorCarga, InsigniaEstado, Vacio } from '../../components/ui';
 import { filtrarPedidos, type FiltroPedidos } from '../../lib/cuenta';
 import { formatearBs, formatearFecha, formatearUsd, nombreEnvio, nombreTransportista } from '../../lib/formato';
@@ -16,6 +17,7 @@ export function Pedidos() {
   const { datos, cargando, error, recargar } = useEnviosCliente();
   const [filtro, setFiltro] = useState<FiltroPedidos>('TODOS');
   const pedidos = datos ? filtrarPedidos(datos, filtro) : [];
+  const tandas = useTandas(pedidos);
 
   return (
     <>
@@ -44,7 +46,7 @@ export function Pedidos() {
                 <span />
               </div>
               <ul className="divide-y divide-linea">
-                {pedidos.map((envio) => (
+                {tandas.visibles.map((envio) => (
                   <li key={envio.id}>
                     <Link to={`/cuenta/envios/${envio.id}`} className="grid items-center gap-2 px-3 py-4 hover:bg-marino-50/60 md:grid-cols-[1.1fr_1.2fr_1fr_1fr_28px] md:gap-4">
                       <span className="text-sm text-suave">{formatearFecha(envio.creadoEn)}</span>
@@ -62,6 +64,7 @@ export function Pedidos() {
                   </li>
                 ))}
               </ul>
+              <PieTandas total={tandas.total} mostrados={tandas.mostrados} hayMas={tandas.hayMas} verMas={tandas.verMas} />
             </div>
           )}
         </div>
