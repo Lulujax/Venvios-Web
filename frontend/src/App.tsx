@@ -7,12 +7,12 @@ import { CambiarClave, Ingresar, Registro } from './pages/Acceso';
 import DetalleEnvio from './pages/DetalleEnvio';
 import Landing from './pages/Landing';
 import NuevaPrealerta from './pages/NuevaPrealerta';
-import { Alertas } from './pages/cliente/Alertas';
 import { Consolidar } from './pages/cliente/Consolidar';
 import { CuentaLayout } from './pages/cliente/Cuenta';
 import { Finanzas } from './pages/cliente/Finanzas';
 import { Inicio as InicioCuenta } from './pages/cliente/Inicio';
-import { Pedidos } from './pages/cliente/Pedidos';
+import { MisEnvios } from './pages/cliente/MisEnvios';
+import { Rastrear } from './pages/cliente/Rastrear';
 import { Perfil } from './pages/cliente/Perfil';
 import { Inicio, ListaEnvios, PanelLayout } from './pages/panel/Panel';
 import PagosPendientes from './pages/panel/PagosPendientes';
@@ -60,8 +60,10 @@ export default function App() {
       <Route element={<Protegida roles={['CLIENTE']} />}>
         <Route path="/cuenta" element={<CuentaLayout />}>
           <Route index element={<InicioCuenta />} />
-          <Route path="pedidos" element={<Pedidos />} />
-          <Route path="alertas" element={<Alertas />} />
+          <Route path="mis-envios" element={<MisEnvios />} />
+          <Route path="rastrear" element={<Rastrear />} />
+          <Route path="pedidos" element={<Navigate to="/cuenta/mis-envios?pestana=ACTIVOS" replace />} />
+          <Route path="alertas" element={<Navigate to="/cuenta/mis-envios?pestana=PREALERTAS" replace />} />
           <Route path="consolidar" element={<Consolidar />} />
           <Route path="finanzas" element={<Finanzas />} />
           <Route path="perfil" element={<Perfil />} />

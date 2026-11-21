@@ -146,7 +146,7 @@ export default function DetalleEnvio({ personal }: { personal: boolean }) {
   const puedePagar = !esAlerta && envio.precio !== null && ['POR_PAGAR', 'POR_CONFIRMAR'].includes(envio.estado);
   const hayEnBodega = alertaActiva && envio.paquetes.some((p) => p.recibido);
   const transportista = nombreTransportista(envio.transportista);
-  const volver = personal ? (esAlerta ? '/panel/bodega' : '/panel/envios') : esAlerta ? '/cuenta/alertas' : '/cuenta/pedidos';
+  const volver = personal ? (esAlerta ? '/panel/bodega' : '/panel/envios') : esAlerta ? '/cuenta/mis-envios?pestana=PREALERTAS' : '/cuenta/mis-envios?pestana=ACTIVOS';
 
   const etapaConsolidar = personal && consolidadoAbierto;
   const etapaPago = personal && !esAlerta && envio.estado === 'POR_CONFIRMAR';

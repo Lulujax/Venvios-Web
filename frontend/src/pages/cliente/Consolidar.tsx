@@ -65,7 +65,7 @@ export function Consolidar() {
         {error && <ErrorCarga mensaje={error} reintentar={() => void recargar()} />}
         {datos && bodega.length === 0 && (
           <div className="tarjeta p-5 sm:p-6">
-            <Vacio titulo="No tienes paquetes en bodega" texto="Cuando lleguen tus paquetes a nuestra oficina aparecerán aquí para que elijas cuáles enviar." accion={<Link to="/cuenta/alertas" className="btn btn-primario">Ver mis alertas</Link>} />
+            <Vacio titulo="No tienes paquetes en bodega" texto="Cuando lleguen tus paquetes a nuestra oficina aparecerán aquí para que elijas cuáles enviar." accion={<Link to="/cuenta/mis-envios?pestana=PREALERTAS" className="btn btn-primario">Ver mis pre-alertas</Link>} />
           </div>
         )}
         {bodega.length > 0 && (

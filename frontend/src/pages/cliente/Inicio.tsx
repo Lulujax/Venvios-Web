@@ -47,7 +47,7 @@ export function Inicio() {
               valor={String(resumen.alertasPendientes)}
               icono={FiBell}
               detalle="Paquetes que aún no llegan"
-              a="/cuenta/alertas"
+              a="/cuenta/mis-envios?pestana=PREALERTAS"
               enlace="Ver alertas"
             />
             <TarjetaCifra
@@ -71,7 +71,7 @@ export function Inicio() {
               valor={String(resumen.pagados)}
               icono={FiPackage}
               detalle="Historial de tus envíos"
-              a="/cuenta/pedidos"
+              a="/cuenta/mis-envios?pestana=ACTIVOS"
               enlace="Ver pedidos"
             />
           </div>
