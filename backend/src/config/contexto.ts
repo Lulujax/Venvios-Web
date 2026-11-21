@@ -66,19 +66,38 @@ export function crearContexto(opciones: OpcionesContexto): Contexto {
   };
 }
 
+export function variableConValor(nombre: string): string | undefined {
+  const valor = process.env[nombre]?.trim();
+  if (!valor) {
+    if (process.env[nombre] !== undefined) logger.warn('Variable de entorno vacía; se trata como no definida', { variable: nombre });
+    return undefined;
+  }
+  return valor;
+}
+
+export function validarUrlBaseDatos(url: string): string {
+  if (/^postgres(ql)?:\/\//i.test(url)) return url;
+  if (/^https?:\/\//i.test(url)) {
+    throw new Error('DATABASE_URL tiene una dirección web (https://). Esa va en SUPABASE_URL. DATABASE_URL debe ser la cadena de conexión que empieza con postgresql:// (Supabase → Connect). Para probar en memoria, déjala vacía.');
+  }
+  throw new Error('DATABASE_URL debe empezar con postgresql:// o postgres://. Para probar en memoria, déjala vacía.');
+}
+
 const LLAVE_DESARROLLO = 'b'.repeat(64);
 const SECRETO_DESARROLLO = 'secreto-solo-para-desarrollo-local';
 
 export async function crearContextoDesdeEntorno(): Promise<Contexto> {
   const produccion = process.env.NODE_ENV === 'production' || Boolean(process.env.NETLIFY);
-  const secretoJwt = process.env.JWT_SECRET;
-  const llaveCedula = process.env.CEDULA_KEY;
+  const secretoJwt = variableConValor('JWT_SECRET');
+  const llaveCedula = variableConValor('CEDULA_KEY');
   if (produccion && (!secretoJwt || !llaveCedula)) {
     throw new Error('Faltan JWT_SECRET o CEDULA_KEY en las variables de entorno.');
   }
 
   let repos: Repositorios;
-  if (process.env.DATABASE_URL) {
+  const urlBaseDatos = variableConValor('DATABASE_URL');
+  if (urlBaseDatos) {
+    validarUrlBaseDatos(urlBaseDatos);
     const { crearRepositoriosPrisma } = await import('../repositories/prisma');
     repos = crearRepositoriosPrisma();
     logger.info('Usando base de datos Postgres');
@@ -88,11 +107,12 @@ export async function crearContextoDesdeEntorno(): Promise<Contexto> {
     logger.warn('Sin DATABASE_URL: se usan datos en memoria (se pierden al reiniciar)');
   }
 
-  if (produccion && !process.env.SUPABASE_URL) {
+  const urlSupabase = variableConValor('SUPABASE_URL');
+  if (produccion && !urlSupabase) {
     throw new Error('Falta SUPABASE_URL en producción: sin ella las fotos y comprobantes se perderían.');
   }
-  const almacenamiento: Almacenamiento = process.env.SUPABASE_URL
-    ? new AlmacenamientoSupabase(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY ?? '', process.env.SUPABASE_BUCKET ?? '')
+  const almacenamiento: Almacenamiento = urlSupabase
+    ? new AlmacenamientoSupabase(urlSupabase, process.env.SUPABASE_SERVICE_KEY ?? '', process.env.SUPABASE_BUCKET ?? '')
     : new AlmacenamientoMemoria();
 
   return crearContexto({
