@@ -117,6 +117,7 @@ export interface Envio {
     precioPorKgCentavos: number;
     fleteCentavos: number;
     seguroCentavos: number;
+    seguroManual: boolean;
     totalCentavos: number;
     totalBsCentavos: number | null;
   } | null;

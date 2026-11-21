@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FaWhatsapp } from 'react-icons/fa';
 import { FiCheckSquare, FiPackage, FiSquare } from 'react-icons/fi';
+import { EditarSeguro, EditarValorPaquete } from './EditarCotizacion';
 import { EditarValorYTransportista, SelectorModalidad } from './ModalidadYValor';
 import { PrecioCaja } from './PrecioCaja';
 import { Alerta, Campo, ImagenPrivada, Seccion, useAviso } from '../ui';
@@ -47,15 +48,20 @@ export function PaquetesDelConsolidado({ envio, alCambiar }: PropiedadesEnvio) {
     <div className="space-y-3">
       <ul className="space-y-2">
         {envio.paquetes.map((paquete) => (
-          <li key={paquete.id} className="flex items-center justify-between gap-3 rounded-2xl border border-linea px-4 py-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <FiPackage className="shrink-0 text-xl text-verde" aria-hidden />
-              <p className="codigo truncate">{paquete.tracking}</p>
-              {paquete.tieneFoto && <ImagenPrivada ruta={paquete.fotoRuta} alt={`Foto del paquete ${paquete.tracking}`} className="h-12 w-12 shrink-0" />}
+          <li key={paquete.id} className="rounded-2xl border border-linea px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <FiPackage className="shrink-0 text-xl text-verde" aria-hidden />
+                <p className="codigo truncate">{paquete.tracking}</p>
+                {paquete.tieneFoto && <ImagenPrivada ruta={paquete.fotoRuta} alt={`Foto del paquete ${paquete.tracking}`} className="h-12 w-12 shrink-0" />}
+              </div>
+              <button type="button" className="btn btn-suave btn-chico shrink-0" disabled={quitando !== null} aria-label={`Quitar paquete ${paquete.tracking}`} onClick={() => void quitar(paquete)}>
+                Quitar paquete
+              </button>
             </div>
-            <button type="button" className="btn btn-suave btn-chico shrink-0" disabled={quitando !== null} aria-label={`Quitar paquete ${paquete.tracking}`} onClick={() => void quitar(paquete)}>
-              Quitar paquete
-            </button>
+            <div className="mt-2">
+              <EditarValorPaquete key={`${paquete.id}-${paquete.valorDeclaradoCentavos}`} paquete={paquete} alCambiar={alCambiar} />
+            </div>
           </li>
         ))}
       </ul>
@@ -179,7 +185,7 @@ function ZonaCobro({ envio, alCambiar }: PropiedadesEnvio) {
       </Seccion>
 
       <Seccion titulo="3 · Total y cotización">
-        {envio.precio ? <PrecioCaja envio={envio} /> : <p className="rounded-2xl border border-dashed border-linea p-4 text-sm text-suave">Todavía no hay total. Revisa el peso y pulsa «Calcular total».</p>}
+        {envio.precio ? <><PrecioCaja envio={envio} /><EditarSeguro key={`${envio.precio.seguroCentavos}-${envio.precio.seguroManual}`} envio={envio} alCambiar={alCambiar} /></> : <p className="rounded-2xl border border-dashed border-linea p-4 text-sm text-suave">Todavía no hay total. Revisa el peso y pulsa «Calcular total».</p>}
         {error && <Alerta tono="error" className="mt-4">{error}</Alerta>}
         <div className="mt-5 flex flex-col gap-3 sm:flex-row">
           <button type="button" className="btn btn-primario w-full sm:w-auto" disabled={ocupado || envio.paquetes.length === 0} onClick={() => void calcular()}>

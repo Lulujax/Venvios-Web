@@ -31,6 +31,35 @@ function tituloDe(envio: Envio): string {
   return `Alerta de ${envio.tienda}`;
 }
 
+export function YaLoRecibi({ envio, alCambiar }: { envio: Envio; alCambiar: (envio: Envio) => void }) {
+  const avisar = useAviso();
+  const [ocupado, setOcupado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function confirmar() {
+    if (!window.confirm('¿Ya recibiste tu envío? Al confirmarlo lo damos por entregado.')) return;
+    setOcupado(true);
+    setError(null);
+    try {
+      const r = await api.post<{ envio: Envio }>(`/envios/${envio.id}/recibido`);
+      alCambiar(r.envio);
+      avisar('Gracias por confirmar. Tu envío quedó como entregado.');
+    } catch (falla) {
+      setError(mensajeDeError(falla));
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  return (
+    <div className="mt-5 space-y-2 border-t border-linea pt-4">
+      <p className="text-sm text-suave">Cuando tengas tu paquete en la mano, confírmalo aquí.</p>
+      <button type="button" className="btn btn-acento" disabled={ocupado} onClick={() => void confirmar()}>{ocupado ? 'Confirmando…' : 'Ya lo recibí'}</button>
+      {error && <Alerta tono="error">{error}</Alerta>}
+    </div>
+  );
+}
+
 function DescartarEnvio({ envio, alCambiar }: { envio: Envio; alCambiar: (envio: Envio) => void }) {
   const avisar = useAviso();
   const [abierto, setAbierto] = useState(false);
@@ -203,12 +232,13 @@ export default function DetalleEnvio({ personal }: { personal: boolean }) {
             </Seccion>
           )}
 
-          {!personal && (envio.estado === 'DESPACHADO' || envio.estado === 'CERRADO') && envio.guia.numero && (
+          {!personal && (envio.estado === 'DESPACHADO' || envio.estado === 'CERRADO') && (envio.guia.numero || envio.guia.tieneFoto) && (
             <Seccion titulo="Tu guía de Venezuela">
               <p className="text-sm text-suave">{transportista}</p>
-              <p className="codigo text-2xl">{envio.guia.numero}</p>
+              {envio.guia.numero && <p className="codigo text-2xl">{envio.guia.numero}</p>}
               {envio.guia.tieneFoto && <div className="mt-4"><ImagenPrivada ruta={envio.guia.fotoRuta} alt="Foto de la guía" className="max-h-80 w-full object-contain bg-papel sm:w-auto" /></div>}
-              <a className="btn btn-primario mt-4" target="_blank" rel="noopener noreferrer" href={enlaceRastreo(envio.transportista === 'ZOOM' ? 'https://zoom.red/tracking-de-envios-personas/' : 'https://mrwve.com', null, envio.guia.numero)}>Rastrear en {transportista}</a>
+              {envio.guia.numero && <a className="btn btn-primario mt-4" target="_blank" rel="noopener noreferrer" href={enlaceRastreo(envio.transportista === 'ZOOM' ? 'https://zoom.red/tracking-de-envios-personas/' : 'https://mrwve.com', null, envio.guia.numero)}>Rastrear en {transportista}</a>}
+              {envio.estado === 'DESPACHADO' && <YaLoRecibi envio={envio} alCambiar={alCambiar} />}
             </Seccion>
           )}
 

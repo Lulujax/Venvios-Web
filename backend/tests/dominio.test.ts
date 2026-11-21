@@ -175,19 +175,19 @@ describe('pago exacto y referencia', () => {
     expect(esMontoExacto('USD', 0, 0, 0)).toBe(false);
   });
 
-  it('Binance: el ID de la transacción son 8 a 40 letras y números', () => {
+  it('Binance: el ID de la transacción acepta desde un carácter y no tiene máximo', () => {
     expect(validarReferenciaPago(' 4F9A 2B7C1D ', 'BINANCE')).toBe('4F9A2B7C1D');
-    expect(validarReferenciaPago('A'.repeat(40), 'BINANCE')).toHaveLength(40);
-    expect(() => validarReferenciaPago('1234567', 'BINANCE')).toThrow('ID de la transacción');
-    expect(() => validarReferenciaPago('A'.repeat(41), 'BINANCE')).toThrow();
-    expect(() => validarReferenciaPago('BIN-12345678', 'BINANCE')).toThrow();
+    expect(validarReferenciaPago('A', 'BINANCE')).toBe('A');
+    expect(validarReferenciaPago('A'.repeat(200), 'BINANCE')).toHaveLength(200);
+    expect(() => validarReferenciaPago('BIN-12345678', 'BINANCE')).toThrow('ID de la transacción');
     expect(() => validarReferenciaPago('', 'BINANCE')).toThrow();
   });
 
-  it('la referencia son los últimos 6 dígitos', () => {
+  it('la referencia del pago móvil y la transferencia tiene entre 6 y 12 dígitos', () => {
     expect(validarReferenciaPago(' 123 456 ')).toBe('123456');
-    expect(() => validarReferenciaPago('12345')).toThrow('6 dígitos');
-    expect(() => validarReferenciaPago('1234567')).toThrow();
+    expect(validarReferenciaPago('123456789012')).toBe('123456789012');
+    expect(() => validarReferenciaPago('12345')).toThrow('6 y 12');
+    expect(() => validarReferenciaPago('1234567890123')).toThrow();
     expect(() => validarReferenciaPago('ABC123')).toThrow();
   });
 });

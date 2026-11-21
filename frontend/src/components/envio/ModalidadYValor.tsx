@@ -44,16 +44,15 @@ export function SelectorModalidad({ envio, alCambiar, leyendaVisible = false }: 
 
 export function EditarValorYTransportista({ envio, alCambiar }: { envio: Envio; alCambiar: (envio: Envio) => void }) {
   const avisar = useAviso();
-  const [valor, setValor] = useState((envio.valorDeclaradoCentavos / 100).toFixed(2));
   const [transportista, setTransportista] = useState(envio.transportista);
   const [error, setError] = useState<string | null>(null);
 
   async function guardar() {
     setError(null);
     try {
-      const r = await api.patch<{ envio: Envio }>(`/envios/${envio.id}`, { valorDeclaradoUsd: aNumero(valor), transportista });
+      const r = await api.patch<{ envio: Envio }>(`/envios/${envio.id}`, { transportista });
       alCambiar(r.envio);
-      avisar('Datos actualizados. Vuelve a calcular el total.');
+      avisar('Transportista actualizada. Vuelve a calcular el total.');
     } catch (falla) {
       setError(mensajeDeError(falla));
     }
@@ -61,9 +60,8 @@ export function EditarValorYTransportista({ envio, alCambiar }: { envio: Envio; 
 
   return (
     <details className="rounded-2xl border border-linea p-4">
-      <summary className="cursor-pointer text-sm font-bold text-marino">Corregir valor declarado o transportista</summary>
+      <summary className="cursor-pointer text-sm font-bold text-marino">Cambiar la transportista</summary>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <Campo etiqueta="Valor declarado ($)" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} />
         <div>
           <label htmlFor="edit-transp" className="etiqueta">Transportista</label>
           <select id="edit-transp" className="campo" value={transportista} onChange={(e) => setTransportista(e.target.value as Envio['transportista'])}>
@@ -73,7 +71,7 @@ export function EditarValorYTransportista({ envio, alCambiar }: { envio: Envio; 
         </div>
       </div>
       {error && <Alerta tono="error" className="mt-3">{error}</Alerta>}
-      <button type="button" className="btn btn-primario btn-chico mt-4" onClick={() => void guardar()}>Guardar valor y transportista</button>
+      <button type="button" className="btn btn-primario btn-chico mt-4" onClick={() => void guardar()}>Guardar transportista</button>
     </details>
   );
 }

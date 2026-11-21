@@ -56,7 +56,7 @@ function crearEnvio(sobrescribir: Partial<Envio> = {}): Envio {
   };
 }
 
-const PRECIO = { pesoCobrableKg: 4.35, precioPorKgCentavos: 950, fleteCentavos: 4133, seguroCentavos: 300, totalCentavos: 4433, totalBsCentavos: 3990000 };
+const PRECIO = { pesoCobrableKg: 4.35, precioPorKgCentavos: 950, fleteCentavos: 4133, seguroCentavos: 300, seguroManual: false, totalCentavos: 4433, totalBsCentavos: 3990000 };
 
 function pago(estado: PagoVista['estado']): PagoVista {
   return { id: 'pago-1', estado, metodo: 'PAGO_MOVIL', moneda: 'BS', montoOriginalCentavos: 3990000, montoUsdCentavos: 4433, referencia: '123456', tieneComprobante: true, comprobanteRuta: null, motivoRechazo: null, creadoEn: '2026-11-20T11:00:00Z' };

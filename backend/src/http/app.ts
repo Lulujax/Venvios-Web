@@ -241,6 +241,7 @@ export function crearApp(contexto: Contexto): express.Express {
     }),
   );
 
+  api.post('/envios/:id/recibido', exigirSesion, rutaTx(async (req, res) => res.json({ envio: await contexto.envios.confirmarRecibido(actorDe(req), req.params.id!) })));
   api.post('/envios/:id/entrega/perfil', exigirSesion, rutaTx(async (req, res) => res.json({ envio: await contexto.envios.actualizarEntregaConPerfil(actorDe(req), req.params.id!) })));
 
   api.get(
@@ -353,6 +354,14 @@ export function crearApp(contexto: Contexto): express.Express {
   staff.post('/paquetes/:id/descartar', rutaTx(async (req, res) => res.json({ envio: await contexto.envios.descartarPaquete(actorDe(req), req.params.id!, z.object({ motivo: z.string() }).parse(req.body).motivo) })));
   staff.post('/envios/:id/cotizar', rutaTx(async (req, res) => res.json({ envio: await contexto.envios.cotizar(actorDe(req), req.params.id!, numero(req.body?.pesoKg)) })));
   staff.post('/envios/:id/paquetes', rutaTx(async (req, res) => res.json({ envio: await contexto.envios.agregarAlConsolidado(actorDe(req), req.params.id!, z.object({ paqueteIds: z.array(z.string()).min(1) }).parse(req.body).paqueteIds) })));
+  staff.patch('/paquetes/:id/valor', rutaTx(async (req, res) => {
+    const { valorUsd, motivo } = z.object({ valorUsd: z.coerce.number(), motivo: z.string() }).parse(req.body);
+    res.json({ envio: await contexto.envios.editarValorPaquete(actorDe(req), req.params.id!, valorUsd, motivo) });
+  }));
+  staff.patch('/envios/:id/seguro', rutaTx(async (req, res) => {
+    const { seguroUsd, motivo } = z.object({ seguroUsd: z.coerce.number().nullable(), motivo: z.string().default('') }).parse(req.body);
+    res.json({ envio: await contexto.envios.editarSeguro(actorDe(req), req.params.id!, req.body?.seguroUsd === null ? null : seguroUsd, motivo) });
+  }));
   staff.post('/envios/:id/quitar-paquete', rutaTx(async (req, res) => res.json({ envio: await contexto.envios.quitarDelConsolidado(actorDe(req), req.params.id!, z.object({ paqueteId: z.string() }).parse(req.body).paqueteId) })));
   staff.post('/paquetes/:id/peso', rutaTx(async (req, res) => res.json({ envio: await contexto.envios.registrarPeso(actorDe(req), req.params.id!, numero(req.body?.pesoKg)) })));
   staff.post('/paquetes/:id/foto', subida.single('archivo'), rutaTx(async (req, res) => res.json({ envio: await contexto.envios.registrarFotoPaquete(actorDe(req), req.params.id!, archivoDe(req)) })));

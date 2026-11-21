@@ -89,6 +89,7 @@ export interface Envio {
   pesoCobrableCentesimas: number | null;
   fleteCentavos: number | null;
   seguroCentavos: number | null;
+  seguroManualCentavos: number | null;
   totalCentavos: number | null;
   entrega: EntregaGuardada;
   guiaVenezolana: string | null;

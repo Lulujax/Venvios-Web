@@ -120,6 +120,7 @@ model Envio {
   pesoCobrableCentesimas Int?
   fleteCentavos          Int?
   seguroCentavos         Int?
+  seguroManualCentavos   Int?
   totalCentavos          Int?
   entregaNombreCifrado   String?
   entregaCedulaCifrada   String?

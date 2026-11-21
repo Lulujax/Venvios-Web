@@ -219,6 +219,7 @@ export class EnvioMemoria implements EnvioRepository, ConInstantanea {
       pesoCobrableCentesimas: null,
       fleteCentavos: null,
       seguroCentavos: null,
+      seguroManualCentavos: null,
       totalCentavos: null,
       entrega: { ...ENTREGA_VACIA },
       guiaVenezolana: null,

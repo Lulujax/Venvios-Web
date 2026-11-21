@@ -16,7 +16,7 @@ import {
   type TipoEnvio,
 } from '../domain/estados';
 import { entregaDesdePerfil } from '../domain/perfil';
-import { calcularPrecio, kilosACentesimas, modalidadPropuesta, type Modalidad } from '../domain/tarifas';
+import { calcularPrecio, kilosACentesimas, modalidadPropuesta, type Modalidad, type PrecioCalculado } from '../domain/tarifas';
 import { codigoContieneTracking, coincidenTrackings, normalizarTracking } from '../domain/tracking';
 import { limpiarTexto, validarCedula, validarPesoKg, validarTelefono, validarValorDeclarado } from '../domain/validaciones';
 import type { Envio, Pago, Paquete, Repositorios, Rol, Transportista, Usuario } from '../repositories/tipos';
@@ -77,6 +77,7 @@ export interface EnvioVista {
     precioPorKgCentavos: number;
     fleteCentavos: number;
     seguroCentavos: number;
+    seguroManual: boolean;
     totalCentavos: number;
     totalBsCentavos: number | null;
   } | null;
@@ -241,6 +242,7 @@ export class EnvioService {
               precioPorKgCentavos: Math.round(((envio.fleteCentavos ?? 0) * 100) / Math.max(envio.pesoCobrableCentesimas, 1)),
               fleteCentavos: envio.fleteCentavos ?? 0,
               seguroCentavos: envio.seguroCentavos ?? 0,
+              seguroManual: envio.seguroManualCentavos !== null,
               totalCentavos: envio.totalCentavos,
               totalBsCentavos: tasa ? dolaresABolivaresCentavos(envio.totalCentavos, tasa.bolivaresPorUsd) : null,
             }
@@ -305,7 +307,7 @@ export class EnvioService {
     this.exigirPersonal(actor);
     await this.cargar(envioId);
     const eventos = await this.repos.envios.eventosDe(envioId);
-    return eventos.map((e) => ({ tipo: e.tipo, detalle: e.detalle, actorId: e.actorId, fecha: e.creadoEn.toISOString() }));
+    return eventos.map((e) => ({ tipo: e.tipo, detalle: e.detalle, actorId: e.actorId, datos: e.datos, fecha: e.creadoEn.toISOString() }));
   }
 
   async listar(actor: Actor, filtro: { estado?: EstadoEnvio; q?: string } = {}): Promise<EnvioVista[]> {
@@ -520,10 +522,60 @@ export class EnvioService {
     return this.vista(await this.recalcular(actualizado));
   }
 
+  private async precioDe(envio: Envio, pesoCentesimas: number): Promise<PrecioCalculado> {
+    const automatico = calcularPrecio(envio.modalidad, pesoCentesimas, envio.valorDeclaradoCentavos, await this.config.tarifas());
+    if (envio.seguroManualCentavos === null) return automatico;
+    return { ...automatico, seguroCentavos: envio.seguroManualCentavos, totalCentavos: automatico.fleteCentavos + envio.seguroManualCentavos };
+  }
+
+  private exigirEnvioEditable(envio: Envio, pagos: Pago[]): void {
+    if (pagos.some((p) => p.estado !== 'RECHAZADO')) {
+      throw AppError.forbidden('El envío ya tiene un pago registrado. Solo el administrador puede corregirlo, desde «Corrección del administrador».');
+    }
+    if (envio.tipo !== 'CONSOLIDADO' || !ESTADOS_CONSOLIDADO_ABIERTOS.includes(envio.estado)) {
+      throw AppError.badRequest('Este envío ya no admite cambios de cotización.', 'ENVIO_BLOQUEADO');
+    }
+  }
+
+  async editarValorPaquete(actor: Actor, paqueteId: string, valorUsd: number, motivo: string): Promise<EnvioVista> {
+    this.exigirPersonal(actor);
+    const razon = exigirMotivo(motivo);
+    const nuevo = validarValorDeclarado(Number(valorUsd));
+    const { envio, paquete } = await this.buscarPorPaqueteId(paqueteId);
+    this.exigirEnvioEditable(envio, await this.repos.pagos.deEnvio(envio.id));
+    await this.repos.envios.actualizarPaquete(paqueteId, { valorDeclaradoCentavos: nuevo });
+    const refrescado = await this.cargar(envio.id);
+    const actualizado = await this.recalcular(await this.repos.envios.actualizar(envio.id, { valorDeclaradoCentavos: this.sumaDeValores(refrescado.paquetes) }));
+    await this.evento(envio.id, actor, 'VALOR_PAQUETE', `Valor del paquete ${paquete.trackingTexto} cambiado: ${razon}`, {
+      anteriorCentavos: paquete.valorDeclaradoCentavos,
+      nuevoCentavos: nuevo,
+    });
+    logger.info('Valor de un paquete editado', { envio: envio.id, actor: actor.id });
+    return this.vista(actualizado);
+  }
+
+  async editarSeguro(actor: Actor, envioId: string, seguroUsd: number | null, motivo: string): Promise<EnvioVista> {
+    this.exigirPersonal(actor);
+    const envio = await this.cargar(envioId);
+    this.exigirEnvioEditable(envio, await this.repos.pagos.deEnvio(envio.id));
+    const automatico = seguroUsd === null;
+    const razon = automatico ? limpiarTexto(motivo, 200) || 'Seguro vuelto a automático' : exigirMotivo(motivo);
+    if (!automatico && (!Number.isFinite(seguroUsd) || seguroUsd < 0)) throw AppError.badRequest('El seguro no puede ser negativo.');
+    const anteriorCentavos = envio.seguroCentavos;
+    const cambiado = await this.repos.envios.actualizar(envioId, { seguroManualCentavos: automatico ? null : Math.round(seguroUsd * 100) });
+    const actualizado = await this.recalcular(cambiado);
+    await this.evento(envioId, actor, 'SEGURO', `${automatico ? 'Seguro vuelto a automático' : 'Seguro editado a mano'}: ${razon}`, {
+      anteriorCentavos,
+      nuevoCentavos: actualizado.seguroCentavos,
+    });
+    logger.info('Seguro editado', { envio: envioId, actor: actor.id, automatico });
+    return this.vista(actualizado);
+  }
+
   private async recalcular(envio: Envio): Promise<Envio> {
     if (envio.tipo !== 'CONSOLIDADO' || envio.pesoTotalCentesimas === null) return envio;
     if (!ESTADOS_CONSOLIDADO_ABIERTOS.includes(envio.estado)) return envio;
-    const precio = calcularPrecio(envio.modalidad, envio.pesoTotalCentesimas, envio.valorDeclaradoCentavos, await this.config.tarifas());
+    const precio = await this.precioDe(envio, envio.pesoTotalCentesimas);
     return this.repos.envios.actualizar(envio.id, {
       pesoCobrableCentesimas: precio.pesoCobrableCentesimas,
       fleteCentavos: precio.fleteCentavos,
@@ -742,7 +794,7 @@ export class EnvioService {
     const envio = await this.consolidadoAbierto(envioId);
     if (envio.paquetes.length === 0) throw AppError.badRequest('El envío no tiene paquetes.');
     const peso = kilosACentesimas(validarPesoKg(pesoKg));
-    const precio = calcularPrecio(envio.modalidad, peso, envio.valorDeclaradoCentavos, await this.config.tarifas());
+    const precio = await this.precioDe(envio, peso);
     if (envio.estado === 'POR_CONSOLIDAR') validarTransicion('POR_CONSOLIDAR', 'POR_PAGAR');
     const actualizado = await this.repos.envios.actualizar(
       envio.id,
@@ -877,12 +929,25 @@ export class EnvioService {
     return this.vista(actualizado);
   }
 
+  async confirmarRecibido(actor: Actor, envioId: string): Promise<EnvioVista> {
+    if (esPersonal(actor)) throw AppError.forbidden('Esta confirmación la hace el cliente. El personal usa «Marcar entregado».');
+    const envio = await this.obtenerEnvio(actor, envioId);
+    if (envio.tipo !== 'CONSOLIDADO' || envio.estado !== 'DESPACHADO') {
+      throw AppError.badRequest('Solo puedes confirmar un envío que va en ruta.', 'ENVIO_NO_EN_RUTA');
+    }
+    validarTransicion(envio.estado, 'CERRADO');
+    const actualizado = await this.repos.envios.actualizar(envioId, { estado: 'CERRADO' }, envio.estado);
+    await this.evento(envioId, actor, 'ENTREGADO', 'El cliente confirmó que recibió el envío');
+    logger.info('Envío confirmado como recibido por el cliente', { envio: envioId });
+    return this.vista(actualizado);
+  }
+
   async cerrar(actor: Actor, envioId: string): Promise<EnvioVista> {
     this.exigirPersonal(actor);
     const envio = await this.cargar(envioId);
     validarTransicion(envio.estado, 'CERRADO');
     const actualizado = await this.repos.envios.actualizar(envioId, { estado: 'CERRADO' }, envio.estado);
-    await this.evento(envioId, actor, 'ENTREGADO', 'Marcado como entregado');
+    await this.evento(envioId, actor, 'ENTREGADO', 'El personal marcó el envío como entregado');
     return this.vista(actualizado);
   }
 
@@ -918,7 +983,7 @@ export class EnvioService {
     }
     if (cambios.pesoTotalKg !== undefined) {
       const centesimas = kilosACentesimas(validarPesoKg(cambios.pesoTotalKg));
-      const precio = calcularPrecio(trabajo.modalidad, centesimas, trabajo.valorDeclaradoCentavos, await this.config.tarifas());
+      const precio = await this.precioDe(trabajo, centesimas);
       trabajo = await this.repos.envios.actualizar(envioId, {
         pesoTotalCentesimas: centesimas,
         pesoCobrableCentesimas: precio.pesoCobrableCentesimas,

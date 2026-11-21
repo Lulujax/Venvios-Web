@@ -59,9 +59,9 @@ export function validarMonto(valor: string): string | null {
 export function validarReferencia(valor: string, metodo: string = 'PAGO_MOVIL'): string | null {
   const limpio = valor.replace(/\s/g, '');
   if (metodo === 'BINANCE') {
-    return /^[A-Za-z0-9]{8,40}$/.test(limpio) ? null : 'Escribe el ID de la transacción de Binance: entre 8 y 40 letras y números, sin guiones ni espacios.';
+    return /^[A-Za-z0-9]+$/.test(limpio) ? null : 'Escribe el ID de la transacción de Binance: solo letras y números, sin guiones ni espacios.';
   }
-  return /^\d{6}$/.test(limpio) ? null : 'Escribe los últimos 6 dígitos de la referencia, solo números.';
+  return /^\d{6,12}$/.test(limpio) ? null : 'Escribe entre 6 y 12 dígitos de la referencia, solo números.';
 }
 
 export function validarTracking(valor: string): string | null {

@@ -97,6 +97,7 @@ function aEnvio(fila: FilaEnvio): Envio {
     pesoCobrableCentesimas: fila.pesoCobrableCentesimas,
     fleteCentavos: fila.fleteCentavos,
     seguroCentavos: fila.seguroCentavos,
+    seguroManualCentavos: fila.seguroManualCentavos,
     totalCentavos: fila.totalCentavos,
     entrega: {
       nombreCifrado: fila.entregaNombreCifrado,

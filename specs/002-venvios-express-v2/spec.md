@@ -116,7 +116,7 @@ En todo el recorrido, el cliente ve el **seguimiento de cada paquete** con sus p
 
 - **RF-59** EL SISTEMA mostrará al cliente, en su cuenta, el total a pagar en dólares (y en Bs al cambio del día) y los datos para pagar por Binance o por pago móvil.
 - **RF-60** AL pagar, EL SISTEMA ligará método y moneda: Binance solo en dólares; pago móvil y transferencia solo en bolívares. El cambio de un campo ajustará el otro, y el servidor rechazará combinaciones inválidas.
-- **RF-61** EL SISTEMA pedirá al cliente que suba la captura de su comprobante y: en pago móvil y transferencia, el monto en Bs y los últimos 6 dígitos de la referencia (solo números); en Binance, el monto en dólares y el **ID de la transacción** (número largo, letras y números permitidos).
+- **RF-61** EL SISTEMA pedirá al cliente que suba la captura de su comprobante y: en pago móvil y transferencia, el monto en Bs y los últimos 6 a 12 dígitos de la referencia (solo números); en Binance, el monto en dólares y el **ID de la transacción** (letras y números permitidos, mínimo un carácter y sin límite de largo).
 - **RF-62** EL SISTEMA solo aceptará del cliente un comprobante por el monto exacto pendiente: en dólares para Binance, y en bolívares a la tasa BCV del día para pago móvil y transferencia. El monto viene escrito y no se edita. SI el cliente pagó otro monto, ENTONCES EL SISTEMA le indicará escribir a administración por WhatsApp.
 - **RF-63** CUANDO el cliente suba un comprobante, EL SISTEMA dejará el envío como «Pago en revisión» y lo mostrará al personal. SI ya hay un comprobante en revisión, ENTONCES EL SISTEMA no dejará subir otro.
 - **RF-64** EL SISTEMA permitirá al personal confirmar o rechazar el pago con un motivo. SI se rechaza, ENTONCES EL SISTEMA permitirá al operador abrir un chat de WhatsApp con el motivo escrito, para que el cliente suba otro.
@@ -244,7 +244,7 @@ Nota: con estos tramos, 9,9 kg cuestan 94,05 $ y 10 kg cuestan 85 $. Es lo que d
 - Como operador escaneo cada paquete (con cámara y con foto) y sale el cliente correcto, ya «En oficina». Un paquete prealertado sigue como «Prealertado» hasta que se escanea.
 - Como cliente guardo mis datos de entrega en mi perfil; después elijo esos 3 paquetes, escojo MRW y veo el valor declarado como la suma de los tres, sin volver a escribir la dirección.
 - Como operador veo la solicitud, pongo 4,35 kg con 60 $ declarados y el sistema muestra 44,33 $ y su equivalente en Bs. Corrijo un valor o el seguro y el total se recalcula. Mando la cotización por WhatsApp con el enlace.
-- Pago por pago móvil con 6 dígitos y por Binance con ID de transacción; los dos se registran sin error y el envío queda «Pago en revisión».
+- Pago por pago móvil con 6 a 12 dígitos y por Binance con ID de transacción; los dos se registran sin error y el envío queda «Pago en revisión».
 - Apruebo el pago y el envío dice «Enviando a Venezuela». Registro la guía de MRW con foto, pulso «Enviar guía» y el envío dice «En ruta».
 - El cliente pulsa «Ya lo recibí» y el envío queda «Entregado». También puedo cerrarlo yo confirmando en pantalla.
 - En su cuenta, el cliente ve cada paquete con sus pasos y fechas.

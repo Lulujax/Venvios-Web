@@ -47,6 +47,6 @@ Las claves nunca van en el código ni en Git.
 3. En Bodega verifica los 4 paquetes, el filtro «Sin dueño» y la antigüedad. Asigna el sin dueño a otro cliente y luego cámbialo de dueño con un motivo.
 4. Como cliente, en Consolidar elige los 3 paquetes, modalidad y transportista. Debe quedar «Por consolidar».
 5. Como operador, abre el envío, escribe el peso total 4,35 y pulsa Calcular total: con 60 $ declarados da 44,33 $. Pulsa «Enviar total por WhatsApp».
-6. Como cliente, en Finanzas paga: el monto viene fijo; la referencia pide 6 dígitos. Intenta un segundo comprobante: debe decir que hay uno en revisión.
+6. Como cliente, en Finanzas paga: el monto viene fijo; la referencia pide entre 6 y 12 dígitos (Binance no tiene máximo). Intenta un segundo comprobante: debe decir que hay uno en revisión.
 7. Confirma el pago, llena los datos de entrega, despacha con guía y foto, y marca «Entregado».
 8. Extras: el cliente elimina una alerta pendiente; el operador descarta un paquete con motivo; el cliente deshace un consolidado sin pagos y sus paquetes vuelven a bodega; registra una alerta con el tracking exacto de un paquete sin dueño y verifica que se une solo.

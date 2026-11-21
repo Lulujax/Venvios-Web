@@ -102,7 +102,7 @@ Los valores internos no cambian; solo las etiquetas.
 4. **Valor declarado del envío** = suma de los valores de sus paquetes.
 5. **Seguro** = seguro manual si existe; si no, el porcentaje de la modalidad sobre el valor declarado.
 6. **Edición antes del pago**: el operador edita valor por paquete y seguro con motivo; el administrador siempre. «Antes del pago» = ningún pago «por confirmar» ni «confirmado».
-7. **Referencia de pago** según el método: Binance = ID de 8 a 40 caracteres con letras y números; pago móvil y transferencia = 6 dígitos.
+7. **Referencia de pago** según el método: Binance = ID de al menos 1 carácter y sin máximo, con letras y números; pago móvil y transferencia = 6 a 12 dígitos.
 8. **Tracking**: se compara normalizando (mayúsculas, sin símbolos, sin ceros a la izquierda, sin prefijos comunes). Un código leído que contiene el número de la prealerta (mínimo 8 caracteres, con la forma `base.pieza` completada a 3 dígitos) cuenta como coincidencia; si coincide con varios, no se marca ninguno.
 9. **Despacho** solo con pago confirmado y datos de entrega completos.
 10. **Cierre** «En ruta» → «Entregado» por el dueño del envío o por el personal.
@@ -128,7 +128,7 @@ Los valores internos no cambian; solo las etiquetas.
 
 ## Pantallas del lote
 
-- **Cliente.** Alertas: valor por guía. Perfil (nuevo): «Mis datos» y «Mis datos de entrega». Consolidar: resumen de entrega con «Cambiar en mi perfil» y valor total visible. Pedidos: seguimiento por paquete y botón «Ya lo recibí» en «En ruta». Finanzas: pago con ID de Binance o 6 dígitos según el método.
+- **Cliente.** Alertas: valor por guía. Perfil (nuevo): «Mis datos» y «Mis datos de entrega». Consolidar: resumen de entrega con «Cambiar en mi perfil» y valor total visible. Pedidos: seguimiento por paquete y botón «Ya lo recibí» en «En ruta». Finanzas: pago con ID de Binance o de 6 a 12 dígitos según el método.
 - **Operador.** Solicitudes de consolidación visibles desde Inicio y Envíos; cotización con valor por paquete y seguro editables, y «Enviar cotización»; Pagos por revisar; despacho con guía y foto; «Entregado» con confirmación en pantalla.
 
 ## Orden de trabajo

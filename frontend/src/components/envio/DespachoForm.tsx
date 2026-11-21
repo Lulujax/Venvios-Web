@@ -58,6 +58,7 @@ export function DespachoForm({ envio, alCambiar }: { envio: Envio; alCambiar: (e
 
   const cerrar = () =>
     hacer(async () => {
+      if (!window.confirm('¿Confirmas que el cliente recibió este envío? Quedará como entregado.')) return;
       const r = await api.post<{ envio: Envio }>(`/staff/envios/${envio.id}/cerrar`);
       alCambiar(r.envio);
       avisar('Envío cerrado como entregado.');

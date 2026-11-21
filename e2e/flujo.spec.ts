@@ -110,7 +110,7 @@ test('flujo completo: registro, prealerta, recepción, pago, entrega y despacho'
   await cliente.getByLabel('Pagaste por').selectOption('BINANCE');
   await expect(cliente.getByLabel('Moneda')).toBeDisabled();
   await expect(cliente.getByLabel(/Monto a pagar/)).toHaveValue(/44,33/);
-  await cliente.getByLabel(/Últimos 6 dígitos/).fill('998877');
+  await cliente.getByLabel(/Últimos 6 a 12 dígitos/).fill('998877');
   await cliente.locator('input[type="file"]').first().setInputFiles(IMAGEN);
   await cliente.getByRole('button', { name: 'Enviar comprobante' }).click();
   await expect(cliente.getByText(/Recibimos tu comprobante|comprobante en revisión/).first()).toBeVisible();
