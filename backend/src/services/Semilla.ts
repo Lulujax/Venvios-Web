@@ -22,15 +22,15 @@ export async function sembrarConfiguracion(contexto: Contexto): Promise<void> {
   }
 }
 
-export async function sembrarPersonal(contexto: Contexto, datos: DatosPersonalInicial, rol: RolPersonal): Promise<boolean> {
+export async function sembrarPersonal(contexto: Contexto, datos: DatosPersonalInicial, rol: RolPersonal, pedirCambioDeClave = true): Promise<boolean> {
   const huella = contexto.cifrado.huella(datos.cedula.replace(/\D/g, ''));
   if (await contexto.repos.usuarios.porCedulaHuella(huella)) {
     logger.info('Cuenta de personal ya existente', { rol });
     return false;
   }
   const creado = await contexto.auth.crearPersonal({ ...datos, rol }, 'semilla');
-  await contexto.repos.usuarios.actualizar(creado.id, { debeCambiarClave: false });
-  logger.info('Cuenta de personal creada', { rol });
+  if (!pedirCambioDeClave) await contexto.repos.usuarios.actualizar(creado.id, { debeCambiarClave: false });
+  logger.info('Cuenta de personal creada', { rol, pideCambiarClave: pedirCambioDeClave });
   return true;
 }
 
@@ -60,11 +60,12 @@ export function datosOperadorDesdeEntorno(): DatosPersonalInicial | null {
 
 export interface OpcionesSiembraPersonal {
   tolerante: boolean;
+  pedirCambioDeClave?: boolean;
 }
 
 async function sembrarOpcional(contexto: Contexto, datos: DatosPersonalInicial, rol: RolPersonal, opciones: OpcionesSiembraPersonal): Promise<void> {
   try {
-    await sembrarPersonal(contexto, datos, rol);
+    await sembrarPersonal(contexto, datos, rol, opciones.pedirCambioDeClave ?? true);
   } catch (error) {
     if (!opciones.tolerante) throw error;
     logger.warn('No se creó la cuenta de prueba: revisa su clave en .env', { rol, motivo: error instanceof Error ? error.message : 'desconocido' });

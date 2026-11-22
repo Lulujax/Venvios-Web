@@ -1,6 +1,6 @@
 import { hash, verify } from '@node-rs/argon2';
 import jwt from 'jsonwebtoken';
-import { randomBytes, randomInt } from 'node:crypto';
+import { randomInt } from 'node:crypto';
 import type { CifradoCedula } from '../domain/cifrado';
 import {
   normalizarCodigoCasillero,
@@ -38,12 +38,6 @@ export interface PayloadSesion {
   v: number;
 }
 
-export type Portal = 'CLIENTE' | 'PERSONAL';
-
-export interface ActorAuth {
-  id: string;
-  rol: Rol;
-}
 
 const MAX_INTENTOS = 5;
 const MAX_REINTENTOS_CODIGO = 50;
@@ -194,7 +188,7 @@ export class AuthService {
     return { clave: this.claveIntentos(`otro:${texto.toLowerCase().slice(0, 40)}`), usuario: null };
   }
 
-  async iniciarSesion(identificador: string, contrasena: string, portal: Portal = 'CLIENTE'): Promise<SesionEmitida> {
+  async iniciarSesion(identificador: string, contrasena: string): Promise<SesionEmitida> {
     const { clave, usuario } = await this.buscarPorIdentificador(identificador);
     await this.limitador.verificar(clave);
     const valida = usuario && usuario.activo ? await verify(usuario.passwordHash, contrasena) : false;
@@ -204,16 +198,7 @@ export class AuthService {
       throw AppError.unauthorized('Correo, número de casillero o contraseña incorrectos.');
     }
     await this.limitador.limpiar(clave);
-    const esCliente = usuario.rol === 'CLIENTE';
-    if (portal === 'PERSONAL' && esCliente) {
-      logger.warn('Un cliente intentó entrar por la entrada del personal', { id: usuario.id });
-      throw AppError.forbidden('Esta entrada es solo para el personal. Entra por la página de clientes: /ingresar');
-    }
-    if (portal === 'CLIENTE' && !esCliente) {
-      logger.warn('El personal intentó entrar por la entrada de clientes', { id: usuario.id, rol: usuario.rol });
-      throw AppError.forbidden('El personal entra por /admin');
-    }
-    logger.info('Inicio de sesión correcto', { id: usuario.id, rol: usuario.rol, portal });
+    logger.info('Inicio de sesión correcto', { id: usuario.id, rol: usuario.rol });
     return this.emitir(usuario);
   }
 
@@ -238,24 +223,15 @@ export class AuthService {
     if (!usuario) throw AppError.notFound('El usuario no existe.');
     if (!(await verify(usuario.passwordHash, actual))) throw AppError.badRequest('La contraseña actual no es correcta.');
     const validada = validarContrasena(nueva);
-    await this.usuarios.actualizar(usuarioId, { passwordHash: await hash(validada), debeCambiarClave: false });
-    const renovado = await this.usuarios.renovarSesiones(usuarioId);
+    const renovado = await this.fijarContrasena(usuarioId, validada);
     logger.info('Contraseña cambiada; otras sesiones cerradas', { id: usuarioId });
     return this.emitir(renovado);
   }
 
-  async asignarTemporal(usuarioId: string, actor: ActorAuth): Promise<string> {
-    const usuario = await this.usuarios.porId(usuarioId);
-    if (!usuario || usuario.codigo === CODIGO_INTERNO_SIN_DUENO) throw AppError.notFound('El usuario no existe.');
-    if (usuario.rol !== 'CLIENTE' && actor.rol !== 'ADMIN') {
-      logger.warn('Un operador intentó cambiar la clave de una cuenta del personal', { actor: actor.id, objetivo: usuarioId });
-      throw AppError.forbidden('Solo el administrador puede cambiar la clave de una cuenta del personal.');
-    }
-    const temporal = randomBytes(5).toString('hex');
-    await this.usuarios.actualizar(usuarioId, { passwordHash: await hash(temporal), debeCambiarClave: true });
-    await this.usuarios.renovarSesiones(usuarioId);
-    logger.info('Contraseña temporal asignada; sesiones cerradas', { id: usuarioId, actor: actor.id });
-    return temporal;
+  async fijarContrasena(usuarioId: string, nueva: string): Promise<Usuario> {
+    const validada = validarContrasena(nueva);
+    await this.usuarios.actualizar(usuarioId, { passwordHash: await hash(validada), debeCambiarClave: false });
+    return this.usuarios.renovarSesiones(usuarioId);
   }
 
   async cambiarEstadoActivo(usuarioId: string, activo: boolean, actorId: string): Promise<UsuarioPublico> {

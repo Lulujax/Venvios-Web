@@ -3,6 +3,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import type { Contexto } from '../config/contexto';
 import { ESTADOS_ENVIO, TIPOS_ENVIO, type EstadoEnvio } from '../domain/estados';
+import { entregaDesdePerfil } from '../domain/perfil';
 import { normalizarTracking } from '../domain/tracking';
 import { logger } from '../utils/logger';
 
@@ -176,6 +177,11 @@ async function crearEnvio(
       trackingNormalizado: normalizarTracking(paquete.tracking),
     })),
   });
+  if (envio.tipo === 'CONSOLIDADO') {
+    const dueno = await contexto.repos.usuarios.porId(clienteId);
+    const entrega = dueno ? entregaDesdePerfil(dueno, envio.transportista, contexto.cifrado) : null;
+    if (entrega) await contexto.repos.envios.actualizar(creado.id, { entrega });
+  }
   for (const [indice, paquete] of envio.paquetes.entries()) {
     if (paquete.estado !== 'RECIBIDO') continue;
     await contexto.repos.envios.actualizarPaquete(creado.paquetes[indice]!.id, {

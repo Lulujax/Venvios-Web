@@ -8,7 +8,7 @@ import type { Contexto } from '../config/contexto';
 import { ESTADOS_ENVIO } from '../domain/estados';
 import type { Rol, Usuario } from '../repositories/tipos';
 import { MAX_BYTES_IMAGEN, type ArchivoEntrada } from '../services/Almacenamiento';
-import { esPersonal, type Actor } from '../services/EnvioService';
+import { esPersonal, type Actor, type FiltroBodega } from '../services/EnvioService';
 import { TIPOS_MENSAJE, type TipoMensaje } from '../services/MensajeService';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
@@ -175,12 +175,30 @@ export function crearApp(contexto: Contexto): express.Express {
     '/auth/login',
     limiteAuth,
     ruta(async (req, res) => {
-      const { identificador, contrasena, portal } = z
-        .object({ identificador: z.string(), contrasena: z.string(), portal: z.enum(['CLIENTE', 'PERSONAL']).default('CLIENTE') })
-        .parse(req.body);
-      const sesion = await contexto.auth.iniciarSesion(identificador, contrasena, portal);
+      const { identificador, contrasena } = z.object({ identificador: z.string(), contrasena: z.string() }).parse(req.body);
+      const sesion = await contexto.auth.iniciarSesion(identificador, contrasena);
       fijarCookie(res, sesion.token);
       res.json({ usuario: sesion.usuario });
+    }),
+  );
+
+  api.post(
+    '/auth/olvide-clave',
+    limiteAuth,
+    ruta(async (req, res) => {
+      const { email } = z.object({ email: z.string() }).parse(req.body);
+      await contexto.recuperacion.solicitarCodigo(email);
+      res.json({ ok: true });
+    }),
+  );
+
+  api.post(
+    '/auth/restablecer-clave',
+    limiteAuth,
+    ruta(async (req, res) => {
+      const { email, codigo, nueva } = z.object({ email: z.string(), codigo: z.string(), nueva: z.string() }).parse(req.body);
+      await contexto.recuperacion.restablecer(email, codigo, nueva);
+      res.json({ ok: true });
     }),
   );
 
@@ -339,11 +357,45 @@ export function crearApp(contexto: Contexto): express.Express {
       res.status(201).json({ envio: await contexto.envios.registrarSinPrealerta(actorDe(req), c.texto, c.clienteId) });
     }),
   );
+  const esquemaLista = z.object({
+    estado: z.enum([...ESTADOS_ENVIO, 'ACTIVOS', 'TODOS'] as const).optional(),
+    q: z.string().max(120).optional(),
+    orden: z.enum(['RECIENTE', 'ANTIGUO', 'MONTO']).optional(),
+    pagina: z.coerce.number().int().min(1).optional(),
+    porPagina: z.coerce.number().int().min(10).max(100).optional(),
+  });
+  const filtroBodegaDe = (req: Request): FiltroBodega => {
+    const minDias = Number(req.query.minDias);
+    return {
+      q: typeof req.query.q === 'string' ? req.query.q : undefined,
+      sinDueno: req.query.sinDueno === '1',
+      sinAvisar: req.query.sinAvisar === '1',
+      minDias: Number.isFinite(minDias) && minDias > 0 ? Math.trunc(minDias) : undefined,
+    };
+  };
+  const enviarCsv = (res: Response, nombre: string, contenido: string) => {
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${nombre}-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(contenido);
+  };
+
+  staff.get('/envios/lista', ruta(async (req, res) => res.json(await contexto.envios.listarPagina(actorDe(req), esquemaLista.parse(req.query)))));
+  staff.get('/envios/exportar.csv', ruta(async (req, res) => enviarCsv(res, 'envios', await contexto.envios.exportarEnviosCsv(actorDe(req), esquemaLista.parse(req.query)))));
+  staff.post('/envios/despachar-lote', rutaTx(async (req, res) => {
+    const c = z.object({ items: z.array(z.object({ envioId: z.string(), guia: z.string().max(60) })).min(1).max(50) }).parse(req.body);
+    res.json(await contexto.envios.despacharLote(actorDe(req), c.items));
+  }));
+  staff.post('/paquetes/avisados-lote', rutaTx(async (req, res) => res.json(await contexto.envios.marcarAvisadosLote(actorDe(req), z.object({ ids: z.array(z.string()).min(1).max(100) }).parse(req.body).ids))));
+  staff.post('/paquetes/asignar-lote', rutaTx(async (req, res) => {
+    const c = z.object({ ids: z.array(z.string()).min(1).max(100), clienteId: z.string().nullable(), motivo: z.string().optional() }).parse(req.body);
+    res.json(await contexto.envios.asignarLote(actorDe(req), c.ids, c.clienteId, c.motivo));
+  }));
+  staff.get('/bodega/exportar.csv', ruta(async (req, res) => enviarCsv(res, 'bodega', await contexto.envios.exportarBodegaCsv(actorDe(req), filtroBodegaDe(req)))));
   staff.get(
     '/bodega',
     ruta(async (req, res) => {
-      const q = typeof req.query.q === 'string' ? req.query.q : undefined;
-      res.json({ paquetes: await contexto.envios.bodega(actorDe(req), { q, sinDueno: req.query.sinDueno === '1' }) });
+      res.json({ paquetes: await contexto.envios.bodega(actorDe(req), filtroBodegaDe(req)) });
     }),
   );
   staff.post(
@@ -388,6 +440,8 @@ export function crearApp(contexto: Contexto): express.Express {
       res.status(201).json({ envio: await contexto.pagos.registrarManual(actorDe(req), req.params.id!, c) });
     }),
   );
+  staff.get('/pagos/pendientes', ruta(async (req, res) => res.json({ pagos: await contexto.pagos.listaDeRevision(actorDe(req)) })));
+  staff.post('/pagos/confirmar-lote', rutaTx(async (req, res) => res.json(await contexto.pagos.confirmarLote(actorDe(req), z.object({ ids: z.array(z.string()).min(1).max(100) }).parse(req.body).ids))));
   staff.post('/pagos/:id/confirmar', rutaTx(async (req, res) => res.json({ envio: await contexto.pagos.confirmar(actorDe(req), req.params.id!) })));
   staff.post('/pagos/:id/rechazar', rutaTx(async (req, res) => res.json({ envio: await contexto.pagos.rechazar(actorDe(req), req.params.id!, z.object({ motivo: z.string() }).parse(req.body).motivo) })));
 
@@ -403,8 +457,6 @@ export function crearApp(contexto: Contexto): express.Express {
   staff.post('/envios/:id/cancelar', rutaTx(async (req, res) => res.json({ envio: await contexto.envios.cancelar(actorDe(req), req.params.id!, z.object({ motivo: z.string() }).parse(req.body).motivo) })));
 
   staff.get('/clientes', ruta(async (req, res) => res.json({ clientes: await contexto.auth.buscarClientes(typeof req.query.q === 'string' ? req.query.q : '') })));
-  staff.post('/clientes/:id/clave-temporal', rutaTx(async (req, res) => res.json({ temporal: await contexto.auth.asignarTemporal(req.params.id!, actorDe(req)) })));
-
   api.use('/staff', staff);
 
   const administracion = express.Router();

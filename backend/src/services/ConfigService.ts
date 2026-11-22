@@ -9,6 +9,7 @@ import {
   type DatosPago,
   type Plantillas,
   type TransportistaConfig,
+  CONTACTO_INICIAL,
   PLANTILLAS_INICIALES,
 } from '../config/predeterminados';
 import { AppError } from '../utils/errors';
@@ -27,14 +28,16 @@ const esquemaTarifas = z.object({
 
 const esquemaDatosPago = z.object({
   esPrueba: z.boolean(),
-  pagoMovil: z.object({ banco: z.string().min(1), cedula: z.string().min(1), telefono: z.string().min(1) }),
+  pagoMovil: z.object({ activo: z.boolean().default(true), banco: z.string().min(1), cedula: z.string().min(1), telefono: z.string().min(1) }),
   cuenta: z.object({
+    activo: z.boolean().default(true),
+    tipo: z.enum(['CORRIENTE', 'AHORRO']).default('CORRIENTE'),
     banco: z.string().min(1),
     numero: z.string().min(1),
     titular: z.string().min(1),
     cedula: z.string().min(1),
   }),
-  binance: z.object({ usuario: z.string(), correo: z.string(), nota: z.string() }),
+  binance: z.object({ activo: z.boolean().default(false), usuario: z.string(), correo: z.string(), nota: z.string() }),
   notaVerificacion: z.string(),
 });
 
@@ -57,9 +60,20 @@ const esquemaTransportistas = z
   )
   .min(1);
 
+const correoOpcional = z
+  .string()
+  .trim()
+  .max(120)
+  .refine((valor) => valor === '' || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(valor), {
+    message: 'Escribe un correo válido o déjalo vacío',
+  })
+  .default('');
+
 const esquemaContacto = z.object({
   whatsapp: z.string().regex(/^\d{10,15}$/),
+  correo: correoOpcional,
   direccion: z.string().min(3),
+  horario: z.string().trim().max(200, 'El horario no puede pasar de 200 caracteres').default(CONTACTO_INICIAL.horario),
   instagram: z.string().url(),
   facebook: z.string().url(),
   tiktok: z.string().url(),
@@ -81,6 +95,11 @@ export class ConfigService {
   }
 
   async obtener<T>(clave: ClaveConfig): Promise<T> {
+    if (clave === 'contacto') return (await this.contacto()) as T;
+    return this.obtenerGuardado<T>(clave);
+  }
+
+  private async obtenerGuardado<T>(clave: ClaveConfig): Promise<T> {
     const guardado = await this.repositorio.obtener<T>(clave);
     return guardado ?? (structuredClone(VALORES_INICIALES[clave]) as T);
   }
@@ -102,8 +121,11 @@ export class ConfigService {
     return this.obtener<TransportistaConfig[]>('transportistas');
   }
 
-  contacto(): Promise<Contacto> {
-    return this.obtener<Contacto>('contacto');
+  async contacto(): Promise<Contacto> {
+    const guardado = await this.obtenerGuardado<Partial<Contacto>>('contacto');
+    const completo = { ...CONTACTO_INICIAL, ...guardado };
+    if (guardado.horario === undefined) logger.info('Contacto sin horario guardado, uso el inicial');
+    return completo;
   }
 
   async guardar(clave: string, valor: unknown, actorId: string): Promise<void> {

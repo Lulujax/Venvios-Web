@@ -40,6 +40,17 @@ npm run dev
 
 Las claves nunca van en el código ni en Git.
 
+## Recuperar contraseña con código por correo
+
+El servidor usa Supabase Auth solo para enviar y comprobar el código (no hay variables nuevas: usa `SUPABASE_URL` y `SUPABASE_SERVICE_KEY`). En el panel de Supabase, una sola vez:
+
+1. **Authentication → Emails → Templates → Reset Password**: cambia el texto para que muestre el código, por ejemplo `Tu código de Venvios Express es: {{ .Token }}`. Si dejas el enlace por defecto, nadie recibe ningún número.
+2. **Authentication → Providers → Email**: deja el largo del código en 6 y el vencimiento en 600 segundos (10 minutos).
+
+Por ahora se usa el correo incluido de Supabase, que cuesta 0 pero tiene dos límites: solo entrega a correos de miembros de tu equipo en Supabase y manda como máximo 2 correos por hora. Para probar basta con usar tu propio correo. No agregues clientes como miembros del equipo: tendrían acceso al panel de Supabase. Para clientes reales hay que conectar un servicio de correo propio en **Authentication → Emails → SMTP Settings** (pendiente de decidir cuál).
+
+Sin Supabase (desarrollo en memoria) el código siempre es `123456`. Los nombres de los menús de Supabase pueden cambiar; si no los encuentras, busca «SMTP» y «Email templates».
+
 ## Pruebas manuales sugeridas (en este orden)
 
 1. Crea una cuenta de cliente y anota su casillero `VENV-…`. En Alertas crea una alerta con 2 trackings y valor 60 $.

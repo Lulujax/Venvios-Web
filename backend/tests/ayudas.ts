@@ -3,7 +3,9 @@ import { crearContexto, type Contexto } from '../src/config/contexto';
 import { crearApp } from '../src/http/app';
 import { crearRepositoriosMemoria } from '../src/repositories/memoria';
 import { AlmacenamientoMemoria } from '../src/services/Almacenamiento';
+import type { CanalCodigo } from '../src/services/CanalCodigo';
 import { sembrarConfiguracion } from '../src/services/Semilla';
+import type { DatosPago } from '../src/config/predeterminados';
 
 export const PNG_MINIMO = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
@@ -16,10 +18,11 @@ export interface Entorno {
   agente: () => ReturnType<typeof request.agent>;
 }
 
-export async function crearEntorno(opciones: { consultaTasa?: () => Promise<number> } = {}): Promise<Entorno> {
+export async function crearEntorno(opciones: { consultaTasa?: () => Promise<number>; canalCodigo?: CanalCodigo } = {}): Promise<Entorno> {
   const contexto = crearContexto({
     repos: crearRepositoriosMemoria(),
     almacenamiento: new AlmacenamientoMemoria(),
+    canalCodigo: opciones.canalCodigo,
     llaveCedula: 'c'.repeat(64),
     secretoJwt: 'secreto-de-pruebas-1234567890',
     urlApp: 'https://prueba.venvios.test',
@@ -27,6 +30,8 @@ export async function crearEntorno(opciones: { consultaTasa?: () => Promise<numb
     reloj: () => new Date('2026-11-19T15:00:00Z'),
   });
   await sembrarConfiguracion(contexto);
+  const datosPago = (await contexto.repos.config.obtener('datosPago')) as DatosPago;
+  await contexto.repos.config.guardar('datosPago', { ...datosPago, binance: { ...datosPago.binance, activo: true } });
   const app = crearApp(contexto);
   return { contexto, app, agente: () => request.agent(app) };
 }
@@ -66,7 +71,7 @@ export async function crearPersonalYEntrar(entorno: Entorno, rol: 'OPERADOR' | '
   const datos = datosCliente({ nombre: rol === 'ADMIN' ? 'Ana Administradora' : 'Omar Operador' });
   await entorno.contexto.auth.crearPersonal({ ...datos, rol }, 'prueba');
   const agente = entorno.agente();
-  const respuesta = await agente.post('/api/auth/login').send({ identificador: datos.email, contrasena: datos.contrasena, portal: 'PERSONAL' });
+  const respuesta = await agente.post('/api/auth/login').send({ identificador: datos.email, contrasena: datos.contrasena });
   if (respuesta.status !== 200) throw new Error(`Login falló: ${JSON.stringify(respuesta.body)}`);
   return { agente, datos };
 }

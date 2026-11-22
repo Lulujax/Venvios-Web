@@ -1,5 +1,6 @@
 import { lazy, Suspense, type ReactNode } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { LayoutPublico } from './components/LayoutPublico';
 import { Cargando } from './components/ui';
 import { esPersonal, rutaInicial, useAuth } from './lib/auth';
 import type { Rol } from './lib/tipos';
@@ -7,6 +8,9 @@ import { CambiarClave, Ingresar, Registro } from './pages/Acceso';
 import DetalleEnvio from './pages/DetalleEnvio';
 import Landing from './pages/Landing';
 import NuevaPrealerta from './pages/NuevaPrealerta';
+import { RecuperarClave } from './pages/RecuperarClave';
+import { PRIVACIDAD, TERMINOS } from './pages/legal/contenido';
+import { PaginaLegal } from './pages/legal/PaginaLegal';
 import { Consolidar } from './pages/cliente/Consolidar';
 import { CuentaLayout } from './pages/cliente/Cuenta';
 import { Finanzas } from './pages/cliente/Finanzas';
@@ -24,7 +28,7 @@ const Bodega = lazy(() => import('./pages/panel/Bodega'));
 function Protegida({ roles }: { roles: Rol[] }) {
   const { usuario, cargando } = useAuth();
   if (cargando) return <div className="contenedor py-10"><Cargando /></div>;
-  if (!usuario) return <Navigate to={roles.includes('CLIENTE') ? '/ingresar' : '/admin'} replace />;
+  if (!usuario) return <Navigate to="/ingresar" replace />;
   if (usuario.debeCambiarClave) return <Navigate to="/cambiar-clave" replace />;
   if (!roles.includes(usuario.rol)) return <Navigate to={rutaInicial(usuario)} replace />;
   return <Outlet />;
@@ -38,13 +42,15 @@ function SoloAdmin({ children }: { children: ReactNode }) {
 function NoEncontrada() {
   const { usuario } = useAuth();
   return (
-    <div className="grid min-h-[100dvh] place-items-center px-6 text-center">
-      <div>
-        <p className="font-display text-7xl font-extrabold text-oro">404</p>
-        <h1 className="mt-2 text-3xl">No encontramos esa página</h1>
-        <a href={usuario && esPersonal(usuario.rol) ? '/panel' : '/'} className="btn btn-primario mt-6">Volver al inicio</a>
+    <LayoutPublico>
+      <div className="grid min-h-[70dvh] place-items-center px-6 py-16 text-center">
+        <div>
+          <p className="font-display text-7xl font-extrabold text-oro">404</p>
+          <h1 className="mt-2 text-3xl">No encontramos esa página</h1>
+          <a href={usuario && esPersonal(usuario.rol) ? '/panel' : '/'} className="btn btn-primario mt-6">Volver al inicio</a>
+        </div>
       </div>
-    </div>
+    </LayoutPublico>
   );
 }
 
@@ -54,8 +60,12 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/ingresar" element={<Ingresar />} />
-      <Route path="/admin" element={<Ingresar personal />} />
+      <Route path="/admin" element={<Navigate to="/ingresar" replace />} />
+      <Route path="/recuperar" element={<RecuperarClave />} />
+      <Route path="/admin/recuperar" element={<Navigate to="/recuperar" replace />} />
       <Route path="/registro" element={<Registro />} />
+      <Route path="/terminos" element={<PaginaLegal documento={TERMINOS} />} />
+      <Route path="/privacidad" element={<PaginaLegal documento={PRIVACIDAD} />} />
       <Route path="/cambiar-clave" element={<CambiarClave />} />
 
       <Route element={<Protegida roles={['CLIENTE']} />}>

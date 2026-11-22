@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { ProveedorAvisos } from './components/ui';
+import { ProveedorConfirmar } from './components/Confirmar';
 import { AuthProvider } from './lib/auth';
 import './index.css';
 
@@ -14,7 +15,9 @@ createRoot(raiz).render(
     <BrowserRouter>
       <AuthProvider>
         <ProveedorAvisos>
-          <App />
+          <ProveedorConfirmar>
+            <App />
+          </ProveedorConfirmar>
         </ProveedorAvisos>
       </AuthProvider>
     </BrowserRouter>

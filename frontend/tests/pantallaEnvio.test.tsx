@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { ProveedorConfirmar } from '../src/components/Confirmar';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PasosConsolidacion } from '../src/components/envio/Consolidado';
@@ -78,6 +79,8 @@ const ITEM_BODEGA: ItemBodega = {
   tipoEnvio: 'ALERTA',
   estadoEnvio: 'RECIBIDO_COMPLETO',
   sinDueno: false,
+  avisado: false,
+  diasEnBodega: 1,
   cliente: { id: 'cli-1', nombre: 'Ana Prueba Rojas', codigo: 'VENV-123456' },
 };
 
@@ -149,33 +152,35 @@ describe('Pantalla de consolidación: tres pasos', () => {
 });
 
 describe('Pantalla de consolidación: quitar y agregar paquetes', () => {
-  it('caso feliz: pide confirmar y devuelve el paquete a la bodega del cliente', async () => {
+  it('caso feliz: pide confirmar con el aviso de la marca y devuelve el paquete a la bodega del cliente', async () => {
     const llamadas: Llamada[] = [];
     const sinUno = crearEnvio({ paquetes: [paquete('p2', 'SHN26110041')] });
     vi.stubGlobal('fetch', enrutar({ [RUTA_BODEGA]: { paquetes: [] }, 'POST /api/staff/envios/env-1/quitar-paquete': { envio: sinUno } }, llamadas));
-    const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const alCambiar = vi.fn();
-    render(<PasosConsolidacion envio={crearEnvio()} alCambiar={alCambiar} />);
+    render(<ProveedorConfirmar><PasosConsolidacion envio={crearEnvio()} alCambiar={alCambiar} /></ProveedorConfirmar>);
     fireEvent.click(screen.getByRole('button', { name: 'Quitar paquete SHN26110040' }));
+    expect(await screen.findByRole('alertdialog')).toBeTruthy();
+    expect(llamadas.some((llamada) => llamada.url.endsWith('/quitar-paquete'))).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Sí, quitar' }));
     await waitFor(() => expect(alCambiar).toHaveBeenCalledWith(sinUno));
-    expect(confirmar).toHaveBeenCalled();
     expect(llamadas.find((llamada) => llamada.url.endsWith('/quitar-paquete'))?.cuerpo).toEqual({ paqueteId: 'p1' });
   });
 
-  it('límite: si el operador no confirma, no se quita nada', async () => {
+  it('límite: si el operador elige «Mejor no», no se quita nada', async () => {
     const llamadas: Llamada[] = [];
     vi.stubGlobal('fetch', enrutar({ [RUTA_BODEGA]: { paquetes: [] } }, llamadas));
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
-    render(<PasosConsolidacion envio={crearEnvio()} alCambiar={vi.fn()} />);
+    render(<ProveedorConfirmar><PasosConsolidacion envio={crearEnvio()} alCambiar={vi.fn()} /></ProveedorConfirmar>);
     fireEvent.click(screen.getByRole('button', { name: 'Quitar paquete SHN26110040' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Mejor no' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
     expect(llamadas.some((llamada) => llamada.url.endsWith('/quitar-paquete'))).toBe(false);
   });
 
   it('error: si el servidor rechaza quitar el paquete, el mensaje se ve en pantalla', async () => {
     vi.stubGlobal('fetch', enrutar({ [RUTA_BODEGA]: { paquetes: [] } }));
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
-    render(<PasosConsolidacion envio={crearEnvio()} alCambiar={vi.fn()} />);
+    render(<ProveedorConfirmar><PasosConsolidacion envio={crearEnvio()} alCambiar={vi.fn()} /></ProveedorConfirmar>);
     fireEvent.click(screen.getByRole('button', { name: 'Quitar paquete SHN26110040' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Sí, quitar' }));
     expect(await screen.findByText(/Sin ruta de prueba/)).toBeInTheDocument();
   });
 

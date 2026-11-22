@@ -44,31 +44,7 @@ function pagar(agente: Agente, envioId: string, monto: number, referencia: strin
     .attach('archivo', PNG_MINIMO, { filename: 'p.png', contentType: 'image/png' });
 }
 
-describe('clave temporal y sesiones', () => {
-  it('error: un operador no puede poner clave temporal a un administrador', async () => {
-    const operador = await crearPersonalYEntrar(entorno, 'OPERADOR');
-    const admin = await crearPersonalYEntrar(entorno, 'ADMIN');
-    const yo = await admin.agente.get('/api/auth/yo');
-    const r = await operador.agente.post(`/api/staff/clientes/${yo.body.usuario.id}/clave-temporal`);
-    expect(r.status).toBe(403);
-    expect((await admin.agente.get('/api/auth/yo')).status).toBe(200);
-  });
-
-  it('caso feliz: un administrador sí puede ponerla a un operador', async () => {
-    const operador = await crearPersonalYEntrar(entorno, 'OPERADOR');
-    const admin = await crearPersonalYEntrar(entorno, 'ADMIN');
-    const yo = await operador.agente.get('/api/auth/yo');
-    expect((await admin.agente.post(`/api/staff/clientes/${yo.body.usuario.id}/clave-temporal`)).status).toBe(200);
-  });
-
-  it('la clave temporal cierra la sesión que ya estaba abierta', async () => {
-    const cliente = await registrarCliente(entorno);
-    const operador = await crearPersonalYEntrar(entorno, 'OPERADOR');
-    expect((await cliente.agente.get('/api/auth/yo')).status).toBe(200);
-    await operador.agente.post(`/api/staff/clientes/${cliente.usuario.id}/clave-temporal`);
-    expect((await cliente.agente.get('/api/auth/yo')).status).toBe(401);
-  });
-
+describe('sesiones', () => {
   it('cambiar la contraseña cierra otras sesiones pero mantiene la actual', async () => {
     const cliente = await registrarCliente(entorno);
     const otra = entorno.agente();

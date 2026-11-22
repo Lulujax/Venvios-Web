@@ -52,10 +52,10 @@ En todo el recorrido, el cliente ve el **seguimiento de cada paquete** con sus p
 - **RF-12** EL SISTEMA dará a cada cliente al registrarse un número de casillero único con la forma `VENV-123456` (seis dígitos al azar). SI el número ya existe, ENTONCES EL SISTEMA generará otro hasta encontrar uno libre.
 - **RF-13** SI la cédula, el correo o el teléfono ya están registrados, ENTONCES EL SISTEMA no creará una segunda cuenta y le indicará cómo recuperar la suya.
 - **RF-14** EL SISTEMA guardará la cédula cifrada (se puede recuperar con una llave del servidor) y la mostrará completa solo al administrador y al operador cuando prepare un despacho; en listas y registros internos aparece parcial (por ejemplo `V-***678`).
-- **RF-15** SI un cliente olvida su contraseña, ENTONCES EL SISTEMA permitirá que un operador o administrador le asigne una temporal (sin correo ni SMS automático, para no pagar mensajería). SI un operador intenta poner una clave temporal a una cuenta del personal, ENTONCES EL SISTEMA lo impedirá: solo el administrador puede hacerlo.
+- **RF-15** SI alguien olvida su contraseña, ENTONCES EL SISTEMA le permitirá crear una nueva con un código que recibe en su correo (RF-123 a RF-128). No hay contraseñas temporales para recuperar una cuenta.
 - **RF-16** CUANDO alguien cambia su contraseña, recibe una clave temporal o se desactiva su cuenta, EL SISTEMA cerrará sus sesiones abiertas en otros equipos.
-- **RF-17** EL SISTEMA permitirá al administrador crear, desactivar y cambiar la contraseña de los usuarios del personal.
-- **RF-18** EL SISTEMA creará, al sembrar la base, una cuenta de administrador y una de operador de prueba tomadas de las variables de entorno. Sus claves nunca van en el código ni en el repositorio.
+- **RF-17** EL SISTEMA permitirá al administrador crear y desactivar usuarios del personal. Al crear uno, el administrador le escribe una contraseña inicial que la persona debe cambiar al entrar por primera vez. Si luego la olvida, la recupera con el código del correo (RF-123).
+- **RF-18** EL SISTEMA creará, al sembrar la base, una cuenta de administrador y una de operador de prueba tomadas de las variables de entorno. Sus claves nunca van en el código ni en el repositorio. CUANDO una de esas cuentas entre por primera vez, EL SISTEMA le pedirá cambiar su contraseña antes de dejarla usar el panel.
 
 ### Cuenta del cliente
 
@@ -208,9 +208,103 @@ En todo el recorrido, el cliente ve el **seguimiento de cada paquete** con sus p
 
 - **RF-118** EL SISTEMA tendrá para el cliente una sección «Rastrear» con un buscador por tracking o por número de consolidación, que solo busca entre los envíos del propio cliente. SI no encuentra nada, ENTONCES EL SISTEMA dirá que no hay información de ese tracking.
 - **RF-119** CUANDO el cliente rastree un envío, EL SISTEMA mostrará arriba la línea de pasos del envío; a un lado «Detalles» (estado, llegada a la oficina, peso cobrado si ya se pesó, transportista y guía venezolana con el enlace para rastrearla en MRW o Zoom) y al otro «Historial», con cada paso, su fecha y una frase corta que lo explica.
-- **RF-120** EL SISTEMA tendrá dos entradas: la de clientes (`/ingresar`) y la del personal (`/admin`), con aspecto distinto. SI un cliente usa la entrada del personal, o el personal usa la de clientes, ENTONCES EL SISTEMA no abrirá la sesión y le indicará cuál es su entrada. El cliente nunca ve enlaces al panel del personal.
-- **RF-121** Cuando exista dominio propio, la entrada del personal podrá vivir en un subdominio (por ejemplo `panel.dominio`) apuntando al mismo sitio; hasta entonces se usa `/admin`.
+- **RF-120** (cambiado el 21-11-2026) EL SISTEMA tendrá una sola entrada para todos, `/ingresar`. CUANDO una persona entre con su correo (o número de casillero) y su contraseña, EL SISTEMA detectará su rol y la llevará a su inicio: el cliente a su cuenta y el operador o el administrador al panel. EL SISTEMA no tendrá entrada aparte para el personal ni pedirá escoger una. La dirección `/admin` seguirá existiendo y abrirá esa misma entrada. El cliente nunca ve enlaces al panel del personal. SI el correo o la contraseña fallan, ENTONCES EL SISTEMA dirá lo mismo para todos los tipos de cuenta, sin revelar el rol.
+- **RF-121** Cuando exista dominio propio, `panel.dominio` podrá apuntar al mismo sitio y abrir la misma entrada única; no hace falta una entrada distinta.
 - **RF-122** EN el panel del personal, EL SISTEMA usará el mismo menú desplegable de RF-19 en la PC.
+
+### Olvidé mi contraseña (aprobado 21-11-2026)
+
+Detalla RF-15. El código lo envía por correo el sistema de cuentas de Supabase (Auth). Aplica al cliente y al personal, cada uno desde su entrada. No hay contraseñas temporales.
+
+Durante la semana de prueba se usa el correo incluido de Supabase (sin costo). Ese correo solo entrega a las personas que son miembros del equipo del proyecto en Supabase y envía como máximo 2 correos por hora en todo el proyecto, y Supabase avisa que no es para producción. Quien no sea miembro verá «Email address not authorized» y no recibirá el código. [NECESITA ACLARACIÓN: antes de atender a clientes reales hay que conectar un servicio de correo propio (SMTP) a Supabase; ¿cuál se usará y quién lo paga? Hay servicios con plan gratis, pero sus límites se verifican al elegirlo.]
+
+- **RF-123** EN la entrada de clientes y en la del personal, EL SISTEMA mostrará «¿Olvidaste tu contraseña?» que lleva a una pantalla donde la persona escribe su correo.
+- **RF-124** CUANDO la persona envíe su correo, EL SISTEMA responderá siempre lo mismo («Si el correo está registrado, te enviamos un código»), exista o no la cuenta, para no revelar quién tiene cuenta. SOLO si la cuenta existe y está activa, el sistema enviará un código al correo. EL SISTEMA no enviará correos a direcciones sin cuenta.
+- **RF-125** EN la pantalla siguiente, la persona escribirá el código del correo y su nueva contraseña repetida dos veces, con las reglas y la ayuda en vivo de RF-11. SI el código es correcto, ENTONCES EL SISTEMA cambiará la contraseña, cerrará sus sesiones abiertas (RF-16), dejará de pedirle cambiarla al entrar y la llevará a su entrada para ingresar.
+- **RF-126** SI el código es incorrecto o venció, ENTONCES EL SISTEMA lo dirá con un mensaje claro y dejará pedir otro. SI hay 5 intentos fallidos seguidos con el mismo correo, ENTONCES EL SISTEMA bloqueará ese correo por 10 minutos (RF-8). El código sirve una sola vez y vence a los 10 minutos.
+- **RF-127** CADA vez que una contraseña se restablezca con el código, EL SISTEMA guardará en el historial de la cuenta que se restableció y cuándo, sin el código ni la contraseña. Los registros internos no guardan correos ni códigos (RF-93).
+- **RF-128** SI el servicio de correo falla o no está configurado, ENTONCES EL SISTEMA lo registrará en los logs sin datos personales y la pantalla dirá que no se pudo enviar el código y que escriba a atención por WhatsApp. En desarrollo sin Supabase, el código es siempre `123456` y nunca se usa en producción.
+
+### Fotos: ver y descargar (aprobado 21-11-2026)
+
+Complementa RF-42 y RF-71. Pensado sobre todo para la PC, donde WhatsApp Web no recibe la foto desde un enlace.
+
+- **RF-129** CUANDO alguien toque una foto (del paquete, de la guía o del comprobante), EL SISTEMA la mostrará ampliada encima de la misma pantalla, sin abrir otra pestaña. La foto ampliada tendrá una X para cerrarla y también se cerrará con la tecla Esc o al tocar fuera de la foto.
+- **RF-130** EN la foto ampliada, y al lado de la foto del paquete, de la guía y del comprobante de pago en la pantalla del personal, EL SISTEMA tendrá un botón «Descargar foto» que guarda la imagen en el aparato con un nombre claro, por ejemplo `paquete-SHN26110001.jpg`, `guia-Consolidacion-000123.jpg` o `comprobante-Consolidacion-000123-4512987766001.jpg` (el número final es la referencia del pago, si la tiene), para que el operador la adjunte en el chat de WhatsApp junto con el mensaje. SI la descarga falla, ENTONCES EL SISTEMA lo dirá con un mensaje.
+- **RF-131** EN el teléfono, EL SISTEMA mantendrá el menú de compartir con la foto y el texto como primera opción (RF-71). La descarga es la alternativa cuando eso no funciona y la forma principal en la PC.
+- **RF-132** EL SISTEMA mostrará al cliente la foto de la guía como una miniatura pequeña (unos 96 px) y la foto del paquete un poco más grande que antes (unos 64 px). Al tocarlas se amplían (RF-129) y pueden descargarse. El cliente solo ve sus propias fotos (RF-25).
+
+### Avisos de confirmación con diseño propio (aprobado 21-11-2026)
+
+- **RF-133** EL SISTEMA pedirá confirmación antes de una acción que no se puede deshacer fácilmente, con un aviso con el diseño de la marca y no con el cuadro del navegador.
+- **RF-134** EL SISTEMA mostrará el aviso con un título corto, la pregunta completa en español, dos botones con verbo al inicio y el botón de la acción de riesgo en rojo. Los botones dirán lo que pasa, por ejemplo «Eliminar alerta» y «Mejor no».
+- **RF-135** CUANDO la persona cancele, toque fuera del aviso, pulse la X o la tecla Esc, EL SISTEMA no hará la acción y devolverá el foco al botón que la abrió.
+- **RF-136** SI la persona confirma, ENTONCES EL SISTEMA hará la acción y, si falla, mostrará el mensaje de error en la misma pantalla sin cerrar el aviso con un mensaje engañoso.
+- **RF-137** EL SISTEMA usará este aviso en las cinco confirmaciones actuales: quitar paquete de un envío, eliminar alerta, confirmar que recibió un envío, deshacer un envío y confirmar la entrega del personal.
+
+### Pagos por revisar en masa (aprobado 21-11-2026)
+
+- **RF-138** EL SISTEMA mostrará todos los pagos pendientes de revisión, sin ocultar ninguno por un límite de cantidad. Hoy la lista del personal corta en 200 envíos y con más de 200 pagos algunos no aparecen.
+- **RF-139** EL SISTEMA mostrará cada pago en una fila compacta con: cliente, número de consolidación, monto en dólares y en bolívares cuando aplique, método, referencia, fecha y si tiene comprobante. No cargará los comprobantes hasta que la persona los abra.
+- **RF-140** EL SISTEMA ordenará los pagos del más reciente al más antiguo al abrir la pantalla, y permitirá ordenar por el más antiguo primero o por monto de mayor a menor.
+- **RF-141** EL SISTEMA permitirá buscar por cliente, número de consolidación o referencia, y filtrar por método de pago. La búsqueda y el filtro se aplican al instante sin recargar la página.
+- **RF-142** CUANDO la persona marque filas, EL SISTEMA mostrará cuántos pagos hay seleccionados y el total en dólares de la selección, y ofrecerá «seleccionar todos» para los pagos que están visibles con los filtros actuales. Todos los pagos se ven en una sola tabla con encabezado fijo al desplazarse; no se reparten en páginas.
+- **RF-143** CUANDO la persona confirme varios pagos a la vez, EL SISTEMA pedirá confirmación con el aviso de la marca indicando cuántos pagos y cuánto suman. Confirmará cada pago de forma independiente: si uno falla, los demás se confirman igual y se muestra cuál falló y por qué.
+- **RF-144** SI un pago ya fue revisado por otra persona mientras se confirmaba el lote, ENTONCES EL SISTEMA lo quitará de la lista y lo informará en el resumen, sin tratarlo como error general.
+- **RF-145** EL SISTEMA no abrirá WhatsApp al confirmar un lote. Al terminar mostrará el resumen con cuántos quedaron confirmados y cuántos envíos quedaron pagados.
+- **RF-146** EL SISTEMA aceptará como máximo 100 pagos por lote; SI se envían más, ENTONCES EL SISTEMA rechazará la petición con un mensaje claro.
+- **RF-147** EL SISTEMA mantendrá en la misma pantalla la confirmación o el rechazo de un solo pago, con su comprobante, al abrir la fila.
+
+**[NECESITA ACLARACIÓN: al confirmar pagos en lote, ¿el aviso de «pago verificado» por WhatsApp debe hacerse uno por uno desde cada envío, o quieres una lista de los avisos pendientes para enviarlos después? Hoy el aviso se abre al confirmar un pago completo, y con 300 pagos eso abriría 300 ventanas.]**
+
+### Envíos y Bodega a gran escala (aprobado 21-11-2026)
+
+Pensado para 3 a 5 operadores trabajando a la vez y de 100 a 300 paquetes al día.
+
+- **RF-148** EL SISTEMA mostrará la lista de envíos del personal como una tabla con: nombre del envío, cliente, estado, paquetes llegados sobre el total, transportista, total en dólares, fecha de creación y días desde el último cambio.
+- **RF-149** EL SISTEMA entregará la lista de envíos por páginas de 50 con el total de resultados, sin el tope de 200 de hoy, de modo que cualquier envío antiguo se pueda alcanzar paginando o buscando.
+- **RF-150** EL SISTEMA mostrará por defecto los envíos activos (todos menos entregados, cancelados y archivados), permitirá filtrar por un estado concreto o ver todos, y ordenará del más reciente al más antiguo, con opciones para el más antiguo primero y el de mayor monto.
+- **RF-151** EL SISTEMA mantendrá la búsqueda por código de consolidación, nombre, teléfono, tracking o guía, y la combinará con el estado y el orden elegidos.
+- **RF-152** EL SISTEMA permitirá descargar en un archivo CSV (Excel) todos los envíos que cumplen el filtro actual, no solo la página visible, con nombre del envío, cliente, casillero, estado, trackings, transportista, total, y fechas. No incluirá cédula, teléfono ni datos de entrega.
+- **RF-153** CUANDO la persona descargue un CSV, EL SISTEMA protegerá las celdas que empiecen con =, +, - o @ para que Excel no las ejecute como fórmula.
+- **RF-154** EL SISTEMA permitirá marcar varios envíos en estado Pagado y registrar la guía de cada uno desde una sola pantalla, con máximo 50 por lote. Cada envío se despacha de forma independiente: si uno falla, los demás salen y se informa cuál falló y por qué. La foto de la guía se sigue subiendo desde el envío individual.
+- **RF-155** EL SISTEMA mostrará la Bodega como una tabla de todos los paquetes en bodega con: cliente y casillero, tracking, peso, días en bodega, si ya se avisó al cliente, si tiene foto y el tipo de envío.
+- **RF-156** EL SISTEMA ordenará la Bodega del más reciente al más antiguo y ofrecerá el más antiguo primero (más días en bodega), con filtros «Sin dueño», «Sin avisar» y «Con 7, 15 o 30 días o más en bodega», combinables con la búsqueda actual.
+- **RF-157** EL SISTEMA permitirá marcar varios paquetes como avisados (para los que ya se avisó al cliente por otro medio), con máximo 100 por lote y resultado por paquete.
+- **RF-158** EL SISTEMA permitirá asignar varios paquetes sin dueño a un mismo cliente, con máximo 100 por lote y resultado por paquete. SI un paquete ya no está en bodega o ya está en un consolidado, ENTONCES EL SISTEMA lo informará sin detener los demás.
+- **RF-159** EL SISTEMA permitirá descargar en CSV los paquetes de la Bodega que cumplen el filtro actual.
+- **RF-160** CUANDO termine una acción en lote, EL SISTEMA mostrará un resumen con cuántos salieron bien y, de los que fallaron, el motivo, y quitará de la pantalla los que ya cambiaron de estado.
+- **RF-161** EL SISTEMA usará el orden del más reciente al más antiguo por defecto en todas las listas del personal.
+
+### Datos de entrega del cliente vistos por el personal (aprobado 21-11-2026)
+
+- **RF-162** CUANDO el personal abre un envío pagado cuyos datos de entrega ya están completos (tomados del perfil del cliente), EL SISTEMA los mostrará como un resumen de solo lectura: quién recibe, cédula, teléfono, agencia, ciudad y estado, con la aclaración de que vienen del perfil del cliente. EL SISTEMA no mostrará un formulario vacío ni que parezca pedir esos datos.
+- **RF-163** EL SISTEMA ofrecerá al personal un botón «Corregir datos» junto al resumen, solo mientras el envío no haya salido. CUANDO el personal lo pulse, EL SISTEMA mostrará el formulario con los datos actuales y un botón para cancelar sin guardar.
+- **RF-164** SI faltan datos de entrega, ENTONCES EL SISTEMA mostrará directamente el formulario y dirá qué datos faltan.
+- **RF-165** CUANDO el envío ya salió (en ruta o entregado), EL SISTEMA mostrará el resumen sin el botón de corregir.
+- **RF-166** CUANDO se confirme el pago que cubre un envío cuyos datos de entrega estén completamente vacíos y el cliente tenga en su perfil el destino de la transportista elegida, EL SISTEMA copiará esos datos al envío y lo dejará anotado en su historial. EL SISTEMA no sobrescribirá datos que el personal ya haya escrito.
+- **RF-167** SI faltan datos de entrega y el perfil del cliente los tiene, ENTONCES EL SISTEMA ofrecerá al personal el botón «Usar los datos del perfil de» el cliente, para copiarlos con un solo toque. SI el perfil no los tiene, ENTONCES EL SISTEMA lo dirá con un mensaje claro y dejará el formulario para escribirlos.
+- **RF-168** EL SISTEMA cargará los envíos consolidados de los datos de prueba con los datos de entrega del perfil de cada cliente de prueba, igual que si el cliente los hubiera creado desde su cuenta.
+
+### Administración con varios empleados
+
+- **RF-169** CUANDO el administrador abre Administración, EL SISTEMA mostrará primero un «Resumen» con tarjetas: personal activo (operadores y administradores), personas que aún no cambian su contraseña, la tasa BCV (con aviso si no es la de hoy) y los datos de pago (con aviso si son de prueba). Cada tarjeta llevará a su sección.
+- **RF-170** EL SISTEMA agrupará las secciones de Administración en Personas (Resumen, Usuarios, Clientes), Negocio (Tarifas, Tasa BCV, Datos de pago) y Comunicación (Mensajes, Contacto y rastreo), con un menú lateral fijo en pantalla grande y una fila desplazable en el teléfono. La sección abierta quedará en la dirección, para que al recargar no se pierda.
+- **RF-171** EL SISTEMA mostrará la lista de personal con buscador (nombre o correo), filtro por rol, filtro por estado (activos, inactivos, pendientes de primer ingreso) y contadores por estado, sin tener que bajar para llegar al formulario.
+- **RF-172** CUANDO el administrador pulse «Nuevo usuario», EL SISTEMA abrirá el formulario en un cuadro encima de la lista, que se cierra sin guardar con la X, Esc o «Cancelar», y la lista no se moverá.
+- **RF-173** CUANDO el administrador pulse «Desactivar» a alguien del personal, EL SISTEMA pedirá confirmación con el aviso de la página. Cada fila indicará si la persona está inactiva o pendiente de cambiar su contraseña.
+- **RF-174** EL SISTEMA mostrará los mensajes de WhatsApp de uno en uno, eligiendo cuál editar, en vez de cinco cuadros largos seguidos.
+
+- **RF-175** MIENTRAS el administrador edita un mensaje de WhatsApp, EL SISTEMA mostrará debajo una vista previa con datos de ejemplo (nombre, tracking, total...), para que vea cómo lo leerá el cliente sin ver las variables entre llaves.
+- **RF-176** CUANDO el administrador pulse «Enviarme una prueba», EL SISTEMA abrirá WhatsApp con ese mensaje (con datos de ejemplo, aunque no lo haya guardado todavía) dirigido al WhatsApp de la empresa, para que lo reciba y lo vea como el cliente. SI no hay WhatsApp de la empresa cargado, ENTONCES EL SISTEMA lo dirá y no abrirá nada.
+
+- **RF-177** EL SISTEMA permitirá al administrador mostrar u ocultar cada método de pago (pago móvil, transferencia bancaria y Binance) por separado, desde Administración → Datos de pago.
+- **RF-178** CUANDO un método está oculto, EL SISTEMA no lo mostrará al cliente en la pantalla de pago ni en el formulario para subir comprobante, y no enviará sus datos bancarios a la pantalla del cliente.
+- **RF-179** SI un cliente intenta subir un comprobante con un método oculto, ENTONCES EL SISTEMA lo rechazará con un mensaje claro, aunque la pantalla no se lo ofrezca.
+- **RF-180** EL SISTEMA permitirá indicar el tipo de cuenta de la transferencia (corriente o ahorro) y lo mostrará al cliente junto al número de cuenta.
+- **RF-181** SI no hay ningún método visible, ENTONCES EL SISTEMA dirá al cliente que por ahora no hay métodos de pago disponibles y le indicará escribir a administración por WhatsApp. Binance nace oculto hasta que el administrador cargue sus datos.
+
+- **RF-182** EL SISTEMA no mostrará al administrador la casilla de «datos de prueba» en Datos de pago. Los datos de pago que se muestran al cliente son los reales del negocio.
 
 ## Tarifa
 
@@ -264,7 +358,7 @@ Nota: con estos tramos, 9,9 kg cuestan 94,05 $ y 10 kg cuestan 85 $. Es lo que d
 
 - Bot de WhatsApp o mensajes automáticos (API de WhatsApp Business, Twilio o similares).
 - Conexión automática con las transportistas para consultar el estado de una guía.
-- Recuperación de contraseña por correo o SMS automático.
+- Recuperación de contraseña por SMS o por WhatsApp automático (se hace por correo, RF-123 a RF-128).
 - Verificación automática de pagos contra Binance o el banco.
 - Aplicación nativa en Play Store o App Store.
 - Facturación electrónica.

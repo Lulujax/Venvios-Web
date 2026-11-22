@@ -3,8 +3,9 @@ import { FaWhatsapp } from 'react-icons/fa';
 import { FiCheck, FiX } from 'react-icons/fi';
 import { FotoInput } from '../FotoInput';
 import { Alerta, Campo, ImagenPrivada, useAviso } from '../ui';
+import { useConfirmar } from '../Confirmar';
 import { api, mensajeDeError } from '../../lib/api';
-import { nombreTransportista } from '../../lib/formato';
+import { nombreEnvio, nombreTransportista } from '../../lib/formato';
 import type { Envio } from '../../lib/tipos';
 import { enviarPorWhatsApp, pedirMensaje } from '../../lib/whatsapp';
 
@@ -56,9 +57,11 @@ export function DespachoForm({ envio, alCambiar }: { envio: Envio; alCambiar: (e
       avisar(resultado === 'foto-copiada' ? 'WhatsApp abierto. La foto de la guía está copiada: pégala con Ctrl+V.' : resultado === 'compartido' ? 'Elige el chat del cliente para enviar.' : 'WhatsApp abierto con la guía lista.', 'info');
     });
 
+  const pedirConfirmacion = useConfirmar();
+
   const cerrar = () =>
     hacer(async () => {
-      if (!window.confirm('¿Confirmas que el cliente recibió este envío? Quedará como entregado.')) return;
+      if (!(await pedirConfirmacion({ titulo: 'Confirmar entrega', pregunta: '¿Confirmas que el cliente recibió este envío? Quedará como entregado.', accion: 'Sí, quedó entregado' }))) return;
       const r = await api.post<{ envio: Envio }>(`/staff/envios/${envio.id}/cerrar`);
       alCambiar(r.envio);
       avisar('Envío cerrado como entregado.');
@@ -71,7 +74,7 @@ export function DespachoForm({ envio, alCambiar }: { envio: Envio; alCambiar: (e
           <p className="text-sm text-suave">{nombreTransportista(envio.transportista)} · guía</p>
           <p className="codigo text-xl">{envio.guia.numero ?? 'Solo con foto'}</p>
         </div>
-        {envio.guia.tieneFoto && <ImagenPrivada ruta={envio.guia.fotoRuta} alt="Foto de la guía" className="max-h-80 w-full object-contain bg-papel sm:w-auto" />}
+        {envio.guia.tieneFoto && <ImagenPrivada ruta={envio.guia.fotoRuta} alt="Foto de la guía" className="max-h-80 w-full object-contain bg-papel sm:w-auto" tipo="guia" referencia={nombreEnvio(envio)} conBotonDescarga />}
         {error && <Alerta tono="error">{error}</Alerta>}
         <div className="flex flex-wrap gap-2">
           <button type="button" className="btn bg-[#25D366] text-marino-900" disabled={ocupado} onClick={() => void avisarCliente()}><FaWhatsapp aria-hidden /> Enviar guía por WhatsApp</button>

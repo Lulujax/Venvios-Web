@@ -1,25 +1,25 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CorregirCedula } from '../../components/CorregirCedula';
-import { Alerta, Campo, CampoTelefono, Cargando, ErrorCarga, RequisitosContrasenaLista, Seccion, useAviso } from '../../components/ui';
-import { useAuth } from '../../lib/auth';
+import { Alerta, Campo, Cargando, ErrorCarga, Seccion, useAviso } from '../../components/ui';
 import { api, mensajeDeError } from '../../lib/api';
 import { aNumero } from '../../lib/formato';
-import type { Contacto, DatosPago, Tarifas, TransportistaPublico, Usuario } from '../../lib/tipos';
+import { enlacePruebaWhatsApp, renderizarEjemplo, variablesDesconocidas } from '../../lib/plantillas';
+import type { Contacto, DatosPago, Tarifas, TipoCuenta, TransportistaPublico } from '../../lib/tipos';
 import { useCarga } from '../../lib/useCarga';
-import { PAIS_PREDETERMINADO, componerTelefono, validarTelefonoLocal } from '../../lib/telefono';
-import { validarCedula, validarContrasena, validarEmail, validarNombre } from '../../lib/validar';
+import type { FiltroEstado } from '../../lib/usuarios';
+import { ResumenAdmin, type Destino } from './ResumenAdmin';
+import { UsuariosAdmin } from './UsuariosAdmin';
 
-type Pestana = 'usuarios' | 'clientes' | 'tarifas' | 'pagos' | 'mensajes' | 'transporte' | 'tasa';
+type Pestana = 'resumen' | 'usuarios' | 'clientes' | 'tarifas' | 'pagos' | 'mensajes' | 'transporte' | 'tasa';
 
-const PESTANAS: Array<{ id: Pestana; texto: string }> = [
-  { id: 'usuarios', texto: 'Usuarios' },
-  { id: 'clientes', texto: 'Clientes' },
-  { id: 'tarifas', texto: 'Tarifas' },
-  { id: 'pagos', texto: 'Datos de pago' },
-  { id: 'mensajes', texto: 'Mensajes' },
-  { id: 'transporte', texto: 'Contacto y rastreo' },
-  { id: 'tasa', texto: 'Tasa BCV' },
+const GRUPOS: Array<{ titulo: string; pestanas: Array<{ id: Pestana; texto: string }> }> = [
+  { titulo: 'Personas', pestanas: [{ id: 'resumen', texto: 'Resumen' }, { id: 'usuarios', texto: 'Usuarios' }, { id: 'clientes', texto: 'Clientes' }] },
+  { titulo: 'Negocio', pestanas: [{ id: 'tarifas', texto: 'Tarifas' }, { id: 'tasa', texto: 'Tasa BCV' }, { id: 'pagos', texto: 'Datos de pago' }] },
+  { titulo: 'Comunicación', pestanas: [{ id: 'mensajes', texto: 'Mensajes' }, { id: 'transporte', texto: 'Contacto y rastreo' }] },
 ];
+
+const IDS_PESTANA: Pestana[] = GRUPOS.flatMap((g) => g.pestanas.map((p) => p.id));
 
 function useConfigClave<T>(clave: string) {
   const carga = useCarga(() => api.get<{ valor: T }>(`/admin/config/${clave}`).then((r) => r.valor), [clave]);
@@ -41,86 +41,6 @@ function useConfigClave<T>(clave: string) {
     }
   }
   return { ...carga, guardar, guardando, errorGuardar: error };
-}
-
-function Usuarios() {
-  const { usuario: yo } = useAuth();
-  const avisar = useAviso();
-  const { datos, cargando, error, recargar } = useCarga(() => api.get<{ usuarios: Usuario[] }>('/admin/usuarios').then((r) => r.usuarios));
-  const [nuevo, setNuevo] = useState({ nombre: '', cedula: '', email: '', pais: PAIS_PREDETERMINADO, telefono: '', contrasena: '', rol: 'OPERADOR' });
-  const [errores, setErrores] = useState<Record<string, string | undefined>>({});
-  const [errorForm, setErrorForm] = useState<string | null>(null);
-  const [creando, setCreando] = useState(false);
-
-  async function crear(evento: FormEvent) {
-    evento.preventDefault();
-    const fallos = { nombre: validarNombre(nuevo.nombre) ?? undefined, cedula: validarCedula(nuevo.cedula) ?? undefined, email: validarEmail(nuevo.email) ?? undefined, telefono: validarTelefonoLocal(nuevo.pais, nuevo.telefono) ?? undefined, contrasena: validarContrasena(nuevo.contrasena) ?? undefined };
-    setErrores(fallos);
-    if (Object.values(fallos).some(Boolean)) return;
-    setCreando(true);
-    setErrorForm(null);
-    try {
-      await api.post('/admin/usuarios', { nombre: nuevo.nombre, cedula: nuevo.cedula, email: nuevo.email.trim(), telefono: componerTelefono(nuevo.pais, nuevo.telefono), contrasena: nuevo.contrasena, rol: nuevo.rol });
-      setNuevo({ nombre: '', cedula: '', email: '', pais: PAIS_PREDETERMINADO, telefono: '', contrasena: '', rol: 'OPERADOR' });
-      await recargar();
-      avisar('Usuario creado. Deberá cambiar su contraseña al entrar.');
-    } catch (falla) {
-      setErrorForm(mensajeDeError(falla));
-    } finally {
-      setCreando(false);
-    }
-  }
-
-  async function alternar(usuario: Usuario) {
-    try {
-      await api.patch(`/admin/usuarios/${usuario.id}`, { activo: !usuario.activo });
-      await recargar();
-    } catch (falla) {
-      avisar(mensajeDeError(falla), 'error');
-    }
-  }
-
-  return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <Seccion titulo="Personal">
-        {cargando && <Cargando lineas={2} />}
-        {error && <ErrorCarga mensaje={error} reintentar={() => void recargar()} />}
-        <ul className="space-y-2">
-          {datos?.map((u) => (
-            <li key={u.id} className="flex items-center justify-between gap-3 rounded-2xl border border-linea px-4 py-3 text-sm">
-              <div className="min-w-0"><p className="truncate font-bold">{u.nombre}</p><p className="text-suave">{u.rol === 'ADMIN' ? 'Administrador' : 'Operador'} · {u.email}</p></div>
-              {u.id === yo?.id ? (
-                <span className="text-sm font-bold text-suave">Tú</span>
-              ) : (
-                <button type="button" className={`btn btn-chico ${u.activo ? 'btn-suave' : 'btn-primario'}`} onClick={() => void alternar(u)}>{u.activo ? 'Desactivar' : 'Activar'}</button>
-              )}
-            </li>
-          ))}
-        </ul>
-      </Seccion>
-      <Seccion titulo="Crear usuario del personal">
-        <form onSubmit={crear} className="space-y-4" noValidate>
-          <Campo etiqueta="Nombre y apellido" value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} error={errores.nombre} />
-          <Campo etiqueta="Cédula" inputMode="numeric" value={nuevo.cedula} onChange={(e) => setNuevo({ ...nuevo, cedula: e.target.value })} error={errores.cedula} />
-          <Campo etiqueta="Correo electrónico" type="email" autoCapitalize="none" value={nuevo.email} onChange={(e) => setNuevo({ ...nuevo, email: e.target.value })} error={errores.email} />
-          <CampoTelefono etiqueta="Teléfono de WhatsApp" pais={nuevo.pais} numero={nuevo.telefono} alCambiarPais={(pais) => setNuevo({ ...nuevo, pais })} alCambiarNumero={(telefono) => setNuevo({ ...nuevo, telefono })} error={errores.telefono} />
-          <div>
-            <Campo etiqueta="Contraseña temporal" type="text" value={nuevo.contrasena} onChange={(e) => setNuevo({ ...nuevo, contrasena: e.target.value })} error={errores.contrasena} ayuda="La persona la cambiará al entrar." />
-            <RequisitosContrasenaLista contrasena={nuevo.contrasena} />
-          </div>
-          <div>
-            <label htmlFor="rol-nuevo" className="etiqueta">Rol</label>
-            <select id="rol-nuevo" className="campo" value={nuevo.rol} onChange={(e) => setNuevo({ ...nuevo, rol: e.target.value })}>
-              <option value="OPERADOR">Operador</option>
-              <option value="ADMIN">Administrador</option>
-            </select>
-          </div>
-          {errorForm && <Alerta tono="error">{errorForm}</Alerta>}
-          <button type="submit" className="btn btn-primario" disabled={creando}>{creando ? 'Creando…' : 'Crear usuario'}</button>
-        </form>
-      </Seccion>
-    </div>
-  );
 }
 
 function EditorTarifas() {
@@ -192,6 +112,15 @@ function EditorTarifas() {
   );
 }
 
+function InterruptorMetodo({ activo, alCambiar }: { activo: boolean; alCambiar: (activo: boolean) => void }) {
+  return (
+    <label className={`flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-sm font-bold ${activo ? 'bg-marino-50 text-marino-900' : 'bg-linea/60 text-suave'}`}>
+      <input type="checkbox" className="h-4 w-4" checked={activo} onChange={(e) => alCambiar(e.target.checked)} />
+      {activo ? 'Visible para clientes' : 'Oculto'}
+    </label>
+  );
+}
+
 function EditorDatosPago() {
   const { datos, cargando, error, guardar, guardando, errorGuardar } = useConfigClave<DatosPago>('datosPago');
   const [d, setD] = useState<DatosPago | null>(null);
@@ -202,27 +131,30 @@ function EditorDatosPago() {
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); void guardar(d); }} className="space-y-6" noValidate>
-      <label className="flex items-center gap-3 rounded-2xl bg-oro-50 px-4 py-3 text-sm font-bold">
-        <input type="checkbox" className="h-5 w-5" checked={d.esPrueba} onChange={(e) => setD({ ...d, esPrueba: e.target.checked })} />
-        Estos son datos de prueba (se muestra un aviso al cliente)
-      </label>
       <div className="grid gap-6 lg:grid-cols-3">
-        <Seccion titulo="Pago móvil">
+        <Seccion titulo="Pago móvil" derecha={<InterruptorMetodo activo={d.pagoMovil.activo} alCambiar={(activo) => setD({ ...d, pagoMovil: { ...d.pagoMovil, activo } })} />}>
           <div className="space-y-3">
             <Campo etiqueta="Banco" value={d.pagoMovil.banco} onChange={(e) => setD({ ...d, pagoMovil: { ...d.pagoMovil, banco: e.target.value } })} />
             <Campo etiqueta="Cédula" value={d.pagoMovil.cedula} onChange={(e) => setD({ ...d, pagoMovil: { ...d.pagoMovil, cedula: e.target.value } })} />
             <Campo etiqueta="Teléfono" value={d.pagoMovil.telefono} onChange={(e) => setD({ ...d, pagoMovil: { ...d.pagoMovil, telefono: e.target.value } })} />
           </div>
         </Seccion>
-        <Seccion titulo="Cuenta bancaria">
+        <Seccion titulo="Transferencia" derecha={<InterruptorMetodo activo={d.cuenta.activo} alCambiar={(activo) => setD({ ...d, cuenta: { ...d.cuenta, activo } })} />}>
           <div className="space-y-3">
+            <div>
+              <label htmlFor="tipo-cuenta" className="etiqueta">Tipo de cuenta</label>
+              <select id="tipo-cuenta" className="campo" value={d.cuenta.tipo} onChange={(e) => setD({ ...d, cuenta: { ...d.cuenta, tipo: e.target.value as TipoCuenta } })}>
+                <option value="CORRIENTE">Corriente</option>
+                <option value="AHORRO">Ahorro</option>
+              </select>
+            </div>
             <Campo etiqueta="Banco" value={d.cuenta.banco} onChange={(e) => setD({ ...d, cuenta: { ...d.cuenta, banco: e.target.value } })} />
             <Campo etiqueta="Número de cuenta" value={d.cuenta.numero} onChange={(e) => setD({ ...d, cuenta: { ...d.cuenta, numero: e.target.value } })} />
             <Campo etiqueta="Titular" value={d.cuenta.titular} onChange={(e) => setD({ ...d, cuenta: { ...d.cuenta, titular: e.target.value } })} />
             <Campo etiqueta="Cédula del titular" value={d.cuenta.cedula} onChange={(e) => setD({ ...d, cuenta: { ...d.cuenta, cedula: e.target.value } })} />
           </div>
         </Seccion>
-        <Seccion titulo="Binance">
+        <Seccion titulo="Binance" derecha={<InterruptorMetodo activo={d.binance.activo} alCambiar={(activo) => setD({ ...d, binance: { ...d.binance, activo } })} />}>
           <div className="space-y-3">
             <Campo etiqueta="Usuario o ID" value={d.binance.usuario} onChange={(e) => setD({ ...d, binance: { ...d.binance, usuario: e.target.value } })} />
             <Campo etiqueta="Correo" value={d.binance.correo} onChange={(e) => setD({ ...d, binance: { ...d.binance, correo: e.target.value } })} />
@@ -238,32 +170,60 @@ function EditorDatosPago() {
 }
 
 const VARIABLES = '{nombre} {tracking} {resumen_paquetes} {linea_peso} {linea_total} {nota_modalidad} {enlace_cuenta} {enlace_consolidar} {transportista} {guia} {enlace_rastreo} {motivo}';
-const MENSAJES: Array<{ clave: 'llegada' | 'cotizacion' | 'pagoVerificado' | 'pagoRechazado' | 'despacho'; titulo: string }> = [
-  { clave: 'llegada', titulo: 'Llegó un paquete' },
-  { clave: 'cotizacion', titulo: 'Total del envío consolidado' },
-  { clave: 'pagoVerificado', titulo: 'Pago verificado (avisa que sale hacia Venezuela)' },
-  { clave: 'pagoRechazado', titulo: 'Pago rechazado' },
-  { clave: 'despacho', titulo: 'En ruta (guía de la transportista)' },
+const MENSAJES: Array<{ clave: 'llegada' | 'cotizacion' | 'pagoVerificado' | 'pagoRechazado' | 'despacho'; titulo: string; corto: string }> = [
+  { clave: 'llegada', titulo: 'Llegó un paquete', corto: 'Llegó paquete' },
+  { clave: 'cotizacion', titulo: 'Total del envío consolidado', corto: 'Total' },
+  { clave: 'pagoVerificado', titulo: 'Pago verificado (avisa que sale hacia Venezuela)', corto: 'Pago verificado' },
+  { clave: 'pagoRechazado', titulo: 'Pago rechazado', corto: 'Pago rechazado' },
+  { clave: 'despacho', titulo: 'En ruta (guía de la transportista)', corto: 'En ruta' },
 ];
 
 function EditorMensajes() {
   const { datos, cargando, error, guardar, guardando, errorGuardar } = useConfigClave<Record<string, string>>('plantillas');
   const [p, setP] = useState<Record<string, string> | null>(null);
+  const contacto = useConfigClave<Contacto>('contacto');
+  const avisar = useAviso();
+  const [actual, setActual] = useState<(typeof MENSAJES)[number]['clave']>(MENSAJES[0]!.clave);
   useEffect(() => { if (datos) setP({ ...datos }); }, [datos]);
   if (cargando) return <Cargando />;
   if (error) return <ErrorCarga mensaje={error} />;
   if (!p) return null;
+  const mensaje = MENSAJES.find((m) => m.clave === actual) ?? MENSAJES[0]!;
+  const texto = p[mensaje.clave] ?? '';
+  const desconocidas = variablesDesconocidas(texto);
+  const vistaPrevia = texto.trim() ? renderizarEjemplo(texto) : '';
+
+  function enviarPrueba() {
+    const enlace = enlacePruebaWhatsApp(contacto.datos?.whatsapp ?? '', vistaPrevia);
+    if (!enlace) {
+      avisar('Para probar, primero carga el WhatsApp de la empresa en «Contacto y rastreo» y escribe el mensaje.', 'error');
+      return;
+    }
+    window.open(enlace, '_blank', 'noopener');
+  }
   return (
     <form onSubmit={(e) => { e.preventDefault(); void guardar(p); }} className="space-y-5" noValidate>
       <Alerta tono="info">Variables que puedes usar: <span className="font-mono text-xs">{VARIABLES}</span>. Las líneas que contienen solo una variable vacía se omiten.</Alerta>
-      {MENSAJES.map((m) => (
-        <div key={m.clave}>
-          <label htmlFor={`plantilla-${m.clave}`} className="etiqueta">{m.titulo}</label>
-          <textarea id={`plantilla-${m.clave}`} className="campo min-h-[150px] py-3 font-mono text-sm" value={p[m.clave] ?? ''} onChange={(e) => setP({ ...p, [m.clave]: e.target.value })} />
-        </div>
-      ))}
+      <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Mensaje a editar">
+        {MENSAJES.map((m) => (
+          <button key={m.clave} type="button" aria-pressed={m.clave === actual} onClick={() => setActual(m.clave)} className={`btn btn-chico shrink-0 ${m.clave === actual ? 'btn-primario' : 'btn-suave'}`}>{m.corto}</button>
+        ))}
+      </div>
+      <div>
+        <label htmlFor={`plantilla-${mensaje.clave}`} className="etiqueta">{mensaje.titulo}</label>
+        <textarea id={`plantilla-${mensaje.clave}`} className="campo min-h-[220px] py-3 font-mono text-sm" value={p[mensaje.clave] ?? ''} onChange={(e) => setP({ ...p, [mensaje.clave]: e.target.value })} />
+      </div>
+      {desconocidas.length > 0 && <Alerta tono="aviso">Estas variables no existen y saldrán vacías: {desconocidas.map((v) => `{${v}}`).join(' ')}</Alerta>}
+      <div className="rounded-2xl border border-linea bg-marino-50 p-4">
+        <p className="mb-2 text-sm font-bold text-suave">Así lo leerá el cliente (con datos de ejemplo)</p>
+        <p data-testid="vista-previa" className="whitespace-pre-wrap text-sm">{vistaPrevia || 'El mensaje está vacío.'}</p>
+      </div>
       {errorGuardar && <Alerta tono="error">{errorGuardar}</Alerta>}
-      <button type="submit" className="btn btn-primario" disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar mensajes'}</button>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <button type="submit" className="btn btn-primario" disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar mensajes'}</button>
+        <button type="button" className="btn btn-suave" onClick={enviarPrueba}>Enviarme una prueba</button>
+      </div>
+      <p className="ayuda">«Enviarme una prueba» abre WhatsApp con este mensaje hacia el número de la empresa, para que lo recibas como lo verá el cliente. No hace falta guardar antes.</p>
     </form>
   );
 }
@@ -285,7 +245,6 @@ function EditorTransporte() {
             <div key={tr.codigo} className="space-y-3 rounded-2xl border border-linea p-4">
               <Campo etiqueta={`Nombre (${tr.codigo})`} value={tr.nombre} onChange={(e) => setT(t.map((x, j) => (j === i ? { ...x, nombre: e.target.value } : x)))} />
               <Campo etiqueta="Enlace de rastreo" type="url" value={tr.urlRastreo} onChange={(e) => setT(t.map((x, j) => (j === i ? { ...x, urlRastreo: e.target.value } : x)))} />
-              <Campo etiqueta="Parámetro de la guía (opcional)" value={tr.parametroGuia ?? ''} onChange={(e) => setT(t.map((x, j) => (j === i ? { ...x, parametroGuia: e.target.value || null } : x)))} ayuda="Si el enlace acepta la guía, por ejemplo guia o tracking." />
             </div>
           ))}
           {transportes.errorGuardar && <Alerta tono="error">{transportes.errorGuardar}</Alerta>}
@@ -295,7 +254,9 @@ function EditorTransporte() {
       <Seccion titulo="Contacto público">
         <form onSubmit={(e) => { e.preventDefault(); void contacto.guardar(c); }} className="space-y-4" noValidate>
           <Campo etiqueta="WhatsApp (solo dígitos con código de país)" value={c.whatsapp} onChange={(e) => setC({ ...c, whatsapp: e.target.value })} />
-          <Campo etiqueta="Dirección" value={c.direccion} onChange={(e) => setC({ ...c, direccion: e.target.value })} />
+          <Campo etiqueta="Correo de contacto" type="email" value={c.correo} onChange={(e) => setC({ ...c, correo: e.target.value })} ayuda="Se muestra en el pie y en las páginas legales." />
+          <Campo etiqueta="Dirección de la oficina" value={c.direccion} onChange={(e) => setC({ ...c, direccion: e.target.value })} />
+          <Campo etiqueta="Horario de atención" value={c.horario} maxLength={200} onChange={(e) => setC({ ...c, horario: e.target.value })} ayuda="Se muestra en la portada y en el pie. Déjalo vacío para no mostrarlo." />
           <Campo etiqueta="Instagram" type="url" value={c.instagram} onChange={(e) => setC({ ...c, instagram: e.target.value })} />
           <Campo etiqueta="Facebook" type="url" value={c.facebook} onChange={(e) => setC({ ...c, facebook: e.target.value })} />
           <Campo etiqueta="TikTok" type="url" value={c.tiktok} onChange={(e) => setC({ ...c, tiktok: e.target.value })} />
@@ -343,23 +304,46 @@ function EditorTasa() {
 }
 
 export default function Administracion() {
-  const [pestana, setPestana] = useState<Pestana>('usuarios');
+  const [params, setParams] = useSearchParams();
+  const pedida = params.get('seccion') as Pestana | null;
+  const pestana: Pestana = pedida && IDS_PESTANA.includes(pedida) ? pedida : 'resumen';
+  const estadoUsuarios: FiltroEstado = params.get('estado') === 'pendientes' ? 'PENDIENTES' : 'TODOS';
+
+  function abrir(id: Pestana, estado?: string) {
+    const siguiente: Record<string, string> = id === 'resumen' ? {} : { seccion: id };
+    if (estado) siguiente.estado = estado;
+    setParams(siguiente, { replace: true });
+  }
+
+  function irDesdeResumen(destino: Destino) {
+    if (destino === 'pendientes') return abrir('usuarios', 'pendientes');
+    abrir(destino);
+  }
+
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">
       <h1 className="mb-5 text-3xl">Administración</h1>
-      <div role="tablist" aria-label="Secciones de administración" className="mb-6 flex gap-2 overflow-x-auto pb-1">
-        {PESTANAS.map((p) => (
-          <button key={p.id} role="tab" aria-selected={pestana === p.id} type="button" onClick={() => setPestana(p.id)} className={`btn btn-chico shrink-0 ${pestana === p.id ? 'btn-primario' : 'btn-suave'}`}>{p.texto}</button>
-        ))}
-      </div>
-      <div role="tabpanel">
-        {pestana === 'usuarios' && <Usuarios />}
-        {pestana === 'clientes' && <CorregirCedula />}
-        {pestana === 'tarifas' && <EditorTarifas />}
-        {pestana === 'pagos' && <EditorDatosPago />}
-        {pestana === 'mensajes' && <EditorMensajes />}
-        {pestana === 'transporte' && <EditorTransporte />}
-        {pestana === 'tasa' && <EditorTasa />}
+      <div className="lg:grid lg:grid-cols-[13rem_1fr] lg:gap-8">
+        <nav role="tablist" aria-label="Secciones de administración" className="mb-6 flex gap-2 overflow-x-auto pb-1 lg:sticky lg:top-24 lg:mb-0 lg:flex-col lg:gap-1 lg:self-start lg:overflow-visible">
+          {GRUPOS.map((g) => (
+            <div key={g.titulo} className="flex shrink-0 gap-2 lg:flex-col lg:gap-1 lg:pb-3">
+              <span className="hidden px-3 pb-1 text-xs font-bold uppercase tracking-wide text-suave lg:block">{g.titulo}</span>
+              {g.pestanas.map((p) => (
+                <button key={p.id} role="tab" aria-selected={pestana === p.id} type="button" onClick={() => abrir(p.id)} className={`btn btn-chico shrink-0 lg:w-full lg:justify-start ${pestana === p.id ? 'btn-primario' : 'btn-suave'}`}>{p.texto}</button>
+              ))}
+            </div>
+          ))}
+        </nav>
+        <div role="tabpanel" className="min-w-0">
+          {pestana === 'resumen' && <ResumenAdmin alIr={irDesdeResumen} />}
+          {pestana === 'usuarios' && <UsuariosAdmin key={estadoUsuarios} estadoInicial={estadoUsuarios} />}
+          {pestana === 'clientes' && <CorregirCedula />}
+          {pestana === 'tarifas' && <EditorTarifas />}
+          {pestana === 'pagos' && <EditorDatosPago />}
+          {pestana === 'mensajes' && <EditorMensajes />}
+          {pestana === 'transporte' && <EditorTransporte />}
+          {pestana === 'tasa' && <EditorTasa />}
+        </div>
       </div>
     </div>
   );

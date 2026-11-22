@@ -89,6 +89,20 @@ export interface PagoVista {
   creadoEn: string;
 }
 
+export interface FilaPago {
+  pagoId: string;
+  envioId: string;
+  numero: number;
+  cliente: string;
+  metodo: string;
+  moneda: string;
+  montoUsdCentavos: number;
+  montoOriginalCentavos: number;
+  referencia: string | null;
+  tieneComprobante: boolean;
+  creadoEn: string;
+}
+
 export interface TasaVista {
   bolivaresPorUsd: number;
   fecha: string;
@@ -174,7 +188,17 @@ export interface ItemBodega {
   tipoEnvio: TipoEnvio;
   estadoEnvio: EstadoEnvio;
   sinDueno: boolean;
+  avisado: boolean;
+  diasEnBodega: number | null;
   cliente: { id: string; nombre: string; codigo: string };
+}
+
+export interface PaginaEnvios {
+  envios: Envio[];
+  total: number;
+  pagina: number;
+  porPagina: number;
+  paginas: number;
 }
 
 export interface TramoPrecio {
@@ -200,7 +224,9 @@ export interface TransportistaPublico {
 
 export interface Contacto {
   whatsapp: string;
+  correo: string;
   direccion: string;
+  horario: string;
   instagram: string;
   facebook: string;
   tiktok: string;
@@ -231,15 +257,20 @@ export interface Cotizacion {
   tasa: TasaVista | null;
 }
 
+export type TipoCuenta = 'CORRIENTE' | 'AHORRO';
+
 export interface DatosPago {
   esPrueba: boolean;
-  pagoMovil: { banco: string; cedula: string; telefono: string };
-  cuenta: { banco: string; numero: string; titular: string; cedula: string };
-  binance: { usuario: string; correo: string; nota: string };
+  pagoMovil: { activo: boolean; banco: string; cedula: string; telefono: string };
+  cuenta: { activo: boolean; tipo: TipoCuenta; banco: string; numero: string; titular: string; cedula: string };
+  binance: { activo: boolean; usuario: string; correo: string; nota: string };
   notaVerificacion: string;
 }
 
+export type MetodoVisible = 'PAGO_MOVIL' | 'TRANSFERENCIA' | 'BINANCE';
+
 export interface InfoPago {
+  metodosDisponibles: MetodoVisible[];
   totalCentavos: number;
   pagadoCentavos: number;
   saldoCentavos: number;

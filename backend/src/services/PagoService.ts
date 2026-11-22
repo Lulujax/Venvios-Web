@@ -1,6 +1,6 @@
 import { dolaresABolivaresCentavos } from '../domain/dinero';
 import { ESTADOS_COBRABLES, validarTransicion } from '../domain/estados';
-import { esMontoExacto, validarReferenciaPago } from '../domain/pagos';
+import { datosPagoParaCliente, esMontoExacto, metodosVisibles, validarReferenciaPago, type MetodoVisible } from '../domain/pagos';
 import { limpiarTexto } from '../domain/validaciones';
 import type { Envio, MetodoPago, MonedaPago, Pago, Repositorios } from '../repositories/tipos';
 import { AppError } from '../utils/errors';
@@ -19,6 +19,27 @@ export interface NuevoPago {
 }
 
 const TOLERANCIA_CENTAVOS = 5;
+export const LIMITE_LOTE_PAGOS = 100;
+
+export interface PagoPendiente {
+  pagoId: string;
+  envioId: string;
+  numero: number;
+  cliente: string;
+  metodo: string;
+  moneda: string;
+  montoUsdCentavos: number;
+  montoOriginalCentavos: number;
+  referencia: string | null;
+  tieneComprobante: boolean;
+  creadoEn: string;
+}
+
+export interface ResultadoLote {
+  confirmados: string[];
+  fallidos: Array<{ id: string; motivo: string }>;
+  enviosPagados: number;
+}
 const METODOS: MetodoPago[] = ['BINANCE', 'PAGO_MOVIL', 'TRANSFERENCIA', 'MANUAL'];
 
 export function monedaDelMetodo(metodo: MetodoPago): MonedaPago | null {
@@ -49,7 +70,8 @@ export class PagoService {
       saldoCentavos: saldo,
       saldoBsCentavos: dolaresABolivaresCentavos(saldo, tasa.bolivaresPorUsd),
       tasa: { bolivaresPorUsd: tasa.bolivaresPorUsd, fecha: tasa.fecha, desactualizada: tasa.desactualizada },
-      datosPago: await this.config.datosPago(),
+      datosPago: datosPagoParaCliente(await this.config.datosPago()),
+      metodosDisponibles: metodosVisibles(await this.config.datosPago()),
       modalidad: envio.modalidad,
       transportista: envio.transportista,
     };
@@ -74,6 +96,10 @@ export class PagoService {
     const envio = await this.envios.obtenerEnvio(actor, envioId);
     this.validarEnvioCobrable(envio);
     if (!METODOS.includes(datos.metodo) || datos.metodo === 'MANUAL') throw AppError.badRequest('Elige cómo pagaste.');
+    const disponibles = metodosVisibles(await this.config.datosPago());
+    if (!disponibles.includes(datos.metodo as MetodoVisible)) {
+      throw AppError.badRequest('Ese método de pago no está disponible por ahora. Elige otro o escribe a administración.', 'METODO_NO_DISPONIBLE');
+    }
     if (monedaDelMetodo(datos.metodo) !== datos.moneda) {
       throw AppError.badRequest('Ese método de pago no admite esa moneda: Binance es en dólares; pago móvil y transferencia, en bolívares.', 'METODO_MONEDA');
     }
@@ -159,6 +185,53 @@ export class PagoService {
     return pagos.map((pago) => ({ pago, envioId: pago.envioId }));
   }
 
+  async listaDeRevision(actor: Actor): Promise<PagoPendiente[]> {
+    if (!esPersonal(actor)) throw AppError.forbidden();
+    const envios = await this.envios.listarPorEstadoCompleto(actor, 'POR_CONFIRMAR');
+    const filas = envios.flatMap((envio) =>
+      envio.pagos
+        .filter((pago) => pago.estado === 'POR_CONFIRMAR')
+        .map((pago): PagoPendiente => ({
+          pagoId: pago.id,
+          envioId: envio.id,
+          numero: envio.numero,
+          cliente: envio.cliente.nombre,
+          metodo: pago.metodo,
+          moneda: pago.moneda,
+          montoUsdCentavos: pago.montoUsdCentavos,
+          montoOriginalCentavos: pago.montoOriginalCentavos,
+          referencia: pago.referencia,
+          tieneComprobante: pago.tieneComprobante,
+          creadoEn: pago.creadoEn,
+        })),
+    );
+    logger.info('Pagos pendientes listados', { actor: actor.id, cantidad: filas.length });
+    return filas.sort((a, b) => a.creadoEn.localeCompare(b.creadoEn));
+  }
+
+  async confirmarLote(actor: Actor, ids: string[]): Promise<ResultadoLote> {
+    if (!esPersonal(actor)) throw AppError.forbidden();
+    const unicos = [...new Set(ids)];
+    if (unicos.length === 0 || unicos.length > LIMITE_LOTE_PAGOS) {
+      throw AppError.badRequest(`Un lote puede tener de 1 a ${LIMITE_LOTE_PAGOS} pagos.`);
+    }
+    logger.info('Confirmando lote de pagos', { actor: actor.id, cantidad: unicos.length });
+    const resultado: ResultadoLote = { confirmados: [], fallidos: [], enviosPagados: 0 };
+    for (const id of unicos) {
+      try {
+        const envio = await this.confirmar(actor, id);
+        resultado.confirmados.push(id);
+        if (envio.estado === 'PAGADO') resultado.enviosPagados += 1;
+      } catch (falla) {
+        const motivo = falla instanceof AppError ? falla.message : 'No se pudo confirmar este pago.';
+        resultado.fallidos.push({ id, motivo });
+        logger.warn('Un pago del lote no se confirmó', { actor: actor.id, pago: id });
+      }
+    }
+    logger.info('Lote de pagos terminado', { confirmados: resultado.confirmados.length, fallidos: resultado.fallidos.length });
+    return resultado;
+  }
+
   async confirmar(actor: Actor, pagoId: string): Promise<EnvioVista> {
     if (!esPersonal(actor)) throw AppError.forbidden();
     const pago = await this.repos.pagos.porId(pagoId);
@@ -176,6 +249,7 @@ export class PagoService {
       validarTransicion(envio.estado, 'PAGADO');
       await this.repos.envios.actualizar(envio.id, { estado: 'PAGADO' }, envio.estado);
       await this.repos.envios.agregarEvento({ envioId: envio.id, actorId: actor.id, tipo: 'PAGO_CONFIRMADO', detalle: 'Pago completo confirmado', datos: null });
+      await this.envios.completarEntregaDesdePerfil(envio.id, actor);
     } else if (!cubierto) {
       const quedanPendientes = pagos.some((p) => p.estado === 'POR_CONFIRMAR' && p.id !== pagoId);
       if (envio.estado === 'POR_CONFIRMAR' && !quedanPendientes) {

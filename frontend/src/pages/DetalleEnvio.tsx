@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { FiArrowLeft, FiPhone } from 'react-icons/fi';
 import { AjusteAdmin } from '../components/envio/AjusteAdmin';
 import { DespachoForm } from '../components/envio/DespachoForm';
-import { EntregaForm } from '../components/envio/EntregaForm';
+import { EntregaPersonal } from '../components/envio/EntregaPersonal';
 import { EntregaDelPerfil } from '../components/envio/EntregaDelPerfil';
 import { Historial } from '../components/envio/Historial';
 import { LineaEstado } from '../components/envio/LineaEstado';
@@ -15,6 +15,7 @@ import { PaquetesCliente, PaquetesPersonal } from '../components/envio/PaquetesL
 import { PrecioCaja } from '../components/envio/PrecioCaja';
 import { PasosConsolidacion } from '../components/envio/Consolidado';
 import { Alerta, Campo, Cargando, ErrorCarga, ImagenPrivada, InsigniaEstado, Seccion, useAviso } from '../components/ui';
+import { useConfirmar } from '../components/Confirmar';
 import { api, mensajeDeError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { formatearUsd, nombreEnvio, nombreTransportista } from '../lib/formato';
@@ -37,8 +38,10 @@ export function YaLoRecibi({ envio, alCambiar }: { envio: Envio; alCambiar: (env
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const pedirConfirmacion = useConfirmar();
+
   async function confirmar() {
-    if (!window.confirm('¿Ya recibiste tu envío? Al confirmarlo lo damos por entregado.')) return;
+    if (!(await pedirConfirmacion({ titulo: '¿Ya recibiste tu envío?', pregunta: 'Al confirmarlo lo damos por entregado.', accion: 'Sí, ya lo recibí' }))) return;
     setOcupado(true);
     setError(null);
     try {
@@ -100,8 +103,10 @@ function DeshacerCliente({ envio, alCambiar }: { envio: Envio; alCambiar: (envio
   const avisar = useAviso();
   const [error, setError] = useState<string | null>(null);
 
+  const pedirConfirmacion = useConfirmar();
+
   async function deshacer() {
-    if (!window.confirm('¿Deshacer este envío? Tus paquetes vuelven a la bodega y puedes armarlo de nuevo.')) return;
+    if (!(await pedirConfirmacion({ titulo: '¿Deshacer este envío?', pregunta: 'Tus paquetes vuelven a la bodega y puedes armarlo de nuevo.', accion: 'Sí, deshacer', peligro: true }))) return;
     setError(null);
     try {
       const r = await api.post<{ envio: Envio }>(`/envios/${envio.id}/deshacer`, {});
@@ -233,7 +238,7 @@ export default function DetalleEnvio({ personal }: { personal: boolean }) {
           {((!personal && !esAlerta && envio.estado !== 'CANCELADO') || etapaEnvio) && (
             <Seccion titulo="Datos de entrega en Venezuela">
               {personal ? (
-                <EntregaForm key={`${envio.entrega.cedula}-${envio.estado}`} envio={envio} alCambiar={alCambiar} bloqueado={['DESPACHADO', 'CERRADO', 'CANCELADO'].includes(envio.estado)} />
+                <EntregaPersonal envio={envio} alCambiar={alCambiar} bloqueado={['DESPACHADO', 'CERRADO', 'CANCELADO'].includes(envio.estado)} />
               ) : (
                 <EntregaDelPerfil envio={envio} alCambiar={alCambiar} bloqueado={['DESPACHADO', 'CERRADO', 'CANCELADO'].includes(envio.estado)} />
               )}
@@ -244,7 +249,7 @@ export default function DetalleEnvio({ personal }: { personal: boolean }) {
             <Seccion titulo="Tu guía de Venezuela">
               <p className="text-sm text-suave">{transportista}</p>
               {envio.guia.numero && <p className="codigo text-2xl">{envio.guia.numero}</p>}
-              {envio.guia.tieneFoto && <div className="mt-4"><ImagenPrivada ruta={envio.guia.fotoRuta} alt="Foto de la guía" className="max-h-80 w-full object-contain bg-papel sm:w-auto" /></div>}
+              {envio.guia.tieneFoto && <div className="mt-4"><ImagenPrivada ruta={envio.guia.fotoRuta} alt="Foto de la guía" className="h-24 w-24" tipo="guia" referencia={nombreEnvio(envio)} /></div>}
               {envio.guia.numero && <a className="btn btn-primario mt-4" target="_blank" rel="noopener noreferrer" href={enlaceRastreo(envio.transportista === 'ZOOM' ? 'https://zoom.red/tracking-de-envios-personas/' : 'https://mrwve.com', null, envio.guia.numero)}>Rastrear en {transportista}</a>}
               {envio.estado === 'DESPACHADO' && <YaLoRecibi envio={envio} alCambiar={alCambiar} />}
             </Seccion>

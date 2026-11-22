@@ -3,7 +3,7 @@ import { FiCheck, FiX } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
 import { Alerta, Campo, ImagenPrivada, Seleccion, useAviso } from '../ui';
 import { api, mensajeDeError } from '../../lib/api';
-import { aNumero, formatearBs, formatearFecha, formatearUsd, NOMBRE_METODO } from '../../lib/formato';
+import { aNumero, formatearBs, formatearFecha, formatearUsd, nombreEnvio, NOMBRE_METODO } from '../../lib/formato';
 import type { Envio, PagoVista } from '../../lib/tipos';
 import { validarMonto } from '../../lib/validar';
 import { enviarPorWhatsApp, pedirMensaje } from '../../lib/whatsapp';
@@ -110,7 +110,7 @@ export function PagosPersonal({ envio, alCambiar }: { envio: Envio; alCambiar: (
               </div>
               <span className={`insignia ${TONO_PAGO[pago.estado]}`}>{TEXTO_PAGO[pago.estado]}</span>
             </div>
-            {pago.tieneComprobante && <ImagenPrivada ruta={pago.comprobanteRuta} alt="Comprobante de pago" className="mt-3 max-h-80 w-full object-contain bg-papel sm:w-auto" />}
+            {pago.tieneComprobante && <ImagenPrivada ruta={pago.comprobanteRuta} alt="Comprobante de pago" className="mt-3 max-h-80 w-full object-contain bg-papel sm:w-auto" tipo="comprobante" referencia={`${nombreEnvio(envio)} ${pago.referencia ?? ''}`} conBotonDescarga />}
             {pago.estado === 'POR_CONFIRMAR' && (
               <div className="mt-4 space-y-3">
                 {rechazando === pago.id ? (

@@ -1,7 +1,9 @@
-import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { FaFacebookF, FaInstagram, FaTiktok, FaWhatsapp } from 'react-icons/fa';
-import { FiBox, FiCheckCircle, FiMapPin, FiPackage, FiSend, FiTruck } from 'react-icons/fi';
+import { FiBox, FiCheckCircle, FiClock, FiMail, FiMapPin, FiPackage, FiTruck } from 'react-icons/fi';
 import { Calculadora } from '../components/Calculadora';
+import { Pie } from '../components/Pie';
 import { Rastreador } from '../components/Rastreador';
 import { Cargando, ErrorCarga, Marca } from '../components/ui';
 import { api } from '../lib/api';
@@ -22,9 +24,19 @@ function nombreTramo(desde: number, siguiente: number | undefined): string {
   return `${desde} a ${(siguiente - 0.01).toFixed(2).replace('.', ',')} kg`;
 }
 
+function useDesplazarAlAncla(listo: boolean): void {
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (!hash || !listo) return;
+    const destino = document.getElementById(decodeURIComponent(hash.slice(1)));
+    destino?.scrollIntoView?.({ block: 'start' });
+  }, [hash, listo]);
+}
+
 export default function Landing() {
   const { usuario } = useAuth();
   const { datos, cargando, error, recargar } = useCarga(() => api.get<InfoPublica>('/publico/info'));
+  useDesplazarAlAncla(!cargando);
   const whatsapp = datos ? `https://wa.me/${datos.contacto.whatsapp}?text=${encodeURIComponent('Hola Venvios Express, quiero información sobre el casillero.')}` : '#';
 
   return (
@@ -56,6 +68,7 @@ export default function Landing() {
         <div className="contenedor relative grid gap-10 py-12 sm:py-16 lg:grid-cols-[1.15fr_.85fr] lg:items-center lg:py-20">
           <div className="animate-entrar">
             <p className="insignia mb-5 bg-oro text-marino-900">Casillero internacional · Cúcuta → Venezuela</p>
+            <p className="mb-3 font-display text-sm font-bold uppercase tracking-[0.25em] text-oro">Tu mejor opción</p>
             <h1 className="text-[2.4rem] leading-[1.05] text-white sm:text-6xl">
               Más cerca de <span className="text-oro">quienes más quieres.</span>
             </h1>
@@ -127,7 +140,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="contenedor py-16">
+      <section id="como-funciona" className="contenedor scroll-mt-20 py-16">
         <h2 className="mb-10 text-3xl sm:text-4xl">Así funciona</h2>
         <ol className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {PASOS.map((paso, indice) => (
@@ -150,7 +163,12 @@ export default function Landing() {
           </div>
           <div className="space-y-4 rounded-tarjeta border border-white/15 p-6">
             <p className="flex items-start gap-3"><FiMapPin className="mt-1 shrink-0 text-oro" aria-hidden /><span>{datos?.contacto.direccion ?? 'Barrio Latino, Cúcuta'}</span></p>
-            <p className="flex items-center gap-3"><FiSend className="shrink-0 text-oro" aria-hidden /> @venviosexpress</p>
+            {datos?.contacto.horario && (
+              <p className="flex items-start gap-3"><FiClock className="mt-1 shrink-0 text-oro" aria-hidden /><span>{datos.contacto.horario}</span></p>
+            )}
+            {datos?.contacto.correo && (
+              <p className="flex items-center gap-3"><FiMail className="shrink-0 text-oro" aria-hidden /><a href={`mailto:${datos.contacto.correo}`} className="break-all hover:underline underline-offset-4">{datos.contacto.correo}</a></p>
+            )}
             {datos && (
               <div className="flex gap-3 pt-2">
                 <a aria-label="Instagram" href={datos.contacto.instagram} target="_blank" rel="noopener noreferrer" className="grid h-11 w-11 place-items-center rounded-full border border-white/25 hover:bg-white/10"><FaInstagram aria-hidden /></a>
@@ -162,10 +180,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <footer className="bg-marino-900 pb-8 text-center text-sm text-white/50">
-        <p>© {new Date().getFullYear()} Venvios Express · Tu mejor opción</p>
-        <p className="mt-1"><Link to="/ingresar" className="underline underline-offset-4">Acceso del personal</Link></p>
-      </footer>
+      <Pie contacto={datos?.contacto} />
     </div>
   );
 }

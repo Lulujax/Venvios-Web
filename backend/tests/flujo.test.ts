@@ -101,18 +101,6 @@ describe('cuentas', () => {
   it('sin sesión se rechaza con 401', async () => {
     expect((await entorno.agente().get('/api/envios')).status).toBe(401);
   });
-
-  it('contraseña temporal obliga a cambiarla', async () => {
-    const { usuario, datos } = await registrarCliente(entorno);
-    const { agente } = await crearPersonalYEntrar(entorno, 'OPERADOR');
-    const respuesta = await agente.post(`/api/staff/clientes/${usuario.id}/clave-temporal`);
-    expect(respuesta.status).toBe(200);
-    const entrada = await entorno.agente().post('/api/auth/login').send({ identificador: datos.email, contrasena: respuesta.body.temporal });
-    expect(entrada.status).toBe(200);
-    expect(entrada.body.usuario.debeCambiarClave).toBe(true);
-    const viejaYa = await entorno.agente().post('/api/auth/login').send({ identificador: datos.email, contrasena: datos.contrasena });
-    expect(viejaYa.status).toBe(401);
-  });
 });
 
 describe('permisos', () => {
@@ -464,6 +452,15 @@ describe('pagos', () => {
       const respuesta = await subirPago(cliente.agente, envioId, { metodo, moneda, monto: '38', referencia: '000099' });
       expect(respuesta.body.error.codigo).toBe('METODO_MONEDA');
     }
+  });
+
+  it('error: un método oculto por el administrador se rechaza aunque se envíe a mano', async () => {
+    const { cliente, envioId } = await consolidadoCotizado();
+    const datosPago = (await entorno.contexto.repos.config.obtener('datosPago')) as { binance: { activo: boolean } };
+    await entorno.contexto.repos.config.guardar('datosPago', { ...datosPago, binance: { ...datosPago.binance, activo: false } });
+    const respuesta = await subirPago(cliente.agente, envioId, { metodo: 'BINANCE', moneda: 'USD', monto: '38', referencia: 'ABC12345' });
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body.error.codigo).toBe('METODO_NO_DISPONIBLE');
   });
 
   it('pago exacto en bolívares a la tasa del día; un monto distinto se rechaza', async () => {

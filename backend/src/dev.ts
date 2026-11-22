@@ -8,7 +8,7 @@ import { logger } from './utils/logger';
 async function iniciar(): Promise<void> {
   const contexto = await crearContextoDesdeEntorno();
   await sembrarConfiguracion(contexto);
-  await sembrarCuentasDePersonal(contexto, { tolerante: true });
+  await sembrarCuentasDePersonal(contexto, { tolerante: true, pedirCambioDeClave: Boolean(process.env.DATABASE_URL?.trim()) });
   if (process.env.CARGAR_DATOS_PRUEBA === 'true') {
     await cargarDatosDePrueba(contexto, leerFixtureDatosPrueba());
   }

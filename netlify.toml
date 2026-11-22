@@ -2,6 +2,7 @@
   command = "npm run build"
   publish = "frontend/dist"
   functions = "backend/netlify/functions"
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- backend frontend netlify.toml package.json package-lock.json"
 
 [functions]
   node_bundler = "esbuild"

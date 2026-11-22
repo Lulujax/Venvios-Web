@@ -5,9 +5,11 @@ import { Alerta, Campo, Seleccion, useAviso } from '../ui';
 import { api, mensajeDeError } from '../../lib/api';
 import { formatearBs, formatearUsd } from '../../lib/formato';
 import { monedaDelMetodo, TEXTO_MONEDA } from '../../lib/pago';
-import type { Envio, InfoPago } from '../../lib/tipos';
+import type { Envio, InfoPago, MetodoVisible } from '../../lib/tipos';
 import { useCarga } from '../../lib/useCarga';
 import { validarReferencia } from '../../lib/validar';
+
+const TEXTO_METODO: Record<MetodoVisible, string> = { PAGO_MOVIL: 'Pago móvil', TRANSFERENCIA: 'Transferencia', BINANCE: 'Binance' };
 
 function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   const avisar = useAviso();
@@ -27,7 +29,9 @@ function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
 export function PagoCliente({ envio, alCambiar }: { envio: Envio; alCambiar: (envio: Envio) => void }) {
   const avisar = useAviso();
   const { datos: info, error: errorInfo } = useCarga(() => api.get<InfoPago>(`/envios/${envio.id}/pago`), [envio.id, envio.pagadoCentavos]);
-  const [metodo, setMetodo] = useState('PAGO_MOVIL');
+  const [metodoElegido, setMetodo] = useState('PAGO_MOVIL');
+  const disponibles = info?.metodosDisponibles ?? [];
+  const metodo = disponibles.includes(metodoElegido as MetodoVisible) ? metodoElegido : (disponibles[0] ?? 'PAGO_MOVIL');
   const moneda = monedaDelMetodo(metodo);
   const [referencia, setReferencia] = useState('');
   const [archivo, setArchivo] = useState<File | null>(null);
@@ -78,37 +82,46 @@ export function PagoCliente({ envio, alCambiar }: { envio: Envio; alCambiar: (en
 
       {datosPago.esPrueba && <Alerta tono="aviso">Estos datos de pago son de prueba. No transfieras dinero todavía.</Alerta>}
 
+      {disponibles.length === 0 && <Alerta tono="aviso">Por ahora no hay métodos de pago disponibles. Escríbele a administración por WhatsApp para pagar.</Alerta>}
+
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-linea p-4">
-          <h3 className="mb-1 text-base">Pago móvil</h3>
-          <div className="divide-y divide-linea">
-            <Dato etiqueta="Banco" valor={datosPago.pagoMovil.banco} />
-            <Dato etiqueta="Cédula" valor={datosPago.pagoMovil.cedula} />
-            <Dato etiqueta="Teléfono" valor={datosPago.pagoMovil.telefono} />
+        {disponibles.includes('PAGO_MOVIL') && (
+          <div className="rounded-2xl border border-linea p-4">
+            <h3 className="mb-1 text-base">Pago móvil</h3>
+            <div className="divide-y divide-linea">
+              <Dato etiqueta="Banco" valor={datosPago.pagoMovil.banco} />
+              <Dato etiqueta="Cédula" valor={datosPago.pagoMovil.cedula} />
+              <Dato etiqueta="Teléfono" valor={datosPago.pagoMovil.telefono} />
+            </div>
           </div>
-        </div>
-        <div className="rounded-2xl border border-linea p-4">
-          <h3 className="mb-1 text-base">Transferencia</h3>
-          <div className="divide-y divide-linea">
-            <Dato etiqueta="Banco" valor={datosPago.cuenta.banco} />
-            <Dato etiqueta="Cuenta" valor={datosPago.cuenta.numero} />
-            <Dato etiqueta="Titular" valor={`${datosPago.cuenta.titular} · ${datosPago.cuenta.cedula}`} />
+        )}
+        {disponibles.includes('TRANSFERENCIA') && (
+          <div className="rounded-2xl border border-linea p-4">
+            <h3 className="mb-1 text-base">Transferencia</h3>
+            <div className="divide-y divide-linea">
+              <Dato etiqueta="Banco" valor={datosPago.cuenta.banco} />
+              <Dato etiqueta="Tipo de cuenta" valor={datosPago.cuenta.tipo === 'AHORRO' ? 'Ahorro' : 'Corriente'} />
+              <Dato etiqueta="Cuenta" valor={datosPago.cuenta.numero} />
+              <Dato etiqueta="Titular" valor={`${datosPago.cuenta.titular} · ${datosPago.cuenta.cedula}`} />
+            </div>
           </div>
-        </div>
-        <div className="rounded-2xl border border-linea p-4 md:col-span-2">
-          <h3 className="mb-1 text-base">Binance</h3>
-          <div className="divide-y divide-linea">
-            <Dato etiqueta="Usuario" valor={datosPago.binance.usuario} />
-            <Dato etiqueta="Correo" valor={datosPago.binance.correo} />
+        )}
+        {disponibles.includes('BINANCE') && (
+          <div className="rounded-2xl border border-linea p-4 md:col-span-2">
+            <h3 className="mb-1 text-base">Binance</h3>
+            <div className="divide-y divide-linea">
+              <Dato etiqueta="Usuario" valor={datosPago.binance.usuario} />
+              <Dato etiqueta="Correo" valor={datosPago.binance.correo} />
+            </div>
+            {datosPago.binance.nota && <p className="ayuda">{datosPago.binance.nota}</p>}
           </div>
-          {datosPago.binance.nota && <p className="ayuda">{datosPago.binance.nota}</p>}
-        </div>
+        )}
       </div>
       <p className="text-sm font-semibold text-suave">{datosPago.notaVerificacion}</p>
 
       {enRevision && <Alerta tono="info">Tienes un comprobante en revisión. Te avisamos por WhatsApp cuando lo verifiquemos.</Alerta>}
 
-      {!enRevision && (
+      {!enRevision && disponibles.length > 0 && (
       <form onSubmit={enviar} className="space-y-4 rounded-2xl border border-linea bg-white p-4" noValidate>
         <h3 className="text-base">Subir comprobante</h3>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -116,7 +129,7 @@ export function PagoCliente({ envio, alCambiar }: { envio: Envio; alCambiar: (en
             setMetodo(e.target.value);
             setReferencia('');
             setErrores({});
-          }} opciones={[{ valor: 'PAGO_MOVIL', texto: 'Pago móvil' }, { valor: 'TRANSFERENCIA', texto: 'Transferencia' }, { valor: 'BINANCE', texto: 'Binance' }]} />
+          }} opciones={disponibles.map((valor) => ({ valor, texto: TEXTO_METODO[valor] }))} />
           <Seleccion etiqueta="Moneda" value={moneda} onChange={() => undefined} disabled opciones={[{ valor: moneda, texto: TEXTO_MONEDA[moneda] }]} />
           <Campo etiqueta={`Monto a pagar (${moneda === 'USD' ? '$' : 'Bs'})`} value={moneda === 'USD' ? formatearUsd(info.saldoCentavos) : formatearBs(info.saldoBsCentavos)} readOnly aria-readonly="true" className="[&_input]:bg-papel [&_input]:font-bold" ayuda="Paga exactamente este monto." />
           {metodo === 'BINANCE' ? (

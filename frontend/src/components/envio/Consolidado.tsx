@@ -6,6 +6,7 @@ import { PieTandas, useTandas } from '../Tandas';
 import { EditarValorYTransportista, SelectorModalidad } from './ModalidadYValor';
 import { PrecioCaja } from './PrecioCaja';
 import { Alerta, Campo, ImagenPrivada, Seccion, useAviso } from '../ui';
+import { useConfirmar } from '../Confirmar';
 import { api, mensajeDeError } from '../../lib/api';
 import { coincideTracking } from '../../lib/cuenta';
 import { aNumero, formatearUsd, nombreTransportista, primerNombre } from '../../lib/formato';
@@ -28,8 +29,10 @@ export function PaquetesDelConsolidado({ envio, alCambiar }: PropiedadesEnvio) {
   const [quitando, setQuitando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const pedirConfirmacion = useConfirmar();
+
   async function quitar(paquete: PaqueteVista) {
-    if (!window.confirm(`¿Quitar ${paquete.tracking} del envío? Vuelve a la bodega del cliente.`)) return;
+    if (!(await pedirConfirmacion({ titulo: '¿Quitar el paquete?', pregunta: `${paquete.tracking} se quita del envío y vuelve a la bodega del cliente.`, accion: 'Sí, quitar' }))) return;
     setQuitando(paquete.id);
     setError(null);
     try {
@@ -55,7 +58,7 @@ export function PaquetesDelConsolidado({ envio, alCambiar }: PropiedadesEnvio) {
               <div className="flex min-w-0 items-center gap-3">
                 <FiPackage className="shrink-0 text-xl text-verde" aria-hidden />
                 <p className="codigo truncate">{paquete.tracking}</p>
-                {paquete.tieneFoto && <ImagenPrivada ruta={paquete.fotoRuta} alt={`Foto del paquete ${paquete.tracking}`} className="h-12 w-12 shrink-0" />}
+                {paquete.tieneFoto && <ImagenPrivada ruta={paquete.fotoRuta} alt={`Foto del paquete ${paquete.tracking}`} className="h-12 w-12 shrink-0" tipo="paquete" referencia={paquete.tracking} />}
               </div>
               <button type="button" className="btn btn-suave btn-chico shrink-0" disabled={quitando !== null} aria-label={`Quitar paquete ${paquete.tracking}`} onClick={() => void quitar(paquete)}>
                 Quitar paquete

@@ -3,6 +3,8 @@ import { crearRepositoriosMemoria } from '../repositories/memoria';
 import type { Repositorios } from '../repositories/tipos';
 import { AlmacenamientoMemoria, AlmacenamientoSupabase, type Almacenamiento } from '../services/Almacenamiento';
 import { AuthService, LimitadorIntentos } from '../services/AuthService';
+import { CanalCodigoMemoria, CanalCodigoSupabase, type CanalCodigo } from '../services/CanalCodigo';
+import { RecuperacionService } from '../services/RecuperacionService';
 import { ConfigService } from '../services/ConfigService';
 import { EnvioService } from '../services/EnvioService';
 import { MensajeService } from '../services/MensajeService';
@@ -17,6 +19,7 @@ export interface Contexto {
   almacenamiento: Almacenamiento;
   cifrado: CifradoCedula;
   auth: AuthService;
+  recuperacion: RecuperacionService;
   config: ConfigService;
   tasas: TasaService;
   envios: EnvioService;
@@ -30,6 +33,7 @@ export interface Contexto {
 export interface OpcionesContexto {
   repos: Repositorios;
   almacenamiento: Almacenamiento;
+  canalCodigo?: CanalCodigo;
   llaveCedula: string;
   secretoJwt: string;
   urlApp: string;
@@ -45,6 +49,7 @@ export function crearContexto(opciones: OpcionesContexto): Contexto {
   const tasas = new TasaService(opciones.repos.config, opciones.consultaTasa, opciones.reloj);
   const limitador = opciones.limitador ?? new LimitadorIntentos(opciones.repos.intentos);
   const auth = new AuthService(opciones.repos.usuarios, cifrado, opciones.secretoJwt, limitador);
+  const recuperacion = new RecuperacionService(opciones.repos.usuarios, opciones.repos.eventosCuenta, auth, opciones.canalCodigo ?? new CanalCodigoMemoria(), limitador, cifrado);
   const envios = new EnvioService(opciones.repos, cifrado, config, tasas, opciones.almacenamiento);
   const pagos = new PagoService(opciones.repos, tasas, config, opciones.almacenamiento, envios);
   const perfil = new PerfilService(opciones.repos.usuarios, opciones.repos.eventosCuenta, cifrado, auth);
@@ -55,6 +60,7 @@ export function crearContexto(opciones: OpcionesContexto): Contexto {
     almacenamiento: opciones.almacenamiento,
     cifrado,
     auth,
+    recuperacion,
     config,
     tasas,
     envios,
@@ -115,9 +121,12 @@ export async function crearContextoDesdeEntorno(): Promise<Contexto> {
     ? new AlmacenamientoSupabase(urlSupabase, process.env.SUPABASE_SERVICE_KEY ?? '', process.env.SUPABASE_BUCKET ?? '')
     : new AlmacenamientoMemoria();
 
+  const canalCodigo: CanalCodigo = urlSupabase ? new CanalCodigoSupabase(urlSupabase, process.env.SUPABASE_SERVICE_KEY ?? '') : new CanalCodigoMemoria();
+
   return crearContexto({
     repos,
     almacenamiento,
+    canalCodigo,
     llaveCedula: llaveCedula ?? LLAVE_DESARROLLO,
     secretoJwt: secretoJwt ?? SECRETO_DESARROLLO,
     urlApp: process.env.URL ?? process.env.APP_URL ?? 'http://localhost:5173',

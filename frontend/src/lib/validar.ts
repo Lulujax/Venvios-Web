@@ -50,6 +50,10 @@ export function validarIdentificador(valor: string): string | null {
   return valor.trim().length < 3 ? 'Escribe tu correo o tu número de casillero.' : null;
 }
 
+export function validarCodigoCorreo(valor: string): string | null {
+  return /^\d{6,10}$/.test(valor.replace(/\s+/g, '')) ? null : 'Escribe el código de 6 números que te enviamos al correo.';
+}
+
 export function validarMonto(valor: string): string | null {
   const numero = Number(valor.replace(',', '.'));
   if (!Number.isFinite(numero) || numero <= 0) return 'Escribe un monto mayor que cero.';

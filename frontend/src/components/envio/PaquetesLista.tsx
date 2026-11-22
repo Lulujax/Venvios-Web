@@ -24,7 +24,7 @@ export function PaquetesCliente({ paquetes, etiquetaEnvio }: { paquetes: Paquete
                 <p className="text-xs text-suave">{etiquetaEnvio ?? (paquete.recibido ? (paquete.pesoKg ? `En bodega · ${formatearKg(paquete.pesoKg)}` : 'En bodega') : 'En camino a nuestra oficina')}</p>
               </div>
             </div>
-            {paquete.tieneFoto && <ImagenPrivada ruta={paquete.fotoRuta} alt={`Foto del paquete ${paquete.tracking}`} className="h-12 w-12" />}
+            {paquete.tieneFoto && <ImagenPrivada ruta={paquete.fotoRuta} alt={`Foto del paquete ${paquete.tracking}`} className="h-16 w-16" tipo="paquete" referencia={paquete.tracking} />}
           </div>
           {!etiquetaEnvio && <SeguimientoPaquete paquete={paquete} />}
         </li>
@@ -105,7 +105,7 @@ function PaquetePersonal({ envio, paquete, alCambiar }: PaqueteProps) {
 
       {paquete.recibido && (
         <div className="mt-4 space-y-3">
-          {paquete.tieneFoto && <ImagenPrivada ruta={paquete.fotoRuta} alt={`Foto del paquete ${paquete.tracking}`} className="h-24 w-24" />}
+          {paquete.tieneFoto && <ImagenPrivada ruta={paquete.fotoRuta} alt={`Foto del paquete ${paquete.tracking}`} className="h-24 w-24" tipo="paquete" referencia={paquete.tracking} conBotonDescarga />}
 
           <div className="flex flex-wrap gap-2">
             {alertaActiva && (

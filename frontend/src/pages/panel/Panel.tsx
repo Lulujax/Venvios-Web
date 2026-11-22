@@ -1,13 +1,12 @@
-import { Link, NavLink, Outlet, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { FiArchive, FiCamera, FiCreditCard, FiHome, FiList, FiLogOut, FiPlus, FiSettings } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
 import { BotonMenu, MenuDesplegable, useMenuDesplegable } from '../../components/MenuDesplegable';
-import { PieTandas, useTandas } from '../../components/Tandas';
-import { Alerta, Cargando, ErrorCarga, InsigniaEstado, Marca, Vacio } from '../../components/ui';
+import { Alerta, Cargando, ErrorCarga, Marca } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { ETIQUETAS_ESTADO, formatearUsd, nombreEnvio, nombreTransportista, primerNombre } from '../../lib/formato';
-import type { Envio, EstadoEnvio, Resumen, TasaVista } from '../../lib/tipos';
+import { primerNombre } from '../../lib/formato';
+import type { Resumen, TasaVista } from '../../lib/tipos';
 import { useCarga } from '../../lib/useCarga';
 
 interface Seccion {
@@ -133,71 +132,4 @@ export function Inicio() {
   );
 }
 
-export function ListaEnvios() {
-  const [params, setParams] = useSearchParams();
-  const estado = params.get('estado') ?? '';
-  const q = params.get('q') ?? '';
-  const consulta = new URLSearchParams();
-  if (estado) consulta.set('estado', estado);
-  if (q) consulta.set('q', q);
-  const { datos, cargando, error, recargar } = useCarga(() => api.get<{ envios: Envio[] }>(`/envios?${consulta.toString()}`).then((r) => r.envios), [estado, q]);
-  const tandas = useTandas(datos ?? []);
-
-  const cambiar = (clave: string, valor: string) => {
-    const nuevos = new URLSearchParams(params);
-    if (valor) nuevos.set(clave, valor);
-    else nuevos.delete(clave);
-    setParams(nuevos, { replace: true });
-  };
-
-  return (
-    <div className="px-4 py-6 sm:px-8 sm:py-8">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl">Envíos</h1>
-        <Link to="/panel/nuevo" className="btn btn-primario btn-chico"><FiPlus aria-hidden /> Nueva prealerta</Link>
-      </div>
-      <div className="mb-5 grid gap-3 sm:grid-cols-[1fr_220px]">
-        <div>
-          <label htmlFor="buscar-envios" className="sr-only">Buscar</label>
-          <input id="buscar-envios" className="campo" type="search" placeholder="Código de consolidación, nombre, teléfono, tracking o guía" defaultValue={q} onChange={(e) => cambiar('q', e.target.value)} />
-        </div>
-        <div>
-          <label htmlFor="filtro-estado" className="sr-only">Estado</label>
-          <select id="filtro-estado" className="campo" value={estado} onChange={(e) => cambiar('estado', e.target.value)}>
-            <option value="">Todos los estados</option>
-            {(Object.keys(ETIQUETAS_ESTADO) as EstadoEnvio[]).map((e) => <option key={e} value={e}>{ETIQUETAS_ESTADO[e]}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {cargando && <Cargando />}
-      {error && <ErrorCarga mensaje={error} reintentar={() => void recargar()} />}
-      {datos && datos.length === 0 && <Vacio titulo="No hay envíos con esos filtros" texto="Prueba con otro estado o borra la búsqueda." />}
-      <ul className="space-y-3">
-        {tandas.visibles.map((envio) => (
-          <li key={envio.id}>
-            <Link to={`/panel/envios/${envio.id}`} className="tarjeta block p-4 transition hover:border-marino/40">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate font-display text-lg font-bold text-marino-900">{envio.tipo === 'CONSOLIDADO' ? nombreEnvio(envio) : envio.cliente.nombre}</p>
-                  {envio.tipo === 'CONSOLIDADO' && <p className="truncate text-sm font-semibold">{envio.cliente.nombre}</p>}
-                  <p className="codigo truncate text-suave">{envio.paquetes.map((p) => p.tracking).join(' · ')}</p>
-                </div>
-                <InsigniaEstado estado={envio.estado} />
-              </div>
-              <div className="mt-2 flex flex-wrap justify-between gap-2 text-sm text-suave">
-                <span>{envio.paquetes.filter((p) => p.recibido).length}/{envio.paquetes.length} llegaron · {nombreTransportista(envio.transportista)} · {envio.modalidad === 'M2' ? 'Cobro a destino' : 'Todo incluido'}</span>
-                {envio.precio && <b className="text-marino-900">{formatearUsd(envio.precio.totalCentavos)}</b>}
-              </div>
-            </Link>
-          </li>
-        ))}
-      </ul>
-      <PieTandas total={tandas.total} mostrados={tandas.mostrados} hayMas={tandas.hayMas} verMas={tandas.verMas} />
-    </div>
-  );
-}
-
-export function SinPermiso() {
-  return <div className="contenedor py-10"><Alerta tono="error">No tienes permiso para ver esta sección.</Alerta></div>;
-}
+export { ListaEnvios } from './ListaEnvios';

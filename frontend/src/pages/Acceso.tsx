@@ -6,7 +6,7 @@ import { rutaInicial, useAuth } from '../lib/auth';
 import { PAIS_PREDETERMINADO, componerTelefono, validarTelefonoLocal } from '../lib/telefono';
 import { validarCedula, validarContrasena, validarEmail, validarIdentificador, validarNombre, validarRepeticion } from '../lib/validar';
 
-function MarcoAcceso({ titulo, subtitulo, children, pie }: { titulo: string; subtitulo: string; children: ReactNode; pie?: ReactNode }) {
+export function MarcoAcceso({ titulo, subtitulo, children, pie }: { titulo: string; subtitulo: string; children: ReactNode; pie?: ReactNode }) {
   return (
     <div className="grid min-h-[100dvh] lg:grid-cols-[1fr_1.05fr]">
       <aside className="relative hidden overflow-hidden bg-marino-900 p-12 text-white lg:flex lg:flex-col lg:justify-between">
@@ -31,7 +31,7 @@ function MarcoAcceso({ titulo, subtitulo, children, pie }: { titulo: string; sub
   );
 }
 
-export function Ingresar({ personal = false }: { personal?: boolean }) {
+export function Ingresar() {
   const { usuario, ingresar } = useAuth();
   const navegar = useNavigate();
   const [identificador, setIdentificador] = useState('');
@@ -48,7 +48,7 @@ export function Ingresar({ personal = false }: { personal?: boolean }) {
     setEnviando(true);
     setError(null);
     try {
-      const entrado = await ingresar(identificador.trim(), contrasena, personal ? 'PERSONAL' : 'CLIENTE');
+      const entrado = await ingresar(identificador.trim(), contrasena);
       navegar(rutaInicial(entrado), { replace: true });
     } catch (falla) {
       setError(mensajeDeError(falla));
@@ -59,16 +59,18 @@ export function Ingresar({ personal = false }: { personal?: boolean }) {
 
   return (
     <MarcoAcceso
-      titulo={personal ? 'Entrada del personal' : 'Ingresar'}
-      subtitulo={personal ? 'Solo para operadores y administradores de Venvios.' : 'Entra con tu correo o tu número de casillero y tu contraseña.'}
-      pie={personal ? <>¿Eres cliente? <Link to="/ingresar" className="font-bold text-marino underline underline-offset-4">Entra aquí</Link></> : <>¿Aún no tienes cuenta? <Link to="/registro" className="font-bold text-marino underline underline-offset-4">Crea tu casillero</Link></>}
+      titulo="Ingresar"
+      subtitulo="Entra con tu correo o tu número de casillero y tu contraseña."
+      pie={<>¿Aún no tienes cuenta? <Link to="/registro" className="font-bold text-marino underline underline-offset-4">Crea tu casillero</Link></>}
     >
       <form onSubmit={enviar} className="space-y-4" noValidate>
-        <Campo etiqueta={personal ? 'Correo del personal' : 'Correo o número de casillero'} autoComplete="username" autoCapitalize="none" value={identificador} onChange={(e) => setIdentificador(e.target.value)} placeholder={personal ? 'nombre@correo.com' : 'nombre@correo.com o VENV-123456'} />
+        <Campo etiqueta="Correo o número de casillero" autoComplete="username" autoCapitalize="none" value={identificador} onChange={(e) => setIdentificador(e.target.value)} placeholder="nombre@correo.com o VENV-123456" />
         <CampoContrasena etiqueta="Contraseña" autoComplete="current-password" value={contrasena} onChange={(e) => setContrasena(e.target.value)} />
         {error && <Alerta tono="error">{error}</Alerta>}
         <button type="submit" className="btn btn-primario w-full" disabled={enviando}>{enviando ? 'Entrando…' : 'Entrar'}</button>
-        <p className="text-center text-sm text-suave">{personal ? '¿Olvidaste tu contraseña? Pídele una temporal al administrador.' : '¿Olvidaste tu contraseña? Escríbenos por WhatsApp y te damos una temporal.'}</p>
+        <p className="text-center text-sm">
+          <Link to="/recuperar" className="font-bold text-marino underline underline-offset-4">¿Olvidaste tu contraseña?</Link>
+        </p>
       </form>
     </MarcoAcceso>
   );
@@ -171,14 +173,16 @@ export function CambiarClave() {
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
-    const fallo = validarContrasena(nueva) ?? validarRepeticion(nueva, repeticion) ?? (actual ? null : 'Escribe tu contraseña actual.');
+    if (!usuario) return;
+    const faltaActual = usuario.debeCambiarClave ? 'Escribe la contraseña que te dieron.' : 'Escribe tu contraseña actual.';
+    const fallo = validarContrasena(nueva) ?? validarRepeticion(nueva, repeticion) ?? (actual ? null : faltaActual);
     if (fallo) return setError(fallo);
     setEnviando(true);
     setError(null);
     try {
       await api.post('/auth/cambiar-clave', { actual, nueva });
       await refrescar();
-      navegar('/', { replace: true });
+      navegar(rutaInicial({ ...usuario, debeCambiarClave: false }), { replace: true });
     } catch (falla) {
       setError(mensajeDeError(falla));
     } finally {
@@ -187,9 +191,9 @@ export function CambiarClave() {
   }
 
   return (
-    <MarcoAcceso titulo="Cambia tu contraseña" subtitulo={usuario.debeCambiarClave ? 'Te dieron una contraseña temporal. Crea una propia para continuar.' : 'Elige una contraseña nueva.'}>
+    <MarcoAcceso titulo="Cambia tu contraseña" subtitulo={usuario.debeCambiarClave ? 'Tu cuenta tiene una contraseña inicial. Crea una propia para continuar.' : 'Elige una contraseña nueva.'}>
       <form onSubmit={enviar} className="space-y-4" noValidate>
-        <CampoContrasena etiqueta="Contraseña actual" autoComplete="current-password" value={actual} onChange={(e) => setActual(e.target.value)} />
+        <CampoContrasena etiqueta={usuario.debeCambiarClave ? 'Contraseña que te dieron' : 'Contraseña actual'} autoComplete="current-password" value={actual} onChange={(e) => setActual(e.target.value)} />
         <div>
           <CampoContrasena etiqueta="Contraseña nueva" autoComplete="new-password" value={nueva} onChange={(e) => setNueva(e.target.value)} />
           <RequisitosContrasenaLista contrasena={nueva} />

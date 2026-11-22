@@ -1,7 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react';
+import { createPortal } from 'react-dom';
 import { FiAlertTriangle, FiCheck, FiCheckCircle, FiCircle, FiEye, FiEyeOff, FiInbox, FiInfo } from 'react-icons/fi';
 import { ETIQUETAS_ESTADO, TONO_ESTADO } from '../lib/formato';
 import { urlArchivo } from '../lib/api';
+import type { TipoFoto } from '../lib/descarga';
+import { BotonDescargar, VisorFoto, useDescargaFoto } from './VisorFoto';
 import { PAISES, buscarPais } from '../lib/telefono';
 import { requisitosContrasena } from '../lib/validar';
 import type { EstadoEnvio } from '../lib/tipos';
@@ -235,14 +238,40 @@ export function Seleccion({ etiqueta, opciones, id, className = '', ...resto }: 
   );
 }
 
-export function ImagenPrivada({ ruta, alt, className = '' }: { ruta: string | null; alt: string; className?: string }) {
+interface ImagenPrivadaProps {
+  ruta: string | null;
+  alt: string;
+  className?: string;
+  tipo?: TipoFoto;
+  referencia?: string;
+  conBotonDescarga?: boolean;
+}
+
+export function ImagenPrivada({ ruta, alt, className = '', tipo, referencia, conBotonDescarga = false }: ImagenPrivadaProps) {
   const [fallo, setFallo] = useState(false);
+  const [abierta, setAbierta] = useState(false);
+  const miniatura = useRef<HTMLButtonElement>(null);
+  const datosDescarga = tipo && referencia ? { ruta, tipo, referencia } : null;
+  const descarga = useDescargaFoto(datosDescarga);
+  const cerrar = useCallback(() => {
+    setAbierta(false);
+    miniatura.current?.focus();
+  }, []);
   const url = urlArchivo(ruta);
   if (!url || fallo) return null;
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer" className="block">
-      <img src={url} alt={alt} loading="lazy" onError={() => setFallo(true)} className={`rounded-2xl border border-linea object-cover ${className}`} />
-    </a>
+    <div className="block">
+      <button ref={miniatura} type="button" className="block text-left" aria-label={`Ampliar foto: ${alt}`} onClick={() => setAbierta(true)}>
+        <img src={url} alt={alt} loading="lazy" onError={() => setFallo(true)} className={`rounded-2xl border border-linea object-cover ${className}`} />
+      </button>
+      {conBotonDescarga && datosDescarga && (
+        <div className="mt-2 space-y-1">
+          <BotonDescargar descargando={descarga.descargando} alDescargar={() => void descarga.descargar()} />
+          {descarga.error && <p role="alert" className="text-sm font-semibold text-rojo-700">{descarga.error}</p>}
+        </div>
+      )}
+      {abierta && createPortal(<VisorFoto url={url} alt={alt} alCerrar={cerrar} descarga={datosDescarga ? descarga : null} />, document.body)}
+    </div>
   );
 }
 

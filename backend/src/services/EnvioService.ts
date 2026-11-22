@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { hash } from '@node-rs/argon2';
 import type { CifradoCedula } from '../domain/cifrado';
+import { aCsv, dineroCsv, fechaCsv } from '../domain/csv';
 import { dolaresABolivaresCentavos } from '../domain/dinero';
 import {
   ESTADOS_ALERTA_ACTIVOS,
@@ -111,7 +112,45 @@ export interface ItemBodega {
   tipoEnvio: TipoEnvio;
   estadoEnvio: EstadoEnvio;
   sinDueno: boolean;
+  avisado: boolean;
+  diasEnBodega: number | null;
   cliente: { id: string; nombre: string; codigo: string };
+}
+
+export type OrdenLista = 'RECIENTE' | 'ANTIGUO' | 'MONTO';
+export type FiltroEstadoLista = EstadoEnvio | 'ACTIVOS' | 'TODOS';
+export const POR_PAGINA_LISTA = 50;
+export const LIMITE_LOTE_BODEGA = 100;
+export const LIMITE_LOTE_DESPACHO = 50;
+const ESTADOS_TERMINALES: EstadoEnvio[] = ['CERRADO', 'CANCELADO', 'ARCHIVADO'];
+const MS_POR_DIA = 86_400_000;
+
+export interface FiltroLista {
+  estado?: FiltroEstadoLista;
+  q?: string;
+  orden?: OrdenLista;
+  pagina?: number;
+  porPagina?: number;
+}
+
+export interface PaginaEnvios {
+  envios: EnvioVista[];
+  total: number;
+  pagina: number;
+  porPagina: number;
+  paginas: number;
+}
+
+export interface FiltroBodega {
+  q?: string;
+  sinDueno?: boolean;
+  sinAvisar?: boolean;
+  minDias?: number;
+}
+
+export interface ResultadoLoteGeneral {
+  exitosos: string[];
+  fallidos: Array<{ id: string; motivo: string }>;
 }
 
 export interface NuevaPrealerta {
@@ -334,6 +373,115 @@ export class EnvioService {
     });
     logger.debug('Envíos listados', { actor: actor.id, cantidad: envios.length, conBusqueda: Boolean(filtro.q) });
     return this.vistas(envios);
+  }
+
+  async listarPorEstadoCompleto(actor: Actor, estado: EstadoEnvio): Promise<EnvioVista[]> {
+    this.exigirPersonal(actor);
+    const envios = await this.repos.envios.listar({ estados: [estado] });
+    logger.info('Envíos listados sin tope', { estado, cantidad: envios.length });
+    return this.vistas(envios);
+  }
+
+  private async enviosFiltrados(filtro: FiltroLista): Promise<Envio[]> {
+    const estado = filtro.estado ?? 'ACTIVOS';
+    const estados = estado !== 'ACTIVOS' && estado !== 'TODOS' ? [estado] : undefined;
+    const excluirEstados = estado === 'ACTIVOS' ? ESTADOS_TERMINALES : estado === 'TODOS' ? (['ARCHIVADO'] as EstadoEnvio[]) : undefined;
+    const lista = await this.repos.envios.listar({ estados, excluirEstados, texto: filtro.q?.trim() || undefined });
+    const orden = filtro.orden ?? 'RECIENTE';
+    const reciente = (a: Envio, b: Envio) => b.creadoEn.getTime() - a.creadoEn.getTime();
+    return [...lista].sort((a, b) => {
+      if (orden === 'ANTIGUO') return -reciente(a, b);
+      if (orden === 'MONTO') return (b.totalCentavos ?? 0) - (a.totalCentavos ?? 0) || reciente(a, b);
+      return reciente(a, b);
+    });
+  }
+
+  async listarPagina(actor: Actor, filtro: FiltroLista = {}): Promise<PaginaEnvios> {
+    this.exigirPersonal(actor);
+    const todos = await this.enviosFiltrados(filtro);
+    const pedido = Number.isFinite(filtro.porPagina) ? Math.trunc(filtro.porPagina as number) : POR_PAGINA_LISTA;
+    const porPagina = Math.min(Math.max(pedido, 10), 100);
+    const paginas = Math.max(1, Math.ceil(todos.length / porPagina));
+    const solicitada = Number.isFinite(filtro.pagina) ? Math.trunc(filtro.pagina as number) : 1;
+    const pagina = Math.min(Math.max(solicitada, 1), paginas);
+    const trozo = todos.slice((pagina - 1) * porPagina, pagina * porPagina);
+    logger.info('Lista de envíos paginada', { actor: actor.id, total: todos.length, pagina, conBusqueda: Boolean(filtro.q) });
+    return { envios: await this.vistas(trozo), total: todos.length, pagina, porPagina, paginas };
+  }
+
+  async exportarEnviosCsv(actor: Actor, filtro: FiltroLista = {}): Promise<string> {
+    this.exigirPersonal(actor);
+    const envios = await this.enviosFiltrados(filtro);
+    const clientes = new Map((await this.repos.usuarios.porIds([...new Set(envios.map((e) => e.clienteId))])).map((c) => [c.id, c]));
+    const filas = envios.map((envio) => {
+      const cliente = clientes.get(envio.clienteId);
+      const sinDueno = cliente?.telefono === TELEFONO_SIN_ASIGNAR;
+      const nombre = envio.tipo === 'CONSOLIDADO' ? `Consolidación ${String(envio.numero).padStart(6, '0')}` : `Alerta ${envio.tienda}`;
+      return [
+        nombre,
+        envio.tipo === 'CONSOLIDADO' ? 'Consolidado' : 'Alerta',
+        sinDueno ? 'Sin dueño' : (cliente?.nombre ?? ''),
+        sinDueno ? '' : (cliente?.codigo ?? ''),
+        ETIQUETAS_ESTADO[envio.estado],
+        envio.paquetes.length,
+        envio.paquetes.map((p) => p.trackingTexto).join(' | '),
+        envio.transportista,
+        dineroCsv(envio.totalCentavos),
+        fechaCsv(envio.creadoEn),
+        fechaCsv(envio.actualizadoEn),
+      ];
+    });
+    logger.info('CSV de envíos generado', { actor: actor.id, filas: filas.length });
+    return aCsv(['Envío', 'Tipo', 'Cliente', 'Casillero', 'Estado', 'Paquetes', 'Trackings', 'Transportista', 'Total USD', 'Creado (UTC)', 'Actualizado (UTC)'], filas);
+  }
+
+  async exportarBodegaCsv(actor: Actor, filtro: FiltroBodega = {}): Promise<string> {
+    const items = await this.bodega(actor, filtro);
+    const filas = items.map((item) => [
+      item.cliente.nombre,
+      item.cliente.codigo,
+      item.tracking,
+      item.pesoKg === null ? '' : String(item.pesoKg).replace('.', ','),
+      fechaCsv(item.recibidoEn),
+      item.diasEnBodega,
+      item.sinDueno ? '' : item.avisado,
+      item.tieneFoto,
+      item.tipoEnvio === 'CONSOLIDADO' ? 'Consolidado' : 'Alerta',
+    ]);
+    logger.info('CSV de bodega generado', { actor: actor.id, filas: filas.length });
+    return aCsv(['Cliente', 'Casillero', 'Tracking', 'Peso (kg)', 'Recibido (UTC)', 'Días en bodega', 'Avisado', 'Con foto', 'Tipo de envío'], filas);
+  }
+
+  private async ejecutarLote(actor: Actor, ids: string[], limite: number, nombre: string, accion: (id: string) => Promise<unknown>): Promise<ResultadoLoteGeneral> {
+    this.exigirPersonal(actor);
+    const unicos = [...new Set(ids)];
+    if (unicos.length === 0 || unicos.length > limite) throw AppError.badRequest(`Un lote puede tener de 1 a ${limite} elementos.`);
+    logger.info('Lote iniciado', { actor: actor.id, nombre, cantidad: unicos.length });
+    const resultado: ResultadoLoteGeneral = { exitosos: [], fallidos: [] };
+    for (const id of unicos) {
+      try {
+        await accion(id);
+        resultado.exitosos.push(id);
+      } catch (falla) {
+        resultado.fallidos.push({ id, motivo: falla instanceof AppError ? falla.message : 'No se pudo completar esta acción.' });
+        logger.warn('Un elemento del lote falló', { actor: actor.id, nombre });
+      }
+    }
+    logger.info('Lote terminado', { nombre, exitosos: resultado.exitosos.length, fallidos: resultado.fallidos.length });
+    return resultado;
+  }
+
+  marcarAvisadosLote(actor: Actor, paqueteIds: string[]): Promise<ResultadoLoteGeneral> {
+    return this.ejecutarLote(actor, paqueteIds, LIMITE_LOTE_BODEGA, 'avisados', (id) => this.marcarAvisado(actor, id));
+  }
+
+  asignarLote(actor: Actor, paqueteIds: string[], clienteId: string | null, motivo?: string): Promise<ResultadoLoteGeneral> {
+    return this.ejecutarLote(actor, paqueteIds, LIMITE_LOTE_BODEGA, 'asignar', (id) => this.asignarPaquete(actor, id, clienteId, motivo));
+  }
+
+  async despacharLote(actor: Actor, items: Array<{ envioId: string; guia: string }>): Promise<ResultadoLoteGeneral> {
+    const guias = new Map(items.map((item) => [item.envioId, item.guia]));
+    return this.ejecutarLote(actor, items.map((item) => item.envioId), LIMITE_LOTE_DESPACHO, 'despachar', (id) => this.despachar(actor, id, guias.get(id)));
   }
 
   private async clienteSinAsignar(): Promise<Usuario> {
@@ -887,6 +1035,23 @@ export class EnvioService {
     return this.vista(actualizado);
   }
 
+  async completarEntregaDesdePerfil(envioId: string, actor: Actor): Promise<boolean> {
+    const envio = await this.cargar(envioId);
+    const e = envio.entrega;
+    const vacia = !e.nombreCifrado && !e.cedulaCifrada && !e.telefonoCifrado && !e.agencia && !e.ciudad && !e.estado;
+    if (envio.tipo !== 'CONSOLIDADO' || !vacia || ['DESPACHADO', 'CERRADO', 'CANCELADO'].includes(envio.estado)) return false;
+    const dueno = await this.repos.usuarios.porId(envio.clienteId);
+    const entrega = dueno ? entregaDesdePerfil(dueno, envio.transportista, this.cifrado) : null;
+    if (!entrega) {
+      logger.info('El perfil no tiene datos de entrega para completar el envío', { envio: envioId });
+      return false;
+    }
+    await this.repos.envios.actualizar(envioId, { entrega });
+    await this.evento(envioId, actor, 'ENTREGA', 'Datos de entrega completados con el perfil del cliente');
+    logger.info('Datos de entrega completados con el perfil', { envio: envioId });
+    return true;
+  }
+
   async guardarEntrega(actor: Actor, envioId: string, datos: DatosEntrega): Promise<EnvioVista> {
     this.exigirPersonal(actor);
     const envio = await this.obtenerEnvio(actor, envioId);
@@ -1016,7 +1181,7 @@ export class EnvioService {
     return this.vista(trabajo);
   }
 
-  async bodega(actor: Actor, filtro: { q?: string; sinDueno?: boolean } = {}): Promise<ItemBodega[]> {
+  async bodega(actor: Actor, filtro: FiltroBodega = {}): Promise<ItemBodega[]> {
     this.exigirPersonal(actor);
     const envios = await this.repos.envios.listar({ estados: ESTADOS_EN_BODEGA });
     const clientes = new Map((await this.repos.usuarios.porIds(envios.map((e) => e.clienteId))).map((c) => [c.id, c]));
@@ -1038,6 +1203,8 @@ export class EnvioService {
           tipoEnvio: envio.tipo,
           estadoEnvio: envio.estado,
           sinDueno,
+          avisado: Boolean(paquete.avisadoEn),
+          diasEnBodega: paquete.recibidoEn ? Math.max(0, Math.floor((Date.now() - paquete.recibidoEn.getTime()) / MS_POR_DIA)) : null,
           cliente: { id: cliente.id, nombre: sinDueno ? 'Sin dueño' : cliente.nombre, codigo: sinDueno ? '' : cliente.codigo },
         });
       }
@@ -1046,6 +1213,8 @@ export class EnvioService {
     const qNormalizado = q.replace(/[^a-z0-9]/g, '');
     return items
       .filter((item) => !filtro.sinDueno || item.sinDueno)
+      .filter((item) => !filtro.sinAvisar || (!item.avisado && !item.sinDueno))
+      .filter((item) => !filtro.minDias || (item.diasEnBodega ?? 0) >= filtro.minDias)
       .filter(
         (item) =>
           !q ||

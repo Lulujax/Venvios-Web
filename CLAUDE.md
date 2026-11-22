@@ -19,6 +19,8 @@ Specs en `specs/002-venvios-express-v2/` (spec, plan, tareas). Antes de programa
 
 ## Reglas del proyecto
 - Rama de trabajo: `rediseno-v2`. Nunca directo en `main`.
+- Todo se prueba con `npm run dev` en la terminal, y las pruebas manuales se hacen en el teléfono y en la laptop. No se sube a Netlify para probar: cada despliegue gasta créditos del plan gratis (300 al mes, 15 por despliegue).
+- Los commits solo despliegan en Netlify si cambian código (`backend`, `frontend`, `netlify.toml` o dependencias); los cambios solo de specs o documentación no despliegan. Aun así, conviene juntar cambios antes de subir.
 - Sin comentarios en el código. Logs sin datos sensibles (sin cédula, teléfono, nombre completo).
 - Los datos bancarios reales no van en Git: se cargan desde el panel del administrador.
 - Dinero en dólares con centavos; Bs solo para mostrar, con la tasa BCV del día.

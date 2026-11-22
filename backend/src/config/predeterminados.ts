@@ -1,10 +1,12 @@
 import { TARIFAS_INICIALES, type ConfiguracionTarifas } from '../domain/tarifas';
 
+export type TipoCuenta = 'CORRIENTE' | 'AHORRO';
+
 export interface DatosPago {
   esPrueba: boolean;
-  pagoMovil: { banco: string; cedula: string; telefono: string };
-  cuenta: { banco: string; numero: string; titular: string; cedula: string };
-  binance: { usuario: string; correo: string; nota: string };
+  pagoMovil: { activo: boolean; banco: string; cedula: string; telefono: string };
+  cuenta: { activo: boolean; tipo: TipoCuenta; banco: string; numero: string; titular: string; cedula: string };
+  binance: { activo: boolean; usuario: string; correo: string; nota: string };
   notaVerificacion: string;
 }
 
@@ -25,7 +27,9 @@ export interface TransportistaConfig {
 
 export interface Contacto {
   whatsapp: string;
+  correo: string;
   direccion: string;
+  horario: string;
   instagram: string;
   facebook: string;
   tiktok: string;
@@ -36,9 +40,9 @@ export type ClaveConfig = (typeof CLAVES_CONFIG)[number];
 
 export const DATOS_PAGO_INICIALES: DatosPago = {
   esPrueba: true,
-  pagoMovil: { banco: '0000 - BANCO DE PRUEBA', cedula: '00000000', telefono: '04120000000' },
-  cuenta: { banco: 'BANCO DE PRUEBA', numero: '0000-0000-00-0000000000', titular: 'TITULAR DE PRUEBA', cedula: '00000000' },
-  binance: { usuario: 'DATOS DE PRUEBA', correo: 'prueba@example.com', nota: 'Datos de Binance pendientes.' },
+  pagoMovil: { activo: true, banco: '0000 - BANCO DE PRUEBA', cedula: '00000000', telefono: '04120000000' },
+  cuenta: { activo: true, tipo: 'CORRIENTE', banco: 'BANCO DE PRUEBA', numero: '0000-0000-00-0000000000', titular: 'TITULAR DE PRUEBA', cedula: '00000000' },
+  binance: { activo: false, usuario: 'DATOS DE PRUEBA', correo: 'prueba@example.com', nota: 'Datos de Binance pendientes.' },
   notaVerificacion: 'Pasar captura del pago para verificación respectiva.',
 };
 
@@ -91,7 +95,9 @@ export const TRANSPORTISTAS_INICIALES: TransportistaConfig[] = [
 
 export const CONTACTO_INICIAL: Contacto = {
   whatsapp: '573237968740',
+  correo: 'contacto@venviosexpress.com',
   direccion: 'Av. 3 #8-03, piso 2, local 02, sector Centro, Barrio Latino, Cúcuta',
+  horario: 'Lunes a sábado, 8:00 am a 5:00 pm (hora Colombia), horario continuo. Domingos y feriados no laboramos.',
   instagram: 'https://instagram.com/venviosexpress',
   facebook: 'https://facebook.com/venviosexpress',
   tiktok: 'https://tiktok.com/@venviosexpress',

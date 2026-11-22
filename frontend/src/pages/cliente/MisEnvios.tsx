@@ -4,6 +4,7 @@ import { FiPlus, FiSearch, FiTrash2 } from 'react-icons/fi';
 import { ContenidoCuenta, EncabezadoCuenta, useEnviosCliente } from '../../components/CuentaPiezas';
 import { PieTandas, useTandas } from '../../components/Tandas';
 import { Alerta, Cargando, ErrorCarga, Vacio, useAviso } from '../../components/ui';
+import { useConfirmar } from '../../components/Confirmar';
 import { api, mensajeDeError } from '../../lib/api';
 import { formatearFecha, formatearUsd } from '../../lib/formato';
 import { PESTANAS, esPestana, filasDePestana, type FilaEnvio, type Pestana } from '../../lib/misEnvios';
@@ -32,8 +33,11 @@ export function MisEnvios() {
     setParams({ pestana: valor }, { replace: true });
   }
 
+  const pedirConfirmacion = useConfirmar();
+
   async function eliminar(fila: FilaEnvio) {
-    if (!fila.paqueteId || !window.confirm(`¿Eliminar la alerta del tracking ${fila.guia}?`)) return;
+    if (!fila.paqueteId) return;
+    if (!(await pedirConfirmacion({ titulo: '¿Eliminar la alerta?', pregunta: `Se quitará la alerta del tracking ${fila.guia}.`, accion: 'Eliminar alerta', peligro: true }))) return;
     setErrorEliminar(null);
     try {
       await api.post(`/paquetes/${fila.paqueteId}/eliminar-alerta`);
