@@ -1,17 +1,18 @@
 import type { Request, Response } from 'express';
-import { crearContextoDesdeEntorno } from '../backend/src/config/contexto';
-import { crearApp } from '../backend/src/http/app';
-import { sembrarConfiguracion } from '../backend/src/services/Semilla';
+import { crearContextoDesdeEntorno } from './config/contexto';
+import { crearApp } from './http/app';
+import { sembrarConfiguracion } from './services/Semilla';
+import { logger } from './utils/logger';
 
 let aplicacion: ReturnType<typeof crearApp> | null = null;
 
 async function obtenerAplicacion(): Promise<ReturnType<typeof crearApp>> {
   if (aplicacion) return aplicacion;
-  console.log('Iniciando API en Vercel');
+  logger.info('Iniciando API en Vercel');
   const contexto = await crearContextoDesdeEntorno();
   await sembrarConfiguracion(contexto);
   aplicacion = crearApp(contexto);
-  console.log('API lista');
+  logger.info('API lista en Vercel');
   return aplicacion;
 }
 
