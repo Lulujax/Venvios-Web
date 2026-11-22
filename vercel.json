@@ -5,7 +5,7 @@
       "root": "backend",
       "framework": "express",
       "entrypoint": "src/vercel.ts",
-      "buildCommand": "npm run build"
+      "buildCommand": "npm run db:generate"
     },
     "frontend": {
       "root": "frontend",
