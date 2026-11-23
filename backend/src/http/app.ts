@@ -475,6 +475,7 @@ export function crearApp(contexto: Contexto): express.Express {
   administracion.put('/tasa', rutaTx(async (req, res) => res.json({ tasa: await contexto.tasas.cargarManual(numero(req.body?.bolivaresPorUsd), actorDe(req).id) })));
   administracion.get('/tasa', ruta(async (_req, res) => res.json({ tasa: await contexto.tasas.vigente() })));
   administracion.get('/usuarios', ruta(async (_req, res) => res.json({ usuarios: await contexto.auth.listar(['OPERADOR', 'ADMIN']) })));
+  administracion.get('/estadisticas/usuarios', ruta(async (_req, res) => res.json(await contexto.auth.estadisticasUsuarios())));
   administracion.post('/usuarios', rutaTx(async (req, res) => {
     const c = esquemaRegistro.extend({ rol: z.enum(['OPERADOR', 'ADMIN']) }).parse(req.body);
     res.status(201).json({ usuario: await contexto.auth.crearPersonal(c, actorDe(req).id) });

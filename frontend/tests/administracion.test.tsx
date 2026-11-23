@@ -43,6 +43,7 @@ function simular(opciones: { usuarios?: Usuario[]; tasaVieja?: boolean; pagoDePr
         return responder({ usuarios: opciones.usuarios ?? PERSONAL });
       }
       if (url.startsWith('/api/admin/usuarios/') && metodo === 'PATCH') return responder({ usuario: {} });
+      if (url === '/api/admin/estadisticas/usuarios') return responder({ clientes: 12, clientesNuevos7Dias: 3, operadores: 2, administradores: 2, total: 16 });
       if (url === '/api/admin/tasa') return responder({ tasa: { bolivaresPorUsd: 917.7751, fecha: '2026-11-22', fuente: 'API', desactualizada: opciones.tasaVieja ?? false } });
       if (url === '/api/admin/config/datosPago') return responder({ valor: { esPrueba: opciones.pagoDePrueba ?? false } });
       return responder({ error: { mensaje: 'Ruta sin preparar' } }, 404);
@@ -97,20 +98,19 @@ describe('Administración: resumen y menú (RF-169, RF-170)', () => {
     mostrar();
     expect(await screen.findByText('Personal activo')).toBeTruthy();
     expect(screen.getByText('2 operadores · 2 administradores')).toBeTruthy();
-    expect(screen.getByText('Sin cambiar su clave')).toBeTruthy();
+    expect(screen.getByText('Clientes registrados')).toBeTruthy();
+    expect(screen.getByText('12')).toBeTruthy();
+    expect(screen.getByText('3 nuevos en los últimos 7 días')).toBeTruthy();
     expect(screen.getByText('Tasa BCV', { selector: 'span' })).toBeTruthy();
     expect(screen.getByText('Reales')).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'Resumen', selected: true })).toBeTruthy();
   });
 
-  it('caso feliz: la tarjeta «Sin cambiar su clave» abre Usuarios ya filtrado por pendientes', async () => {
+  it('caso feliz: la tarjeta «Clientes registrados» abre la sección Clientes', async () => {
     simular();
     mostrar();
-    fireEvent.click(await screen.findByRole('button', { name: /Sin cambiar su clave/ }));
-    expect(await screen.findByText('José Núñez')).toBeTruthy();
-    expect(screen.getByText('Pedro Ramos')).toBeTruthy();
-    expect(screen.queryByText('Ana Pérez')).toBeNull();
-    expect(screen.getByRole('button', { name: /Sin cambiar clave/, pressed: true })).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: /Clientes registrados/ }));
+    expect(await screen.findByRole('tab', { name: 'Clientes', selected: true })).toBeTruthy();
   });
 
   it('límite: la sección de la dirección se conserva al abrir y una desconocida cae en el resumen', async () => {

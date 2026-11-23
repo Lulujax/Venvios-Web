@@ -316,7 +316,6 @@ export default function Administracion() {
   }
 
   function irDesdeResumen(destino: Destino) {
-    if (destino === 'pendientes') return abrir('usuarios', 'pendientes');
     abrir(destino);
   }
 

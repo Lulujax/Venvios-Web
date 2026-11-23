@@ -87,6 +87,20 @@ const ESQUEMAS: Record<ClaveConfig, z.ZodTypeAny> = {
   contacto: esquemaContacto,
 };
 
+export function recalculaEsPruebaTexto(texto: string): boolean {
+  return /PRUEBA/i.test(texto);
+}
+
+export function recalcularEsPrueba(datos: DatosPago): DatosPago {
+  const activos = [
+    datos.pagoMovil.activo ? datos.pagoMovil : null,
+    datos.cuenta.activo ? datos.cuenta : null,
+    datos.binance.activo ? datos.binance : null,
+  ].filter((metodo) => metodo !== null);
+  const esPrueba = activos.length === 0 || activos.some((metodo) => recalculaEsPruebaTexto(JSON.stringify(metodo)));
+  return { ...datos, esPrueba };
+}
+
 export class ConfigService {
   constructor(private readonly repositorio: ConfigRepository) {}
 
@@ -135,7 +149,8 @@ export class ConfigService {
       throw AppError.badRequest(`Configuración inválida: ${resultado.error.issues[0]?.message ?? 'revisa los datos'}.`);
     }
     if (clave === 'tarifas') this.validarOrdenTramos(resultado.data as ConfiguracionTarifas);
-    await this.repositorio.guardar(clave, resultado.data);
+    const aGuardar = clave === 'datosPago' ? recalcularEsPrueba(resultado.data as DatosPago) : resultado.data;
+    await this.repositorio.guardar(clave, aGuardar);
     logger.info('Configuración actualizada', { clave, actor: actorId });
   }
 

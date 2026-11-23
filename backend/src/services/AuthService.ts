@@ -27,6 +27,14 @@ export interface UsuarioPublico {
   debeCambiarClave: boolean;
 }
 
+export interface EstadisticasUsuarios {
+  clientes: number;
+  clientesNuevos7Dias: number;
+  operadores: number;
+  administradores: number;
+  total: number;
+}
+
 export interface SesionEmitida {
   token: string;
   usuario: UsuarioPublico;
@@ -41,6 +49,7 @@ export interface PayloadSesion {
 
 const MAX_INTENTOS = 5;
 const MAX_REINTENTOS_CODIGO = 50;
+const SIETE_DIAS_EN_MS = 7 * 24 * 60 * 60 * 1000;
 const BLOQUEO_MS = 10 * 60 * 1000;
 const DURACION_SESION_SEGUNDOS = 60 * 60 * 24 * 7;
 const CODIGO_INTERNO_SIN_DUENO = 'VENV-000000';
@@ -255,6 +264,21 @@ export class AuthService {
     if (renovado.rol !== nuevoRol) throw new AppError('El rol no quedó guardado. Intenta de nuevo.', 500);
     logger.info('Rol de usuario cambiado', { id: usuarioId, de: usuario.rol, a: nuevoRol, actor: actorId });
     return this.aPublico(renovado);
+  }
+
+  async estadisticasUsuarios(ahora: Date = new Date()): Promise<EstadisticasUsuarios> {
+    const reales = (await this.usuarios.listar()).filter((u) => u.codigo !== CODIGO_INTERNO_SIN_DUENO);
+    const desde = ahora.getTime() - SIETE_DIAS_EN_MS;
+    const clientes = reales.filter((u) => u.rol === 'CLIENTE');
+    const resultado: EstadisticasUsuarios = {
+      clientes: clientes.length,
+      clientesNuevos7Dias: clientes.filter((u) => u.creadoEn.getTime() >= desde).length,
+      operadores: reales.filter((u) => u.rol === 'OPERADOR' && u.activo).length,
+      administradores: reales.filter((u) => u.rol === 'ADMIN' && u.activo).length,
+      total: reales.length,
+    };
+    logger.info('Estadísticas de usuarios calculadas', { clientes: resultado.clientes, total: resultado.total });
+    return resultado;
   }
 
   async listar(roles?: Rol[]): Promise<UsuarioPublico[]> {
