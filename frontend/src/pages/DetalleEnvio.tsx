@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { FiArrowLeft, FiPhone } from 'react-icons/fi';
+import { FiArrowLeft } from 'react-icons/fi';
+import { FaWhatsapp } from 'react-icons/fa';
 import { AjusteAdmin } from '../components/envio/AjusteAdmin';
 import { DespachoForm } from '../components/envio/DespachoForm';
 import { EntregaPersonal } from '../components/envio/EntregaPersonal';
@@ -189,7 +190,15 @@ export default function DetalleEnvio({ personal }: { personal: boolean }) {
                   <p className="text-lg font-bold">{envio.cliente.nombre}</p>
                   <p className="text-suave"><span className="codigo">{envio.cliente.codigo}</span> · Cédula {envio.cliente.cedulaEnmascarada}</p>
                 </div>
-                <a href={`tel:+${envio.cliente.telefono}`} className="btn btn-suave btn-chico"><FiPhone aria-hidden /> +{envio.cliente.telefono}</a>
+                <a
+                  href={`https://wa.me/${envio.cliente.telefono}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Escribir al cliente por WhatsApp"
+                  className="btn btn-chico bg-[#25D366] text-marino-900"
+                >
+                  <FaWhatsapp aria-hidden /> +{envio.cliente.telefono}
+                </a>
               </div>
             </Seccion>
           )}
