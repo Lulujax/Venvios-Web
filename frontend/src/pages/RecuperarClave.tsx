@@ -10,9 +10,9 @@ const registro = crearRegistro('recuperar');
 
 type Paso = 'correo' | 'codigo' | 'listo';
 
-const ENTRADA = '/ingresar';
-
-export function RecuperarClave() {
+export function RecuperarClave({ equipo = false }: { equipo?: boolean }) {
+  const ENTRADA = equipo ? '/equipo' : '/ingresar';
+  const base = equipo ? '/equipo/auth' : '/auth';
   const [paso, setPaso] = useState<Paso>('correo');
   const [correo, setCorreo] = useState('');
   const [codigo, setCodigo] = useState('');
@@ -31,7 +31,7 @@ export function RecuperarClave() {
     setError(null);
     registro.info('Pidiendo el código de recuperación');
     try {
-      await api.post('/auth/olvide-clave', { email: correo.trim() });
+      await api.post(`${base}/olvide-clave`, { email: correo.trim() });
       registro.info('Código pedido; pasando a escribirlo');
       setPaso('codigo');
     } catch (falla) {
@@ -55,7 +55,7 @@ export function RecuperarClave() {
     setError(null);
     registro.info('Enviando el código y la contraseña nueva');
     try {
-      await api.post('/auth/restablecer-clave', { email: correo.trim(), codigo: codigo.replace(/\s+/g, ''), nueva });
+      await api.post(`${base}/restablecer-clave`, { email: correo.trim(), codigo: codigo.replace(/\s+/g, ''), nueva });
       registro.info('Contraseña restablecida');
       setCodigo('');
       setNueva('');

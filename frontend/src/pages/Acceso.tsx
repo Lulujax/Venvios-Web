@@ -31,7 +31,7 @@ export function MarcoAcceso({ titulo, subtitulo, children, pie }: { titulo: stri
   );
 }
 
-export function Ingresar() {
+export function Ingresar({ equipo = false }: { equipo?: boolean }) {
   const { usuario, ingresar } = useAuth();
   const navegar = useNavigate();
   const [identificador, setIdentificador] = useState('');
@@ -59,9 +59,9 @@ export function Ingresar() {
 
   return (
     <MarcoAcceso
-      titulo="Ingresar"
-      subtitulo="Entra con tu correo o tu número de casillero y tu contraseña."
-      pie={<>¿Aún no tienes cuenta? <Link to="/registro" className="font-bold text-marino underline underline-offset-4">Crea tu casillero</Link></>}
+      titulo={equipo ? 'Ingreso del equipo' : 'Ingresar'}
+      subtitulo={equipo ? 'Acceso exclusivo para operadores y administradores.' : 'Entra con tu correo o tu número de casillero y tu contraseña.'}
+      pie={equipo ? undefined : <>¿Aún no tienes cuenta? <Link to="/registro" className="font-bold text-marino underline underline-offset-4">Crea tu casillero</Link></>}
     >
       <form onSubmit={enviar} className="space-y-4" noValidate>
         <Campo etiqueta="Correo o número de casillero" autoComplete="username" autoCapitalize="none" value={identificador} onChange={(e) => setIdentificador(e.target.value)} placeholder="nombre@correo.com o VENV-123456" />
@@ -69,7 +69,7 @@ export function Ingresar() {
         {error && <Alerta tono="error">{error}</Alerta>}
         <button type="submit" className="btn btn-primario w-full" disabled={enviando}>{enviando ? 'Entrando…' : 'Entrar'}</button>
         <p className="text-center text-sm">
-          <Link to="/recuperar" className="font-bold text-marino underline underline-offset-4">¿Olvidaste tu contraseña?</Link>
+          <Link to={equipo ? '/equipo/recuperar' : '/recuperar'} className="font-bold text-marino underline underline-offset-4">¿Olvidaste tu contraseña?</Link>
         </p>
       </form>
     </MarcoAcceso>
@@ -160,7 +160,7 @@ export function Registro() {
   );
 }
 
-export function CambiarClave() {
+export function CambiarClave({ equipo = false }: { equipo?: boolean }) {
   const { usuario, refrescar } = useAuth();
   const navegar = useNavigate();
   const [actual, setActual] = useState('');
@@ -169,7 +169,7 @@ export function CambiarClave() {
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
-  if (!usuario) return <Navigate to="/ingresar" replace />;
+  if (!usuario) return <Navigate to={equipo ? '/equipo' : '/ingresar'} replace />;
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();

@@ -1,3 +1,5 @@
+import { CABECERA_AMBITO, ambitoActual } from './ambito';
+
 export class ErrorApi extends Error {
   constructor(
     message: string,
@@ -17,7 +19,7 @@ async function solicitar<T>(metodo: string, ruta: string, cuerpo?: unknown): Pro
     respuesta = await fetch(`/api${ruta}`, {
       method: metodo,
       credentials: 'same-origin',
-      headers: cuerpo !== undefined && !esFormulario ? { 'Content-Type': 'application/json' } : undefined,
+      headers: { ...(cuerpo !== undefined && !esFormulario ? { 'Content-Type': 'application/json' } : {}), [CABECERA_AMBITO]: ambitoActual() },
       body: cuerpo === undefined ? undefined : esFormulario ? (cuerpo as FormData) : JSON.stringify(cuerpo),
     });
   } catch {

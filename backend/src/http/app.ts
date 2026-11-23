@@ -6,15 +6,16 @@ import multer from 'multer';
 import { z, ZodError } from 'zod';
 import type { Contexto } from '../config/contexto';
 import { ESTADOS_ENVIO } from '../domain/estados';
-import type { Rol, Usuario } from '../repositories/tipos';
+import { ambitoDeRol, type Ambito, type Rol, type Usuario } from '../repositories/tipos';
 import { MAX_BYTES_IMAGEN, type ArchivoEntrada } from '../services/Almacenamiento';
 import { esPersonal, type Actor, type FiltroBodega } from '../services/EnvioService';
 import { TIPOS_MENSAJE, type TipoMensaje } from '../services/MensajeService';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
 
-const COOKIE = 'venvios_sesion';
-const SIETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000;
+const COOKIE_CLIENTE = 'venvios_sesion';
+const COOKIE_PERSONAL = 'venvios_equipo';
+const CABECERA_AMBITO = 'x-ambito';
 
 interface PeticionAutenticada extends Request {
   usuario?: Usuario;
@@ -111,11 +112,13 @@ export function crearApp(contexto: Contexto): express.Express {
   const limiteAuth = rateLimit({ windowMs: 10 * 60 * 1000, limit: 40, standardHeaders: true, legacyHeaders: false });
   const limitePublico = rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: true, legacyHeaders: false });
 
-  const exigirSesion: RequestHandler = (req, _res, next) => {
-    const token = (req as Request).cookies?.[COOKIE] as string | undefined;
+  const cookieDe = (ambito: Ambito): string => (ambito === 'PERSONAL' ? COOKIE_PERSONAL : COOKIE_CLIENTE);
+
+  const sesionDe = (ambito: Ambito): RequestHandler => (req, _res, next) => {
+    const token = (req as Request).cookies?.[cookieDe(ambito)] as string | undefined;
     if (!token) return next(AppError.unauthorized());
     contexto.auth
-      .verificarToken(token)
+      .verificarToken(token, ambito)
       .then((usuario) => {
         (req as PeticionAutenticada).usuario = usuario;
         next();
@@ -123,21 +126,33 @@ export function crearApp(contexto: Contexto): express.Express {
       .catch(next);
   };
 
+  const sesionCliente = sesionDe('CLIENTE');
+  const sesionPersonal = sesionDe('PERSONAL');
+
+  const ambitoSolicitado = (req: Request): Ambito => {
+    const pista = req.header(CABECERA_AMBITO);
+    if (pista === 'equipo') return 'PERSONAL';
+    if (pista === 'cliente') return 'CLIENTE';
+    return req.cookies?.[COOKIE_CLIENTE] ? 'CLIENTE' : 'PERSONAL';
+  };
+
+  const exigirSesion: RequestHandler = (req, res, next) => sesionDe(ambitoSolicitado(req))(req, res, next);
+
   const exigirRol = (...roles: Rol[]): RequestHandler => (req, _res, next) => {
     const usuario = (req as PeticionAutenticada).usuario;
     if (!usuario || !roles.includes(usuario.rol)) return next(AppError.forbidden());
     next();
   };
 
-  const personal = [exigirSesion, exigirRol('OPERADOR', 'ADMIN')];
-  const admin = [exigirSesion, exigirRol('ADMIN')];
+  const personal = [sesionPersonal, exigirRol('OPERADOR', 'ADMIN')];
+  const admin = [sesionPersonal, exigirRol('ADMIN')];
 
-  const fijarCookie = (res: Response, token: string): void => {
-    res.cookie(COOKIE, token, {
+  const fijarCookie = (res: Response, ambito: Ambito, token: string): void => {
+    res.cookie(cookieDe(ambito), token, {
       httpOnly: true,
       sameSite: 'lax',
       secure: contexto.produccion,
-      maxAge: SIETE_DIAS_MS,
+      maxAge: contexto.auth.duracionSesionMs(ambito),
       path: '/',
     });
   };
@@ -166,7 +181,7 @@ export function crearApp(contexto: Contexto): express.Express {
     limiteAuth,
     ruta(async (req, res) => {
       const sesion = await contexto.auth.registrarCliente(esquemaRegistro.parse(req.body));
-      fijarCookie(res, sesion.token);
+      fijarCookie(res, 'CLIENTE', sesion.token);
       res.status(201).json({ usuario: sesion.usuario });
     }),
   );
@@ -176,9 +191,40 @@ export function crearApp(contexto: Contexto): express.Express {
     limiteAuth,
     ruta(async (req, res) => {
       const { identificador, contrasena } = z.object({ identificador: z.string(), contrasena: z.string() }).parse(req.body);
-      const sesion = await contexto.auth.iniciarSesion(identificador, contrasena);
-      fijarCookie(res, sesion.token);
+      const sesion = await contexto.auth.iniciarSesion('CLIENTE', identificador, contrasena);
+      fijarCookie(res, 'CLIENTE', sesion.token);
       res.json({ usuario: sesion.usuario });
+    }),
+  );
+
+  api.post(
+    '/equipo/auth/login',
+    limiteAuth,
+    ruta(async (req, res) => {
+      const { identificador, contrasena } = z.object({ identificador: z.string(), contrasena: z.string() }).parse(req.body);
+      const sesion = await contexto.auth.iniciarSesion('PERSONAL', identificador, contrasena);
+      fijarCookie(res, 'PERSONAL', sesion.token);
+      res.json({ usuario: sesion.usuario });
+    }),
+  );
+
+  api.post(
+    '/equipo/auth/olvide-clave',
+    limiteAuth,
+    ruta(async (req, res) => {
+      const { email } = z.object({ email: z.string() }).parse(req.body);
+      await contexto.recuperacion.solicitarCodigo(email, 'PERSONAL');
+      res.json({ ok: true });
+    }),
+  );
+
+  api.post(
+    '/equipo/auth/restablecer-clave',
+    limiteAuth,
+    ruta(async (req, res) => {
+      const { email, codigo, nueva } = z.object({ email: z.string(), codigo: z.string(), nueva: z.string() }).parse(req.body);
+      await contexto.recuperacion.restablecer(email, codigo, nueva, 'PERSONAL');
+      res.json({ ok: true });
     }),
   );
 
@@ -202,8 +248,8 @@ export function crearApp(contexto: Contexto): express.Express {
     }),
   );
 
-  api.post('/auth/logout', (_req, res) => {
-    res.clearCookie(COOKIE, { path: '/' });
+  api.post('/auth/logout', (req, res) => {
+    res.clearCookie(cookieDe(ambitoSolicitado(req)), { path: '/' });
     res.json({ ok: true });
   });
 
@@ -216,12 +262,12 @@ export function crearApp(contexto: Contexto): express.Express {
     ruta(async (req, res) => {
       const { actual, nueva } = z.object({ actual: z.string(), nueva: z.string() }).parse(req.body);
       const sesion = await contexto.auth.cambiarContrasena(req.usuario!.id, actual, nueva);
-      fijarCookie(res, sesion.token);
+      fijarCookie(res, ambitoDeRol(req.usuario!.rol), sesion.token);
       res.json({ ok: true });
     }),
   );
 
-  const soloCliente = [exigirSesion, exigirRol('CLIENTE')];
+  const soloCliente = [sesionCliente, exigirRol('CLIENTE')];
 
   api.get('/perfil', ...soloCliente, ruta(async (req, res) => res.json(await contexto.perfil.obtener(req.usuario!.id))));
 
@@ -240,7 +286,7 @@ export function crearApp(contexto: Contexto): express.Express {
         })
         .parse(req.body);
       const resultado = await contexto.perfil.actualizarDatos(req.usuario!.id, cambios);
-      if (resultado.token) fijarCookie(res, resultado.token);
+      if (resultado.token) fijarCookie(res, 'CLIENTE', resultado.token);
       res.json(resultado.perfil);
     }),
   );

@@ -15,6 +15,11 @@ enum Rol {
   ADMIN
 }
 
+enum Ambito {
+  CLIENTE
+  PERSONAL
+}
+
 enum Modalidad {
   M1
   M2
@@ -76,12 +81,13 @@ model Usuario {
   id               String   @id @default(cuid())
   nombre           String
   cedulaCifrada    String
-  cedulaHuella     String   @unique
-  email            String   @unique
+  cedulaHuella     String
+  email            String
   codigo           String   @unique
-  telefono         String   @unique
+  telefono         String
   passwordHash     String
   rol              Rol      @default(CLIENTE)
+  ambito           Ambito   @default(CLIENTE)
   activo           Boolean  @default(true)
   debeCambiarClave Boolean  @default(false)
   sesionVersion    Int      @default(0)
@@ -91,6 +97,9 @@ model Usuario {
   envios        Envio[]
   eventosCuenta EventoCuenta[]
 
+  @@unique([ambito, cedulaHuella])
+  @@unique([ambito, email])
+  @@unique([ambito, telefono])
   @@index([rol])
 }
 

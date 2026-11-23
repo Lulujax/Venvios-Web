@@ -3,6 +3,7 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { LayoutPublico } from './components/LayoutPublico';
 import { Cargando } from './components/ui';
 import { esPersonal, rutaInicial, useAuth } from './lib/auth';
+import { rutaEntrada } from './lib/ambito';
 import type { Rol } from './lib/tipos';
 import { CambiarClave, Ingresar, Registro } from './pages/Acceso';
 import DetalleEnvio from './pages/DetalleEnvio';
@@ -25,11 +26,11 @@ const Administracion = lazy(() => import('./pages/panel/Administracion'));
 const Escaneo = lazy(() => import('./pages/panel/Escaneo'));
 const Bodega = lazy(() => import('./pages/panel/Bodega'));
 
-function Protegida({ roles }: { roles: Rol[] }) {
+function Protegida({ roles, ambito = 'cliente' }: { roles: Rol[]; ambito?: 'cliente' | 'equipo' }) {
   const { usuario, cargando } = useAuth();
   if (cargando) return <div className="contenedor py-10"><Cargando /></div>;
-  if (!usuario) return <Navigate to="/ingresar" replace />;
-  if (usuario.debeCambiarClave) return <Navigate to="/cambiar-clave" replace />;
+  if (!usuario) return <Navigate to={rutaEntrada(ambito)} replace />;
+  if (usuario.debeCambiarClave) return <Navigate to={ambito === 'equipo' ? '/equipo/cambiar-clave' : '/cambiar-clave'} replace />;
   if (!roles.includes(usuario.rol)) return <Navigate to={rutaInicial(usuario)} replace />;
   return <Outlet />;
 }
@@ -60,9 +61,12 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/ingresar" element={<Ingresar />} />
-      <Route path="/admin" element={<Navigate to="/ingresar" replace />} />
+      <Route path="/equipo" element={<Ingresar equipo />} />
+      <Route path="/equipo/recuperar" element={<RecuperarClave equipo />} />
+      <Route path="/equipo/cambiar-clave" element={<CambiarClave equipo />} />
+      <Route path="/admin" element={<Navigate to="/equipo" replace />} />
       <Route path="/recuperar" element={<RecuperarClave />} />
-      <Route path="/admin/recuperar" element={<Navigate to="/recuperar" replace />} />
+      <Route path="/admin/recuperar" element={<Navigate to="/equipo/recuperar" replace />} />
       <Route path="/registro" element={<Registro />} />
       <Route path="/terminos" element={<PaginaLegal documento={TERMINOS} />} />
       <Route path="/privacidad" element={<PaginaLegal documento={PRIVACIDAD} />} />
@@ -83,7 +87,7 @@ export default function App() {
         </Route>
       </Route>
 
-      <Route element={<Protegida roles={['OPERADOR', 'ADMIN']} />}>
+      <Route element={<Protegida roles={['OPERADOR', 'ADMIN']} ambito="equipo" />}>
         <Route path="/panel" element={<PanelLayout />}>
           <Route index element={<Inicio />} />
           <Route path="escanear" element={<Escaneo />} />

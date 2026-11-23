@@ -103,7 +103,7 @@ export class PerfilService {
     if (cambios.email !== undefined) {
       const email = validarEmail(cambios.email);
       if (email !== usuario.email) {
-        const otro = await this.usuarios.porEmail(email);
+        const otro = await this.usuarios.porEmail(email, 'CLIENTE');
         if (otro && otro.id !== usuarioId) throw AppError.conflict('Ese correo ya pertenece a otra cuenta.');
         nuevos.email = email;
         campos.push('correo');
@@ -112,7 +112,7 @@ export class PerfilService {
     if (cambios.telefono !== undefined) {
       const telefono = validarTelefono(cambios.telefono);
       if (telefono !== usuario.telefono) {
-        const otro = await this.usuarios.porTelefono(telefono);
+        const otro = await this.usuarios.porTelefono(telefono, 'CLIENTE');
         if (otro && otro.id !== usuarioId) throw AppError.conflict('Ese teléfono ya pertenece a otra cuenta.');
         nuevos.telefono = telefono;
         campos.push('teléfono');
@@ -176,7 +176,7 @@ export class PerfilService {
     if (usuario.rol !== 'CLIENTE') throw AppError.badRequest('Solo se corrige la cédula de clientes.');
     const cedula = validarCedula(cedulaNueva);
     const huella = this.cifrado.huella(cedula);
-    const otro = await this.usuarios.porCedulaHuella(huella);
+    const otro = await this.usuarios.porCedulaHuella(huella, 'CLIENTE');
     if (otro && otro.id !== usuarioId) throw AppError.conflict('Esa cédula ya pertenece a otra cuenta. No se hizo el cambio.');
     const anterior = enmascararCedula(this.cifrado.descifrar(usuario.cedulaCifrada));
     const actualizado = await this.usuarios.actualizar(usuarioId, { cedulaCifrada: this.cifrado.cifrar(cedula), cedulaHuella: huella });

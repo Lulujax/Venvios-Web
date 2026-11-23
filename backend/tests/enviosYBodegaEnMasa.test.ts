@@ -80,7 +80,7 @@ describe('lista de envíos paginada en el servidor (RF-149 a RF-151, RF-161)', (
     expect((await operador.agente.get('/api/staff/envios/lista?estado=INVENTADO')).status).toBe(400);
     expect((await operador.agente.get('/api/staff/envios/lista?porPagina=5000')).status).toBe(400);
     const cliente = await registrarCliente(entorno);
-    expect((await cliente.agente.get('/api/staff/envios/lista')).status).toBe(403);
+    expect((await cliente.agente.get('/api/staff/envios/lista')).status).toBe(401);
   });
 });
 
@@ -122,8 +122,8 @@ describe('descargar CSV (RF-152, RF-159)', () => {
 
   it('error: un cliente no puede descargar ninguno de los dos CSV', async () => {
     const cliente = await registrarCliente(entorno);
-    expect((await cliente.agente.get('/api/staff/envios/exportar.csv')).status).toBe(403);
-    expect((await cliente.agente.get('/api/staff/bodega/exportar.csv')).status).toBe(403);
+    expect((await cliente.agente.get('/api/staff/envios/exportar.csv')).status).toBe(401);
+    expect((await cliente.agente.get('/api/staff/bodega/exportar.csv')).status).toBe(401);
   });
 });
 
@@ -191,7 +191,7 @@ describe('acciones en lote de la bodega (RF-157, RF-158, RF-160)', () => {
     expect((await operador.agente.post('/api/staff/paquetes/avisados-lote').send({ ids: [] })).status).toBe(400);
     expect((await operador.agente.post('/api/staff/paquetes/asignar-lote').send({ ids: demasiados, clienteId: 'x' })).status).toBe(400);
     const cliente = await registrarCliente(entorno);
-    expect((await cliente.agente.post('/api/staff/paquetes/avisados-lote').send({ ids: ['x'] })).status).toBe(403);
+    expect((await cliente.agente.post('/api/staff/paquetes/avisados-lote').send({ ids: ['x'] })).status).toBe(401);
   });
 });
 
@@ -235,6 +235,6 @@ describe('despachar varios envíos pagados (RF-154, RF-160)', () => {
     expect((await operador.agente.post('/api/staff/envios/despachar-lote').send({ items: demasiados })).status).toBe(400);
     expect((await operador.agente.post('/api/staff/envios/despachar-lote').send({ items: [] })).status).toBe(400);
     const cliente = await registrarCliente(entorno);
-    expect((await cliente.agente.post('/api/staff/envios/despachar-lote').send({ items: [{ envioId: 'x', guia: 'MRW-111222' }] })).status).toBe(403);
+    expect((await cliente.agente.post('/api/staff/envios/despachar-lote').send({ items: [{ envioId: 'x', guia: 'MRW-111222' }] })).status).toBe(401);
   });
 });

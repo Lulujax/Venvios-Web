@@ -6,6 +6,7 @@ import { EnvioConHitos } from './conHitos';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { coincideBusqueda, partesBusqueda } from './busqueda';
+import { ambitoDeRol } from './tipos';
 import type {
   CambiosEnvio,
   CambiosPago,
@@ -28,6 +29,7 @@ import type {
   NuevoEnvio,
   NuevoPaquete,
   NuevoUsuario,
+  Ambito,
   Pago,
   PagoRepository,
   Paquete,
@@ -73,8 +75,11 @@ export class UsuarioMemoria implements UsuarioRepository, ConInstantanea {
   }
 
   async crear(nuevo: NuevoUsuario): Promise<Usuario> {
+    const ambito = ambitoDeRol(nuevo.rol);
     const existente = [...this.datos.values()].find(
-      (u) => u.cedulaHuella === nuevo.cedulaHuella || u.telefono === nuevo.telefono || u.email === nuevo.email || u.codigo === nuevo.codigo,
+      (u) =>
+        u.codigo === nuevo.codigo ||
+        (ambitoDeRol(u.rol) === ambito && (u.cedulaHuella === nuevo.cedulaHuella || u.telefono === nuevo.telefono || u.email === nuevo.email)),
     );
     if (existente) throw AppError.conflict('Ya existe una cuenta con esa cédula, ese correo o ese teléfono.');
     const usuario: Usuario = { ...nuevo, perfilEntrega: nuevo.perfilEntrega ?? null, sesionVersion: 0, id: randomUUID(), creadoEn: new Date() };
@@ -100,20 +105,20 @@ export class UsuarioMemoria implements UsuarioRepository, ConInstantanea {
     return usuario ? copiar(usuario) : null;
   }
 
-  async porCedulaHuella(huella: string): Promise<Usuario | null> {
-    return this.buscar((u) => u.cedulaHuella === huella);
+  async porCedulaHuella(huella: string, ambito: Ambito): Promise<Usuario | null> {
+    return this.buscar((u) => ambitoDeRol(u.rol) === ambito && u.cedulaHuella === huella);
   }
 
-  async porTelefono(telefono: string): Promise<Usuario | null> {
-    return this.buscar((u) => u.telefono === telefono);
+  async porTelefono(telefono: string, ambito: Ambito): Promise<Usuario | null> {
+    return this.buscar((u) => ambitoDeRol(u.rol) === ambito && u.telefono === telefono);
   }
 
-  async porEmail(email: string): Promise<Usuario | null> {
-    return this.buscar((u) => u.email === email);
+  async porEmail(email: string, ambito: Ambito): Promise<Usuario | null> {
+    return this.buscar((u) => ambitoDeRol(u.rol) === ambito && u.email === email);
   }
 
-  async porCodigo(codigo: string): Promise<Usuario | null> {
-    return this.buscar((u) => u.codigo === codigo);
+  async porCodigo(codigo: string, ambito: Ambito): Promise<Usuario | null> {
+    return this.buscar((u) => ambitoDeRol(u.rol) === ambito && u.codigo === codigo);
   }
 
   async listar(roles?: Rol[]): Promise<Usuario[]> {

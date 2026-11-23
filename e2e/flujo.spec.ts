@@ -15,7 +15,7 @@ writeFileSync(join(CARPETA, 'pixel.png'), PNG);
 const IMAGEN = join(CARPETA, 'pixel.png');
 
 async function entrar(page: Page, identificador: string, contrasena: string, personal = false) {
-  await page.goto(personal ? '/admin' : '/ingresar');
+  await page.goto(personal ? '/equipo' : '/ingresar');
   await page.getByLabel(personal ? 'Correo del personal' : 'Correo o número de casillero').fill(identificador);
   await page.getByLabel('Contraseña', { exact: true }).fill(contrasena);
   await page.getByRole('button', { name: 'Entrar' }).click();

@@ -24,7 +24,7 @@ export async function sembrarConfiguracion(contexto: Contexto): Promise<void> {
 
 export async function sembrarPersonal(contexto: Contexto, datos: DatosPersonalInicial, rol: RolPersonal, pedirCambioDeClave = true): Promise<boolean> {
   const huella = contexto.cifrado.huella(datos.cedula.replace(/\D/g, ''));
-  if (await contexto.repos.usuarios.porCedulaHuella(huella)) {
+  if (await contexto.repos.usuarios.porCedulaHuella(huella, 'PERSONAL')) {
     logger.info('Cuenta de personal ya existente', { rol });
     return false;
   }

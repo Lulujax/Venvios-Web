@@ -1,6 +1,6 @@
 import type { CifradoCedula } from '../domain/cifrado';
 import { validarContrasena, validarEmail } from '../domain/validaciones';
-import type { EventoCuentaRepository, UsuarioRepository } from '../repositories/tipos';
+import type { Ambito, EventoCuentaRepository, UsuarioRepository } from '../repositories/tipos';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import type { AuthService, LimitadorIntentos } from './AuthService';
@@ -26,18 +26,19 @@ export class RecuperacionService {
     private readonly cifrado: CifradoCedula,
   ) {}
 
-  private claveLimite(tipo: 'pedir' | 'restablecer', email: string): string {
-    return this.cifrado.huella(`recuperar-${tipo}:${email}`);
+  private claveLimite(tipo: 'pedir' | 'restablecer', email: string, ambito: Ambito): string {
+    const sufijo = ambito === 'CLIENTE' ? '' : '-personal';
+    return this.cifrado.huella(`recuperar-${tipo}${sufijo}:${email}`);
   }
 
-  async solicitarCodigo(correoEscrito: string): Promise<void> {
+  async solicitarCodigo(correoEscrito: string, ambito: Ambito = 'CLIENTE'): Promise<void> {
     logger.info('Entrando a pedir código de recuperación');
     const email = validarEmail(correoEscrito);
-    const clave = this.claveLimite('pedir', email);
+    const clave = this.claveLimite('pedir', email, ambito);
     await this.limitador.verificar(clave);
     await this.limitador.registrarFallo(clave);
 
-    const usuario = await this.usuarios.porEmail(email);
+    const usuario = await this.usuarios.porEmail(email, ambito);
     if (!usuario || !usuario.activo || usuario.codigo === CODIGO_INTERNO_SIN_DUENO) {
       logger.info('Código de recuperación pedido para un correo sin cuenta activa; no se envía nada');
       return;
@@ -51,15 +52,15 @@ export class RecuperacionService {
     logger.info('Código de recuperación enviado', { id: usuario.id });
   }
 
-  async restablecer(correoEscrito: string, codigoEscrito: string, contrasenaNueva: string): Promise<void> {
+  async restablecer(correoEscrito: string, codigoEscrito: string, contrasenaNueva: string, ambito: Ambito = 'CLIENTE'): Promise<void> {
     logger.info('Entrando a restablecer la contraseña con código');
     const email = validarEmail(correoEscrito);
     const codigo = validarCodigoCorreo(codigoEscrito);
     const nueva = validarContrasena(contrasenaNueva);
-    const clave = this.claveLimite('restablecer', email);
+    const clave = this.claveLimite('restablecer', email, ambito);
     await this.limitador.verificar(clave);
 
-    const usuario = await this.usuarios.porEmail(email);
+    const usuario = await this.usuarios.porEmail(email, ambito);
     const cuentaActiva = Boolean(usuario && usuario.activo && usuario.codigo !== CODIGO_INTERNO_SIN_DUENO);
     const codigoCorrecto = cuentaActiva ? await this.canal.verificarCodigo(email, codigo) : false;
     if (!usuario || !cuentaActiva || !codigoCorrecto) {

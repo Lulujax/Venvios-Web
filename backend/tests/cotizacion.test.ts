@@ -69,8 +69,8 @@ describe('cotización editable', () => {
 
   it('error: el cliente no puede editar valores ni el seguro', async () => {
     const { cliente, envioId, ids } = await consolidadoPesado();
-    expect((await cliente.agente.patch(`/api/staff/paquetes/${ids[0]}/valor`).send({ valorUsd: 1, motivo: 'Quiero pagar menos' })).status).toBe(403);
-    expect((await cliente.agente.patch(`/api/staff/envios/${envioId}/seguro`).send({ seguroUsd: 0, motivo: 'Quiero pagar menos' })).status).toBe(403);
+    expect((await cliente.agente.patch(`/api/staff/paquetes/${ids[0]}/valor`).send({ valorUsd: 1, motivo: 'Quiero pagar menos' })).status).toBe(401);
+    expect((await cliente.agente.patch(`/api/staff/envios/${envioId}/seguro`).send({ seguroUsd: 0, motivo: 'Quiero pagar menos' })).status).toBe(401);
   });
 
   it('error: con un pago registrado el operador recibe «prohibido»; el administrador corrige por su ruta', async () => {

@@ -80,7 +80,7 @@ describe('pagos por revisar en masa (RF-138, RF-143, RF-144, RF-146)', () => {
 
   it('error: un cliente no ve la lista del personal ni puede confirmar lotes', async () => {
     const cliente = await registrarCliente(entorno);
-    expect((await cliente.agente.get('/api/staff/pagos/pendientes')).status).toBe(403);
-    expect((await cliente.agente.post('/api/staff/pagos/confirmar-lote').send({ ids: ['x'] })).status).toBe(403);
+    expect((await cliente.agente.get('/api/staff/pagos/pendientes')).status).toBe(401);
+    expect((await cliente.agente.post('/api/staff/pagos/confirmar-lote').send({ ids: ['x'] })).status).toBe(401);
   });
 });

@@ -1,8 +1,16 @@
+import { createHmac } from 'node:crypto';
 import { CifradoCedula } from '../domain/cifrado';
 import { crearRepositoriosMemoria } from '../repositories/memoria';
 import type { Repositorios } from '../repositories/tipos';
 import { AlmacenamientoMemoria, AlmacenamientoSupabase, type Almacenamiento } from '../services/Almacenamiento';
-import { AuthService, LimitadorIntentos } from '../services/AuthService';
+import {
+  AuthService,
+  BLOQUEO_PERSONAL_MS,
+  DURACION_SESION_CLIENTE_SEGUNDOS,
+  DURACION_SESION_PERSONAL_SEGUNDOS,
+  LimitadorIntentos,
+  MAX_INTENTOS_PERSONAL,
+} from '../services/AuthService';
 import { CanalCodigoMemoria, CanalCodigoSupabase, type CanalCodigo } from '../services/CanalCodigo';
 import { RecuperacionService } from '../services/RecuperacionService';
 import { ConfigService } from '../services/ConfigService';
@@ -36,11 +44,17 @@ export interface OpcionesContexto {
   canalCodigo?: CanalCodigo;
   llaveCedula: string;
   secretoJwt: string;
+  secretoJwtPersonal?: string;
   urlApp: string;
   consultaTasa?: ConsultaTasa;
   reloj?: () => Date;
   produccion?: boolean;
   limitador?: LimitadorIntentos;
+  limitadorPersonal?: LimitadorIntentos;
+}
+
+export function derivarSecretoPersonal(secretoBase: string): string {
+  return createHmac('sha256', secretoBase).update('venvios-sesion-personal').digest('hex');
 }
 
 export function crearContexto(opciones: OpcionesContexto): Contexto {
@@ -48,7 +62,15 @@ export function crearContexto(opciones: OpcionesContexto): Contexto {
   const config = new ConfigService(opciones.repos.config);
   const tasas = new TasaService(opciones.repos.config, opciones.consultaTasa, opciones.reloj);
   const limitador = opciones.limitador ?? new LimitadorIntentos(opciones.repos.intentos);
-  const auth = new AuthService(opciones.repos.usuarios, cifrado, opciones.secretoJwt, limitador);
+  const limitadorPersonal = opciones.limitadorPersonal ?? new LimitadorIntentos(opciones.repos.intentos, undefined, MAX_INTENTOS_PERSONAL, BLOQUEO_PERSONAL_MS);
+  const auth = new AuthService(opciones.repos.usuarios, cifrado, {
+    CLIENTE: { secreto: opciones.secretoJwt, limitador, duracionSegundos: DURACION_SESION_CLIENTE_SEGUNDOS },
+    PERSONAL: {
+      secreto: opciones.secretoJwtPersonal ?? derivarSecretoPersonal(opciones.secretoJwt),
+      limitador: limitadorPersonal,
+      duracionSegundos: DURACION_SESION_PERSONAL_SEGUNDOS,
+    },
+  });
   const recuperacion = new RecuperacionService(opciones.repos.usuarios, opciones.repos.eventosCuenta, auth, opciones.canalCodigo ?? new CanalCodigoMemoria(), limitador, cifrado);
   const envios = new EnvioService(opciones.repos, cifrado, config, tasas, opciones.almacenamiento);
   const pagos = new PagoService(opciones.repos, tasas, config, opciones.almacenamiento, envios);
@@ -95,9 +117,14 @@ const SECRETO_DESARROLLO = 'secreto-solo-para-desarrollo-local';
 export async function crearContextoDesdeEntorno(): Promise<Contexto> {
   const produccion = process.env.NODE_ENV === 'production' || Boolean(process.env.NETLIFY);
   const secretoJwt = variableConValor('JWT_SECRET');
+  const secretoJwtPersonal = variableConValor('JWT_SECRET_PERSONAL');
   const llaveCedula = variableConValor('CEDULA_KEY');
   if (produccion && (!secretoJwt || !llaveCedula)) {
     throw new Error('Faltan JWT_SECRET o CEDULA_KEY en las variables de entorno.');
+  }
+
+  if (produccion && !secretoJwtPersonal) {
+    logger.warn('Falta JWT_SECRET_PERSONAL: se deriva de JWT_SECRET. Conviene definir una llave propia para el personal.');
   }
 
   let repos: Repositorios;
@@ -129,6 +156,7 @@ export async function crearContextoDesdeEntorno(): Promise<Contexto> {
     canalCodigo,
     llaveCedula: llaveCedula ?? LLAVE_DESARROLLO,
     secretoJwt: secretoJwt ?? SECRETO_DESARROLLO,
+    secretoJwtPersonal,
     urlApp: process.env.URL ?? process.env.APP_URL ?? 'http://localhost:5173',
     produccion,
   });

@@ -6,6 +6,7 @@ import { EnvioConHitos } from './conHitos';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { MIN_DIGITOS_TELEFONO, numeroDeConsolidacion, partesBusqueda } from './busqueda';
+import { ambitoDeRol } from './tipos';
 import type {
   CambiosEnvio,
   CambiosPago,
@@ -28,6 +29,7 @@ import type {
   NuevoEnvio,
   NuevoPaquete,
   NuevoUsuario,
+  Ambito,
   Pago,
   PagoRepository,
   Paquete,
@@ -155,7 +157,8 @@ function aUsuario(fila: FilaUsuario): Usuario {
 }
 
 function aDatosUsuario(cambios: CambiosUsuario): Prisma.UsuarioUncheckedUpdateInput {
-  const { perfilEntrega, ...resto } = cambios;
+  const { perfilEntrega, ...sinPerfil } = cambios;
+  const resto: Prisma.UsuarioUncheckedUpdateInput = sinPerfil.rol ? { ...sinPerfil, ambito: ambitoDeRol(sinPerfil.rol) } : sinPerfil;
   if (perfilEntrega === undefined) return resto;
   return { ...resto, perfilEntrega: perfilEntrega === null ? Prisma.JsonNull : (perfilEntrega as unknown as Prisma.InputJsonValue) };
 }
@@ -170,7 +173,7 @@ export class UsuarioPrisma implements UsuarioRepository {
   async crear(datos: NuevoUsuario): Promise<Usuario> {
     const { perfilEntrega, ...resto } = datos;
     const fila = await this.bd.usuario.create({
-      data: { ...resto, perfilEntrega: perfilEntrega ? (perfilEntrega as unknown as Prisma.InputJsonValue) : Prisma.JsonNull },
+      data: { ...resto, ambito: ambitoDeRol(resto.rol), perfilEntrega: perfilEntrega ? (perfilEntrega as unknown as Prisma.InputJsonValue) : Prisma.JsonNull },
     });
     return aUsuario(fila);
   }
@@ -185,23 +188,23 @@ export class UsuarioPrisma implements UsuarioRepository {
     return (await this.bd.usuario.findMany({ where: { id: { in: [...new Set(ids)] } } })).map(aUsuario);
   }
 
-  async porCedulaHuella(huella: string): Promise<Usuario | null> {
-    const fila = await this.bd.usuario.findUnique({ where: { cedulaHuella: huella } });
+  async porCedulaHuella(huella: string, ambito: Ambito): Promise<Usuario | null> {
+    const fila = await this.bd.usuario.findUnique({ where: { ambito_cedulaHuella: { ambito, cedulaHuella: huella } } });
     return fila ? aUsuario(fila) : null;
   }
 
-  async porTelefono(telefono: string): Promise<Usuario | null> {
-    const fila = await this.bd.usuario.findUnique({ where: { telefono } });
+  async porTelefono(telefono: string, ambito: Ambito): Promise<Usuario | null> {
+    const fila = await this.bd.usuario.findUnique({ where: { ambito_telefono: { ambito, telefono } } });
     return fila ? aUsuario(fila) : null;
   }
 
-  async porEmail(email: string): Promise<Usuario | null> {
-    const fila = await this.bd.usuario.findUnique({ where: { email } });
+  async porEmail(email: string, ambito: Ambito): Promise<Usuario | null> {
+    const fila = await this.bd.usuario.findUnique({ where: { ambito_email: { ambito, email } } });
     return fila ? aUsuario(fila) : null;
   }
 
-  async porCodigo(codigo: string): Promise<Usuario | null> {
-    const fila = await this.bd.usuario.findUnique({ where: { codigo } });
+  async porCodigo(codigo: string, ambito: Ambito): Promise<Usuario | null> {
+    const fila = await this.bd.usuario.findFirst({ where: { codigo, ambito } });
     return fila ? aUsuario(fila) : null;
   }
 

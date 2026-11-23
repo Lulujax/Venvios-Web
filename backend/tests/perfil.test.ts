@@ -69,7 +69,7 @@ describe('perfil: mis datos', () => {
 
   it('error: el personal no entra a la sección de perfil del cliente', async () => {
     const operador = await crearPersonalYEntrar(entorno, 'OPERADOR');
-    expect((await operador.agente.get('/api/perfil')).status).toBe(403);
+    expect((await operador.agente.get('/api/perfil')).status).toBe(401);
   });
 });
 
@@ -226,7 +226,7 @@ describe('corrección de cédula por el administrador', () => {
     const invalida = await admin.agente.put(`/api/admin/clientes/${usuario.id}/cedula`).send({ cedula: '12', motivo: 'Error al registrarse' });
     expect(invalida.status).toBe(400);
     expect((await operador.agente.put(`/api/admin/clientes/${usuario.id}/cedula`).send({ cedula: '55667788', motivo: 'Error al registrarse' })).status).toBe(403);
-    expect((await agente.put(`/api/admin/clientes/${usuario.id}/cedula`).send({ cedula: '55667788', motivo: 'Error al registrarse' })).status).toBe(403);
+    expect((await agente.put(`/api/admin/clientes/${usuario.id}/cedula`).send({ cedula: '55667788', motivo: 'Error al registrarse' })).status).toBe(401);
     expect((await agente.get('/api/perfil')).body.datos.cedulaEnmascarada).toBe('V-***344');
   });
 });

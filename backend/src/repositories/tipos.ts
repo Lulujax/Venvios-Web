@@ -3,6 +3,11 @@ import type { TipoHito } from '../domain/hitos';
 import type { Modalidad } from '../domain/tarifas';
 
 export type Rol = 'CLIENTE' | 'OPERADOR' | 'ADMIN';
+export type Ambito = 'CLIENTE' | 'PERSONAL';
+
+export function ambitoDeRol(rol: Rol): Ambito {
+  return rol === 'CLIENTE' ? 'CLIENTE' : 'PERSONAL';
+}
 export type Transportista = 'MRW' | 'ZOOM';
 export type EstadoPaquete = 'ESPERADO' | 'RECIBIDO';
 export type MetodoPago = 'BINANCE' | 'PAGO_MOVIL' | 'TRANSFERENCIA' | 'MANUAL';
@@ -174,10 +179,10 @@ export type CambiosPago = Partial<Omit<Pago, 'id' | 'envioId' | 'creadoEn'>>;
 export interface UsuarioRepository {
   crear(datos: NuevoUsuario): Promise<Usuario>;
   porId(id: string): Promise<Usuario | null>;
-  porCedulaHuella(huella: string): Promise<Usuario | null>;
-  porTelefono(telefono: string): Promise<Usuario | null>;
-  porEmail(email: string): Promise<Usuario | null>;
-  porCodigo(codigo: string): Promise<Usuario | null>;
+  porCedulaHuella(huella: string, ambito: Ambito): Promise<Usuario | null>;
+  porTelefono(telefono: string, ambito: Ambito): Promise<Usuario | null>;
+  porEmail(email: string, ambito: Ambito): Promise<Usuario | null>;
+  porCodigo(codigo: string, ambito: Ambito): Promise<Usuario | null>;
   porIds(ids: string[]): Promise<Usuario[]>;
   listar(roles?: Rol[]): Promise<Usuario[]>;
   actualizar(id: string, cambios: CambiosUsuario): Promise<Usuario>;

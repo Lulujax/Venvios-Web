@@ -115,9 +115,10 @@ describe('restablecer con el código (RF-125, RF-126, RF-127)', () => {
   it('caso feliz: también funciona para el personal y limpia la marca de cambiar clave', async () => {
     const { entorno, canal } = await entornoConEspia();
     const operador = await crearPersonalYEntrar(entorno, 'OPERADOR');
-    await pedir(entorno, operador.datos.email);
-    expect((await restablecer(entorno, operador.datos.email, canal.codigoCorrecto)).status).toBe(200);
-    const entrada = await entorno.agente().post('/api/auth/login').send({ identificador: operador.datos.email, contrasena: CLAVE_NUEVA });
+    await entorno.agente().post('/api/equipo/auth/olvide-clave').send({ email: operador.datos.email });
+    const cambio = await entorno.agente().post('/api/equipo/auth/restablecer-clave').send({ email: operador.datos.email, codigo: canal.codigoCorrecto, nueva: CLAVE_NUEVA });
+    expect(cambio.status).toBe(200);
+    const entrada = await entorno.agente().post('/api/equipo/auth/login').send({ identificador: operador.datos.email, contrasena: CLAVE_NUEVA });
     expect(entrada.status).toBe(200);
   });
 

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, ErrorApi } from './api';
+import { ambitoActual, rutaLogin } from './ambito';
 import type { Rol, Usuario } from './tipos';
 
 interface EstadoAuth {
@@ -39,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cargando,
       refrescar,
       ingresar: async (identificador, contrasena) => {
-        const respuesta = await api.post<{ usuario: Usuario }>('/auth/login', { identificador, contrasena });
+        const respuesta = await api.post<{ usuario: Usuario }>(rutaLogin(ambitoActual()), { identificador, contrasena });
         setUsuario(respuesta.usuario);
         return respuesta.usuario;
       },
@@ -70,6 +71,6 @@ export function esPersonal(rol: Rol | undefined): boolean {
 }
 
 export function rutaInicial(usuario: Usuario): string {
-  if (usuario.debeCambiarClave) return '/cambiar-clave';
+  if (usuario.debeCambiarClave) return esPersonal(usuario.rol) ? '/equipo/cambiar-clave' : '/cambiar-clave';
   return esPersonal(usuario.rol) ? '/panel' : '/cuenta';
 }

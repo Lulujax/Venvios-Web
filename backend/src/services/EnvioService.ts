@@ -485,7 +485,7 @@ export class EnvioService {
   }
 
   private async clienteSinAsignar(): Promise<Usuario> {
-    const existente = await this.repos.usuarios.porTelefono(TELEFONO_SIN_ASIGNAR);
+    const existente = await this.repos.usuarios.porTelefono(TELEFONO_SIN_ASIGNAR, 'CLIENTE');
     if (existente) return existente;
     logger.info('Creando el dueño interno de paquetes sin dueño');
     return this.repos.usuarios.crear({
@@ -1229,7 +1229,7 @@ export class EnvioService {
     this.exigirPersonal(actor);
     const envios = await this.repos.envios.listar({ estados: ESTADOS_EN_BODEGA });
     const pagosPorConfirmar = await this.repos.pagos.porEstado('POR_CONFIRMAR');
-    const sinDueno = await this.repos.usuarios.porTelefono(TELEFONO_SIN_ASIGNAR);
+    const sinDueno = await this.repos.usuarios.porTelefono(TELEFONO_SIN_ASIGNAR, 'CLIENTE');
     const alertas = envios.filter((e) => e.tipo === 'ALERTA' && ESTADOS_ALERTA_ACTIVOS.includes(e.estado));
     const deClientes = alertas.filter((e) => e.clienteId !== sinDueno?.id);
     const sinDuenoAlertas = alertas.filter((e) => e.clienteId === sinDueno?.id);

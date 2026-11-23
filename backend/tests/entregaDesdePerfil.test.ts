@@ -97,7 +97,7 @@ describe('los datos de entrega vienen del perfil del cliente (RF-166, RF-168)', 
 describe('envíos de los datos de prueba (RF-168)', () => {
   it('caso feliz: los consolidados precargados de Rosa traen la agencia, ciudad y estado de su perfil', async () => {
     await cargarDatosDePrueba(entorno.contexto, leerFixtureDatosPrueba());
-    const rosa = await entorno.contexto.repos.usuarios.porEmail('rosa.prueba3@ejemplo.com');
+    const rosa = await entorno.contexto.repos.usuarios.porEmail('rosa.prueba3@ejemplo.com', 'CLIENTE');
     const consolidados = (await entorno.contexto.repos.envios.listar({ clienteId: rosa!.id })).filter((e) => e.tipo === 'CONSOLIDADO');
     expect(consolidados.length).toBeGreaterThan(0);
     for (const envio of consolidados) {

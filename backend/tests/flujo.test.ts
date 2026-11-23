@@ -90,7 +90,10 @@ describe('cuentas', () => {
   it('el número de casillero repetido se vuelve a generar', async () => {
     const secuencia = ['111111', '111111', '222222'];
     const repos = crearRepositoriosMemoria();
-    const servicio = new AuthService(repos.usuarios, new CifradoCedula('a'.repeat(64)), 'secreto-de-prueba-largo', new LimitadorIntentos(repos.intentos), () => secuencia.shift() ?? '999999');
+    const servicio = new AuthService(repos.usuarios, new CifradoCedula('a'.repeat(64)), {
+      CLIENTE: { secreto: 'secreto-de-prueba-largo', limitador: new LimitadorIntentos(repos.intentos), duracionSegundos: 60 },
+      PERSONAL: { secreto: 'secreto-personal-de-prueba', limitador: new LimitadorIntentos(repos.intentos), duracionSegundos: 60 },
+    }, () => secuencia.shift() ?? '999999');
     const base = { nombre: 'Ana Perez', email: 'a@correo.com', telefono: '584141111111', cedula: '11111111', contrasena: 'ClavePrueba2026!' };
     const primero = await servicio.registrarCliente(base);
     const segundo = await servicio.registrarCliente({ ...base, email: 'b@correo.com', telefono: '584142222222', cedula: '22222222' });
@@ -110,8 +113,8 @@ describe('permisos', () => {
     const envio = await prealertar(dueno.agente, ['XC-000111222']);
     expect((await ajeno.agente.get(`/api/envios/${envio.id}`)).status).toBe(404);
     expect((await ajeno.agente.get('/api/envios')).body.envios).toHaveLength(0);
-    expect((await ajeno.agente.get('/api/staff/resumen')).status).toBe(403);
-    expect((await ajeno.agente.get('/api/admin/usuarios')).status).toBe(403);
+    expect((await ajeno.agente.get('/api/staff/resumen')).status).toBe(401);
+    expect((await ajeno.agente.get('/api/admin/usuarios')).status).toBe(401);
   });
 
   it('el operador no puede corregir precios ni entrar al área de administración', async () => {
@@ -416,7 +419,7 @@ describe('bodega y casos especiales', () => {
     expect(conAjeno.body.error.codigo).toBe('PAQUETE_NO_DISPONIBLE');
     const sinLlegar = await cliente.agente.post('/api/envios/consolidar').send({ paqueteIds: [propia.paquetes[1]!.id], modalidad: 'M1', transportista: 'MRW', valorDeclaradoUsd: 1 });
     expect(sinLlegar.body.error.codigo).toBe('PAQUETE_NO_DISPONIBLE');
-    expect((await cliente.agente.post(`/api/staff/envios/${propia.id}/cotizar`).send({ pesoKg: 1 })).status).toBe(403);
+    expect((await cliente.agente.post(`/api/staff/envios/${propia.id}/cotizar`).send({ pesoKg: 1 })).status).toBe(401);
   });
 
   it('deshacer un consolidado devuelve los paquetes a la bodega; con un pago en revisión no se puede', async () => {
@@ -550,7 +553,7 @@ describe('administración', () => {
     expect(creado.status).toBe(201);
     const desactivado = await admin.agente.patch(`/api/admin/usuarios/${creado.body.usuario.id}`).send({ activo: false });
     expect(desactivado.body.usuario.activo).toBe(false);
-    const login = await entorno.agente().post('/api/auth/login').send({ identificador: nuevo.email, contrasena: nuevo.contrasena });
+    const login = await entorno.agente().post('/api/equipo/auth/login').send({ identificador: nuevo.email, contrasena: nuevo.contrasena });
     expect(login.status).toBe(401);
   });
 

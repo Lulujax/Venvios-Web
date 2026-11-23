@@ -71,7 +71,7 @@ export async function crearPersonalYEntrar(entorno: Entorno, rol: 'OPERADOR' | '
   const datos = datosCliente({ nombre: rol === 'ADMIN' ? 'Ana Administradora' : 'Omar Operador' });
   await entorno.contexto.auth.crearPersonal({ ...datos, rol }, 'prueba');
   const agente = entorno.agente();
-  const respuesta = await agente.post('/api/auth/login').send({ identificador: datos.email, contrasena: datos.contrasena });
+  const respuesta = await agente.post('/api/equipo/auth/login').send({ identificador: datos.email, contrasena: datos.contrasena });
   if (respuesta.status !== 200) throw new Error(`Login falló: ${JSON.stringify(respuesta.body)}`);
   return { agente, datos };
 }
