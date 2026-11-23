@@ -51,8 +51,7 @@ function rutaEnTransaccion(contexto: Contexto, manejador: Manejador): RequestHan
 
 function actorDe(req: PeticionAutenticada): Actor {
   if (!req.usuario) throw AppError.unauthorized();
-  const vistaCliente = req.headers['x-vista'] === 'cliente';
-  return { id: req.usuario.id, rol: vistaCliente ? 'CLIENTE' : req.usuario.rol };
+  return { id: req.usuario.id, rol: req.usuario.rol };
 }
 
 function archivoDe(req: Request): ArchivoEntrada | undefined {
@@ -222,7 +221,7 @@ export function crearApp(contexto: Contexto): express.Express {
     }),
   );
 
-  const soloCliente = [exigirSesion, exigirRol('CLIENTE', 'OPERADOR', 'ADMIN')];
+  const soloCliente = [exigirSesion, exigirRol('CLIENTE')];
 
   api.get('/perfil', ...soloCliente, ruta(async (req, res) => res.json(await contexto.perfil.obtener(req.usuario!.id))));
 
@@ -483,10 +482,6 @@ export function crearApp(contexto: Contexto): express.Express {
   administracion.patch('/usuarios/:id', rutaTx(async (req, res) => {
     const c = z.object({ activo: z.boolean() }).parse(req.body);
     res.json({ usuario: await contexto.auth.cambiarEstadoActivo(req.params.id!, c.activo, actorDe(req).id) });
-  }));
-  administracion.put('/usuarios/:id/rol', rutaTx(async (req, res) => {
-    const c = z.object({ rol: z.enum(['CLIENTE', 'OPERADOR']) }).parse(req.body);
-    res.json({ usuario: await contexto.auth.cambiarRol(req.params.id!, c.rol, actorDe(req).id) });
   }));
   administracion.put('/clientes/:id/cedula', rutaTx(async (req, res) => {
     const { cedula, motivo } = z.object({ cedula: z.string(), motivo: z.string() }).parse(req.body);

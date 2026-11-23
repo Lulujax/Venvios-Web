@@ -68,7 +68,7 @@ export default function App() {
       <Route path="/privacidad" element={<PaginaLegal documento={PRIVACIDAD} />} />
       <Route path="/cambiar-clave" element={<CambiarClave />} />
 
-      <Route element={<Protegida roles={['CLIENTE', 'OPERADOR', 'ADMIN']} />}>
+      <Route element={<Protegida roles={['CLIENTE']} />}>
         <Route path="/cuenta" element={<CuentaLayout />}>
           <Route index element={<InicioCuenta />} />
           <Route path="mis-envios" element={<MisEnvios />} />

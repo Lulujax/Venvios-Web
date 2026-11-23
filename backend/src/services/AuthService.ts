@@ -131,7 +131,7 @@ export class AuthService {
       telefono: validarTelefono(datos.telefono),
       contrasena: validarContrasena(datos.contrasena),
       rol: datos.rol,
-      debeCambiarClave: false,
+      debeCambiarClave: true,
     });
     logger.info('Personal creado', { id: sesion.usuario.id, rol: datos.rol, actor: actorId });
     return sesion.usuario;
@@ -249,21 +249,6 @@ export class AuthService {
     const actualizado = activo ? cambiado : await this.usuarios.renovarSesiones(usuarioId);
     logger.info('Estado de usuario cambiado', { id: usuarioId, activo, actor: actorId });
     return this.aPublico(actualizado);
-  }
-
-  async cambiarRol(usuarioId: string, nuevoRol: Rol, actorId: string): Promise<UsuarioPublico> {
-    if (nuevoRol !== 'CLIENTE' && nuevoRol !== 'OPERADOR') throw AppError.badRequest('Solo se puede cambiar entre cliente y operador.');
-    if (usuarioId === actorId) throw AppError.badRequest('No puedes cambiar tu propio rol.');
-    const usuario = await this.usuarios.porId(usuarioId);
-    if (!usuario) throw AppError.notFound('El usuario no existe.');
-    if (usuario.rol === 'ADMIN') throw AppError.badRequest('No se puede cambiar el rol de un administrador.');
-    if (usuario.codigo === CODIGO_INTERNO_SIN_DUENO) throw AppError.badRequest('Esa cuenta es interna y no se puede cambiar.');
-    if (usuario.rol === nuevoRol) return this.aPublico(usuario);
-    await this.usuarios.actualizar(usuarioId, { rol: nuevoRol });
-    const renovado = await this.usuarios.renovarSesiones(usuarioId);
-    if (renovado.rol !== nuevoRol) throw new AppError('El rol no quedó guardado. Intenta de nuevo.', 500);
-    logger.info('Rol de usuario cambiado', { id: usuarioId, de: usuario.rol, a: nuevoRol, actor: actorId });
-    return this.aPublico(renovado);
   }
 
   async estadisticasUsuarios(ahora: Date = new Date()): Promise<EstadisticasUsuarios> {

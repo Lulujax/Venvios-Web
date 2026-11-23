@@ -29,7 +29,7 @@ export async function sembrarPersonal(contexto: Contexto, datos: DatosPersonalIn
     return false;
   }
   const creado = await contexto.auth.crearPersonal({ ...datos, rol }, 'semilla');
-  await contexto.repos.usuarios.actualizar(creado.id, { debeCambiarClave: pedirCambioDeClave });
+  if (!pedirCambioDeClave) await contexto.repos.usuarios.actualizar(creado.id, { debeCambiarClave: false });
   logger.info('Cuenta de personal creada', { rol, pideCambiarClave: pedirCambioDeClave });
   return true;
 }

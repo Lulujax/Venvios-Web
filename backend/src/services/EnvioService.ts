@@ -504,7 +504,7 @@ export class EnvioService {
 
   private async clienteActivo(clienteId: string): Promise<Usuario> {
     const cliente = await this.repos.usuarios.porId(clienteId);
-    if (!cliente || !cliente.activo || cliente.telefono === TELEFONO_SIN_ASIGNAR) {
+    if (!cliente || cliente.rol !== 'CLIENTE' || !cliente.activo || cliente.telefono === TELEFONO_SIN_ASIGNAR) {
       throw AppError.notFound('El cliente no existe o no está activo.');
     }
     return cliente;

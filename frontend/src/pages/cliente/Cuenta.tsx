@@ -1,10 +1,10 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { FiBriefcase, FiSearch, FiCreditCard, FiHome, FiLayers, FiLogOut, FiPackage, FiPlus, FiUser } from 'react-icons/fi';
+import { FiSearch, FiCreditCard, FiHome, FiLayers, FiLogOut, FiPackage, FiPlus, FiUser } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
 import { BotonWhatsAppFlotante } from '../../components/CuentaPiezas';
 import { BotonMenu, MenuDesplegable, useMenuDesplegable } from '../../components/MenuDesplegable';
 import { Marca } from '../../components/ui';
-import { esPersonal, useAuth } from '../../lib/auth';
+import { useAuth } from '../../lib/auth';
 
 interface Seccion {
   a: string;
@@ -46,7 +46,6 @@ export function CuentaLayout() {
           <NavLink to="/cuenta/perfil" className={({ isActive }) => `mt-3 flex min-h-[46px] items-center gap-3 rounded-2xl px-4 text-sm font-bold ${isActive ? 'bg-marino text-white' : 'text-marino hover:bg-marino-50'}`}>
             <FiUser aria-hidden className="text-lg" /> Mi perfil
           </NavLink>
-          {esPersonal(usuario?.rol) && <Link to="/panel" className="btn btn-suave mt-3 w-full"><FiBriefcase aria-hidden /> Ir al panel de trabajo</Link>}
         </div>
         <div className="space-y-2 text-sm">
           <p className="truncate font-bold">{usuario?.nombre}</p>
@@ -62,7 +61,6 @@ export function CuentaLayout() {
             <Link to="/cuenta" aria-label="Inicio de mi cuenta"><Marca /></Link>
           </div>
           <div className="flex items-center gap-2">
-            {esPersonal(usuario?.rol) && <Link to="/panel" className="btn btn-suave btn-chico"><FiBriefcase aria-hidden /> Panel</Link>}
             <Link to="/cuenta/perfil" className="btn btn-suave btn-chico" aria-label="Mi perfil"><FiUser aria-hidden /></Link>
             <button type="button" className="btn btn-suave btn-chico" onClick={cerrarSesion} aria-label="Salir"><FiLogOut aria-hidden /></button>
           </div>
