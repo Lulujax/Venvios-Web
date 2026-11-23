@@ -1,4 +1,4 @@
-const CACHE = 'venvios-v1';
+const CACHE = 'venvios-v2';
 const BASICOS = ['/', '/manifest.webmanifest', '/icono-192.png', '/marca.png'];
 
 self.addEventListener('install', (evento) => {
@@ -20,7 +20,7 @@ self.addEventListener('fetch', (evento) => {
   if (peticion.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
 
   if (peticion.mode === 'navigate') {
-    evento.respondWith(fetch(peticion).catch(() => caches.match('/')));
+    evento.respondWith(fetch(peticion).catch(() => caches.match('/').then((guardado) => guardado || Response.error())));
     return;
   }
 
@@ -34,6 +34,9 @@ self.addEventListener('fetch', (evento) => {
             caches.open(CACHE).then((cache) => cache.put(peticion, copia));
           }
           return respuesta;
+        }).catch(() => {
+          console.warn('Sin conexión para un archivo de la app', url.pathname);
+          return Response.error();
         }),
     ),
   );
