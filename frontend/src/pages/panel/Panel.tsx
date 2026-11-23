@@ -58,7 +58,7 @@ export function PanelLayout() {
             <Link to="/panel" aria-label="Inicio del panel"><Marca /></Link>
           </div>
           <div className="flex items-center gap-2">
-          <Link to="/cuenta" className="btn btn-suave btn-chico" aria-label="Ver como cliente"><FiUser aria-hidden /></Link>
+          <Link to="/cuenta" className="btn btn-suave btn-chico"><FiUser aria-hidden /> Vista cliente</Link>
           <button type="button" className="btn btn-suave btn-chico" onClick={async () => { await salir(); navegar('/'); }} aria-label="Salir"><FiLogOut aria-hidden /></button>
           </div>
         </header>

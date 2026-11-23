@@ -62,7 +62,7 @@ export function CuentaLayout() {
             <Link to="/cuenta" aria-label="Inicio de mi cuenta"><Marca /></Link>
           </div>
           <div className="flex items-center gap-2">
-            {esPersonal(usuario?.rol) && <Link to="/panel" className="btn btn-suave btn-chico" aria-label="Ir al panel de trabajo"><FiBriefcase aria-hidden /></Link>}
+            {esPersonal(usuario?.rol) && <Link to="/panel" className="btn btn-suave btn-chico"><FiBriefcase aria-hidden /> Panel</Link>}
             <Link to="/cuenta/perfil" className="btn btn-suave btn-chico" aria-label="Mi perfil"><FiUser aria-hidden /></Link>
             <button type="button" className="btn btn-suave btn-chico" onClick={cerrarSesion} aria-label="Salir"><FiLogOut aria-hidden /></button>
           </div>
