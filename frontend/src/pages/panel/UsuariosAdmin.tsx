@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { FiPlus, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiUserCheck } from 'react-icons/fi';
 import { Dialogo } from '../../components/Dialogo';
 import { useConfirmar } from '../../components/Confirmar';
 import { Alerta, Campo, CampoTelefono, Cargando, ErrorCarga, RequisitosContrasenaLista, Vacio, useAviso } from '../../components/ui';
@@ -50,7 +50,7 @@ function FormularioUsuario({ alCreado, alCancelar }: { alCreado: () => Promise<v
       <Campo etiqueta="Correo electrónico" type="email" autoCapitalize="none" value={nuevo.email} onChange={(e) => setNuevo({ ...nuevo, email: e.target.value })} error={errores.email} />
       <CampoTelefono etiqueta="Teléfono de WhatsApp" pais={nuevo.pais} numero={nuevo.telefono} alCambiarPais={(pais) => setNuevo({ ...nuevo, pais })} alCambiarNumero={(telefono) => setNuevo({ ...nuevo, telefono })} error={errores.telefono} />
       <div>
-        <Campo etiqueta="Contraseña temporal" type="text" value={nuevo.contrasena} onChange={(e) => setNuevo({ ...nuevo, contrasena: e.target.value })} error={errores.contrasena} ayuda="La persona la cambiará al entrar." />
+        <Campo etiqueta="Contraseña" type="text" value={nuevo.contrasena} onChange={(e) => setNuevo({ ...nuevo, contrasena: e.target.value })} error={errores.contrasena} ayuda="Entrégasela a la persona; puede cambiarla luego con el código por correo." />
         <RequisitosContrasenaLista contrasena={nuevo.contrasena} />
       </div>
       <div>
@@ -69,7 +69,77 @@ function FormularioUsuario({ alCreado, alCancelar }: { alCreado: () => Promise<v
   );
 }
 
-function FilaUsuario({ usuario, esYo, alAlternar }: { usuario: Usuario; esYo: boolean; alAlternar: (usuario: Usuario) => void }) {
+const MINIMO_BUSQUEDA = 3;
+
+function BuscadorClientes({ alElegir, alCancelar }: { alElegir: (cliente: Usuario) => Promise<void>; alCancelar: () => void }) {
+  const [texto, setTexto] = useState('');
+  const [resultados, setResultados] = useState<Usuario[] | null>(null);
+  const [buscando, setBuscando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [eligiendoId, setEligiendoId] = useState<string | null>(null);
+
+  async function buscar(evento: FormEvent) {
+    evento.preventDefault();
+    if (texto.trim().length < MINIMO_BUSQUEDA) {
+      setError(`Escribe al menos ${MINIMO_BUSQUEDA} letras o números.`);
+      return;
+    }
+    setBuscando(true);
+    setError(null);
+    try {
+      const respuesta = await api.get<{ clientes: Usuario[] }>(`/staff/clientes?q=${encodeURIComponent(texto.trim())}`);
+      registro.info('Búsqueda de clientes para volver operador', { encontrados: respuesta.clientes.length });
+      setResultados(respuesta.clientes);
+    } catch (falla) {
+      registro.error('No se pudo buscar clientes');
+      setError(mensajeDeError(falla));
+    } finally {
+      setBuscando(false);
+    }
+  }
+
+  async function elegir(cliente: Usuario) {
+    setEligiendoId(cliente.id);
+    try {
+      await alElegir(cliente);
+    } finally {
+      setEligiendoId(null);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={buscar} className="flex gap-2" noValidate>
+        <div className="min-w-0 flex-1">
+          <label htmlFor="buscar-cliente-rol" className="sr-only">Buscar cliente por nombre, correo, cédula, teléfono o casillero</label>
+          <input id="buscar-cliente-rol" type="search" className="campo" placeholder="Nombre, correo, cédula, teléfono o casillero" value={texto} onChange={(e) => setTexto(e.target.value)} autoFocus />
+        </div>
+        <button type="submit" className="btn btn-primario shrink-0" disabled={buscando}>{buscando ? 'Buscando…' : 'Buscar'}</button>
+      </form>
+      {error && <Alerta tono="error">{error}</Alerta>}
+      {resultados && resultados.length === 0 && <p className="text-sm text-suave">No hay clientes con esa búsqueda. Si la persona aún no tiene cuenta, usa «Nuevo usuario».</p>}
+      {resultados && resultados.length > 0 && (
+        <ul className="space-y-2">
+          {resultados.map((c) => (
+            <li key={c.id} className="flex items-center justify-between gap-3 rounded-2xl border border-linea bg-white px-4 py-3 text-sm">
+              <div className="min-w-0">
+                <p className="truncate font-bold">{c.nombre}</p>
+                <p className="truncate text-suave">{c.email}</p>
+                <p className="codigo text-xs text-suave">{c.codigo}</p>
+              </div>
+              <button type="button" className="btn btn-primario btn-chico shrink-0" disabled={eligiendoId !== null} onClick={() => void elegir(c)}>{eligiendoId === c.id ? 'Cambiando…' : 'Volver operador'}</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex justify-end">
+        <button type="button" className="btn btn-suave" onClick={alCancelar}>Cerrar</button>
+      </div>
+    </div>
+  );
+}
+
+function FilaUsuario({ usuario, esYo, alAlternar, alVolverCliente }: { usuario: Usuario; esYo: boolean; alAlternar: (usuario: Usuario) => void; alVolverCliente: (usuario: Usuario) => void }) {
   return (
     <li className={`flex items-center justify-between gap-3 rounded-2xl border border-linea bg-white px-4 py-3 text-sm ${usuario.activo ? '' : 'opacity-70'}`}>
       <div className="flex min-w-0 items-center gap-3">
@@ -87,7 +157,10 @@ function FilaUsuario({ usuario, esYo, alAlternar }: { usuario: Usuario; esYo: bo
       {esYo ? (
         <span className="shrink-0 text-sm font-bold text-suave">Tú</span>
       ) : (
-        <button type="button" className={`btn btn-chico shrink-0 ${usuario.activo ? 'btn-suave' : 'btn-primario'}`} onClick={() => alAlternar(usuario)}>{usuario.activo ? 'Desactivar' : 'Activar'}</button>
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+          {usuario.rol === 'OPERADOR' && <button type="button" className="btn btn-chico btn-suave" onClick={() => alVolverCliente(usuario)}>Volver cliente</button>}
+          <button type="button" className={`btn btn-chico ${usuario.activo ? 'btn-suave' : 'btn-primario'}`} onClick={() => alAlternar(usuario)}>{usuario.activo ? 'Desactivar' : 'Activar'}</button>
+        </div>
       )}
     </li>
   );
@@ -107,6 +180,30 @@ export function UsuariosAdmin({ estadoInicial = 'TODOS' }: { estadoInicial?: Fil
   const { datos, cargando, error, recargar } = useCarga(() => api.get<{ usuarios: Usuario[] }>('/admin/usuarios').then((r) => r.usuarios));
   const [filtros, setFiltros] = useState<FiltrosUsuarios>({ ...FILTROS_INICIALES, estado: estadoInicial });
   const [creando, setCreando] = useState(false);
+  const [promoviendo, setPromoviendo] = useState(false);
+
+  async function cambiarRol(usuario: { id: string; nombre: string }, rol: 'CLIENTE' | 'OPERADOR') {
+    try {
+      await api.put(`/admin/usuarios/${usuario.id}/rol`, { rol });
+      registro.info('Rol de usuario cambiado', { rol });
+      await recargar();
+      avisar(rol === 'OPERADOR' ? `${usuario.nombre} ahora es operador. Debe volver a iniciar sesión.` : `${usuario.nombre} volvió a ser cliente.`);
+    } catch (falla) {
+      registro.error('No se pudo cambiar el rol');
+      avisar(mensajeDeError(falla), 'error');
+    }
+  }
+
+  async function volverCliente(usuario: Usuario) {
+    const acepto = await confirmar({ titulo: `¿Volver cliente a ${usuario.nombre}?`, pregunta: 'Dejará de entrar al panel de trabajo y su sesión actual se cerrará. Sus paquetes y datos se conservan. Puedes volver a hacerla operadora cuando quieras.', accion: 'Volver cliente', peligro: true });
+    if (!acepto) return;
+    await cambiarRol(usuario, 'CLIENTE');
+  }
+
+  async function volverOperador(cliente: Usuario) {
+    await cambiarRol(cliente, 'OPERADOR');
+    setPromoviendo(false);
+  }
 
   async function alternar(usuario: Usuario) {
     if (usuario.activo) {
@@ -127,7 +224,7 @@ export function UsuariosAdmin({ estadoInicial = 'TODOS' }: { estadoInicial?: Fil
   async function alCrear() {
     setCreando(false);
     await recargar();
-    avisar('Usuario creado. Deberá cambiar su contraseña al entrar.');
+    avisar('Usuario creado. Ya puede iniciar sesión.');
   }
 
   const lista = datos ?? [];
@@ -141,7 +238,10 @@ export function UsuariosAdmin({ estadoInicial = 'TODOS' }: { estadoInicial?: Fil
         <p className="text-sm text-suave" aria-live="polite">
           {datos ? `${contadores.activos} ${contadores.activos === 1 ? 'activo' : 'activos'}: ${contadores.operadores} ${contadores.operadores === 1 ? 'operador' : 'operadores'} y ${contadores.administradores} ${contadores.administradores === 1 ? 'administrador' : 'administradores'}` : 'Cargando personal…'}
         </p>
-        <button type="button" className="btn btn-primario" onClick={() => setCreando(true)}><FiPlus aria-hidden /> Nuevo usuario</button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn btn-suave" onClick={() => setPromoviendo(true)}><FiUserCheck aria-hidden /> Volver operador a un cliente</button>
+          <button type="button" className="btn btn-primario" onClick={() => setCreando(true)}><FiPlus aria-hidden /> Nuevo usuario</button>
+        </div>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Filtrar por estado">
@@ -182,10 +282,16 @@ export function UsuariosAdmin({ estadoInicial = 'TODOS' }: { estadoInicial?: Fil
           {hayFiltros && <p className="text-sm text-suave">Mostrando {visibles.length} de {lista.length}.</p>}
           <ul className="grid gap-2 xl:grid-cols-2">
             {visibles.map((u) => (
-              <FilaUsuario key={u.id} usuario={u} esYo={u.id === yo?.id} alAlternar={(x) => void alternar(x)} />
+              <FilaUsuario key={u.id} usuario={u} esYo={u.id === yo?.id} alAlternar={(x) => void alternar(x)} alVolverCliente={(x) => void volverCliente(x)} />
             ))}
           </ul>
         </>
+      )}
+
+      {promoviendo && (
+        <Dialogo titulo="Volver operador a un cliente" alCerrar={() => setPromoviendo(false)}>
+          <BuscadorClientes alElegir={volverOperador} alCancelar={() => setPromoviendo(false)} />
+        </Dialogo>
       )}
 
       {creando && (

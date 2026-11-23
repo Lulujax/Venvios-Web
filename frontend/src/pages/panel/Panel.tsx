@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { FiArchive, FiCamera, FiCreditCard, FiHome, FiList, FiLogOut, FiPlus, FiSettings } from 'react-icons/fi';
+import { FiArchive, FiCamera, FiUser, FiCreditCard, FiHome, FiList, FiLogOut, FiPlus, FiSettings } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
 import { BotonMenu, MenuDesplegable, useMenuDesplegable } from '../../components/MenuDesplegable';
 import { Alerta, Cargando, ErrorCarga, Marca } from '../../components/ui';
@@ -42,6 +42,7 @@ export function PanelLayout() {
             ))}
           </nav>
           <Link to="/panel/nuevo" className="btn btn-acento mt-6 w-full"><FiPlus aria-hidden /> Nueva prealerta</Link>
+          <Link to="/cuenta" className="btn btn-suave mt-3 w-full"><FiUser aria-hidden /> Ver como cliente</Link>
         </div>
         <div className="space-y-2 text-sm">
           <p className="font-bold">{usuario?.nombre}</p>
@@ -56,7 +57,10 @@ export function PanelLayout() {
             <BotonMenu alAbrir={menu.abrir} />
             <Link to="/panel" aria-label="Inicio del panel"><Marca /></Link>
           </div>
+          <div className="flex items-center gap-2">
+          <Link to="/cuenta" className="btn btn-suave btn-chico" aria-label="Ver como cliente"><FiUser aria-hidden /></Link>
           <button type="button" className="btn btn-suave btn-chico" onClick={async () => { await salir(); navegar('/'); }} aria-label="Salir"><FiLogOut aria-hidden /></button>
+          </div>
         </header>
         <Outlet />
       </div>

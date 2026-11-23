@@ -67,9 +67,9 @@ describe('perfil: mis datos', () => {
     expect(despues).toBe(antes);
   });
 
-  it('error: el personal no entra a la sección de perfil del cliente', async () => {
+  it('el personal sí entra a su perfil de cliente', async () => {
     const operador = await crearPersonalYEntrar(entorno, 'OPERADOR');
-    expect((await operador.agente.get('/api/perfil')).status).toBe(403);
+    expect((await operador.agente.get('/api/perfil')).status).toBe(200);
   });
 });
 

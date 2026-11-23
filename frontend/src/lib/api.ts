@@ -10,6 +10,13 @@ export class ErrorApi extends Error {
   }
 }
 
+function cabeceras(conJson: boolean): Record<string, string> | undefined {
+  const resultado: Record<string, string> = {};
+  if (conJson) resultado['Content-Type'] = 'application/json';
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/cuenta')) resultado['X-Vista'] = 'cliente';
+  return Object.keys(resultado).length > 0 ? resultado : undefined;
+}
+
 async function solicitar<T>(metodo: string, ruta: string, cuerpo?: unknown): Promise<T> {
   const esFormulario = typeof FormData !== 'undefined' && cuerpo instanceof FormData;
   let respuesta: Response;
@@ -17,7 +24,7 @@ async function solicitar<T>(metodo: string, ruta: string, cuerpo?: unknown): Pro
     respuesta = await fetch(`/api${ruta}`, {
       method: metodo,
       credentials: 'same-origin',
-      headers: cuerpo !== undefined && !esFormulario ? { 'Content-Type': 'application/json' } : undefined,
+      headers: cabeceras(cuerpo !== undefined && !esFormulario),
       body: cuerpo === undefined ? undefined : esFormulario ? (cuerpo as FormData) : JSON.stringify(cuerpo),
     });
   } catch {
