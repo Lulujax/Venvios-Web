@@ -193,3 +193,27 @@ describe('reglas del personal (RF-8)', () => {
     expect(String(login.headers['set-cookie'])).toContain('Max-Age=604800');
   });
 });
+
+describe('personal nuevo sin clave temporal', () => {
+  it('caso feliz: el personal creado por el administrador entra directo, sin cambiar clave', async () => {
+    const admin = await crearPersonalYEntrar(entorno, 'ADMIN');
+    const nuevo = datosCliente({ nombre: 'Pedro Operador' });
+    const creado = await admin.agente.post('/api/admin/usuarios').send({ ...nuevo, rol: 'OPERADOR' });
+    expect(creado.status).toBe(201);
+    expect(creado.body.usuario.debeCambiarClave).toBe(false);
+    const login = await entorno.agente().post('/api/equipo/auth/login').send({ identificador: nuevo.email, contrasena: nuevo.contrasena });
+    expect(login.status).toBe(200);
+    expect(login.body.usuario.debeCambiarClave).toBe(false);
+  });
+
+  it('límite: un cliente registrado tampoco queda pendiente de cambiar clave', async () => {
+    const { agente } = await registrarCliente(entorno, {}, { conPerfil: false });
+    expect((await agente.get('/api/auth/yo')).body.usuario.debeCambiarClave).toBe(false);
+  });
+
+  it('error: crear personal con una clave débil se rechaza', async () => {
+    const admin = await crearPersonalYEntrar(entorno, 'ADMIN');
+    const creado = await admin.agente.post('/api/admin/usuarios').send({ ...datosCliente(), contrasena: '123', rol: 'OPERADOR' });
+    expect(creado.status).toBe(400);
+  });
+});

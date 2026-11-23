@@ -161,7 +161,7 @@ export class AuthService {
       telefono: validarTelefono(datos.telefono),
       contrasena: validarContrasena(datos.contrasena),
       rol: datos.rol,
-      debeCambiarClave: true,
+      debeCambiarClave: false,
     });
     logger.info('Personal creado', { id: sesion.usuario.id, rol: datos.rol, actor: actorId });
     return sesion.usuario;
