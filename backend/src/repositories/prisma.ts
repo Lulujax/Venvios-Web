@@ -7,6 +7,7 @@ import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { MIN_DIGITOS_TELEFONO, numeroDeConsolidacion, partesBusqueda } from './busqueda';
 import { ambitoDeRol } from './tipos';
+import { urlConexionDesdeEntorno } from '../config/conexionBaseDatos';
 import type {
   CambiosEnvio,
   CambiosPago,
@@ -49,7 +50,10 @@ const DURACION_MAXIMA_TRANSACCION_MS = 20_000;
 let cliente: PrismaClient | null = null;
 
 export function obtenerPrisma(): PrismaClient {
-  if (!cliente) cliente = new PrismaClient();
+  if (!cliente) {
+    const url = urlConexionDesdeEntorno();
+    cliente = url ? new PrismaClient({ datasources: { db: { url } } }) : new PrismaClient();
+  }
   return cliente;
 }
 
