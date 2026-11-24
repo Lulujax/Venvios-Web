@@ -174,6 +174,8 @@ describe('Administración: personal (RF-171 a RF-173)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Nuevo usuario/ }));
     const cuadro = await screen.findByRole('dialog');
     expect(within(cuadro).getByLabelText('Nombre y apellido')).toBeTruthy();
+    expect(within(cuadro).getByLabelText('Contraseña')).toBeTruthy();
+    expect(within(cuadro).queryByText(/temporal|cambiará al entrar/i)).toBeNull();
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(llamadas.some((l) => l.metodo === 'POST')).toBe(false);

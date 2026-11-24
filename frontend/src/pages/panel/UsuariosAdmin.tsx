@@ -50,7 +50,7 @@ function FormularioUsuario({ alCreado, alCancelar }: { alCreado: () => Promise<v
       <Campo etiqueta="Correo electrónico" type="email" autoCapitalize="none" value={nuevo.email} onChange={(e) => setNuevo({ ...nuevo, email: e.target.value })} error={errores.email} />
       <CampoTelefono etiqueta="Teléfono de WhatsApp" pais={nuevo.pais} numero={nuevo.telefono} alCambiarPais={(pais) => setNuevo({ ...nuevo, pais })} alCambiarNumero={(telefono) => setNuevo({ ...nuevo, telefono })} error={errores.telefono} />
       <div>
-        <Campo etiqueta="Contraseña temporal" type="text" value={nuevo.contrasena} onChange={(e) => setNuevo({ ...nuevo, contrasena: e.target.value })} error={errores.contrasena} ayuda="La persona la cambiará al entrar." />
+        <Campo etiqueta="Contraseña" type="text" value={nuevo.contrasena} onChange={(e) => setNuevo({ ...nuevo, contrasena: e.target.value })} error={errores.contrasena} ayuda="Désela a la persona. Si quiere otra, la cambia con «¿Olvidaste tu contraseña?»." />
         <RequisitosContrasenaLista contrasena={nuevo.contrasena} />
       </div>
       <div>
@@ -127,7 +127,7 @@ export function UsuariosAdmin({ estadoInicial = 'TODOS' }: { estadoInicial?: Fil
   async function alCrear() {
     setCreando(false);
     await recargar();
-    avisar('Usuario creado. Deberá cambiar su contraseña al entrar.');
+    avisar('Usuario creado. Ya puede entrar por la página del equipo.');
   }
 
   const lista = datos ?? [];
