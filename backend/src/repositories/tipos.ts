@@ -183,6 +183,7 @@ export interface UsuarioRepository {
   porTelefono(telefono: string, ambito: Ambito): Promise<Usuario | null>;
   porEmail(email: string, ambito: Ambito): Promise<Usuario | null>;
   porCodigo(codigo: string, ambito: Ambito): Promise<Usuario | null>;
+  mayorCodigoDeClientes(): Promise<string | null>;
   porIds(ids: string[]): Promise<Usuario[]>;
   listar(roles?: Rol[]): Promise<Usuario[]>;
   actualizar(id: string, cambios: CambiosUsuario): Promise<Usuario>;

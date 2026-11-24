@@ -212,6 +212,11 @@ export class UsuarioPrisma implements UsuarioRepository {
     return fila ? aUsuario(fila) : null;
   }
 
+  async mayorCodigoDeClientes(): Promise<string | null> {
+    const fila = await this.bd.usuario.findFirst({ where: { ambito: 'CLIENTE' }, orderBy: { codigo: 'desc' }, select: { codigo: true } });
+    return fila ? fila.codigo : null;
+  }
+
   async listar(roles?: Rol[]): Promise<Usuario[]> {
     const filas = await this.bd.usuario.findMany({
       where: roles ? { rol: { in: roles } } : undefined,

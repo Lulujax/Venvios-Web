@@ -121,6 +121,11 @@ export class UsuarioMemoria implements UsuarioRepository, ConInstantanea {
     return this.buscar((u) => ambitoDeRol(u.rol) === ambito && u.codigo === codigo);
   }
 
+  async mayorCodigoDeClientes(): Promise<string | null> {
+    const codigos = [...this.datos.values()].filter((u) => ambitoDeRol(u.rol) === 'CLIENTE').map((u) => u.codigo).sort();
+    return codigos.length > 0 ? codigos[codigos.length - 1] : null;
+  }
+
   async listar(roles?: Rol[]): Promise<Usuario[]> {
     return [...this.datos.values()].filter((u) => !roles || roles.includes(u.rol)).map(copiar);
   }

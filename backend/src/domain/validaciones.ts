@@ -64,6 +64,20 @@ export function normalizarCodigoCasillero(texto: string): string | null {
   return coincidencia ? `VENV-${coincidencia[1]}` : null;
 }
 
+export const MAX_NUMERO_CASILLERO = 999999;
+
+export function formatearCodigoCasillero(numero: number): string {
+  if (!Number.isInteger(numero) || numero < 0 || numero > MAX_NUMERO_CASILLERO) {
+    throw new RangeError('El número de casillero debe ser un entero entre 0 y 999999.');
+  }
+  return `VENV-${String(numero).padStart(6, '0')}`;
+}
+
+export function numeroDeCodigoCasillero(codigo: string): number | null {
+  const coincidencia = /^VENV-(\d{6})$/.exec(codigo);
+  return coincidencia ? Number(coincidencia[1]) : null;
+}
+
 export function validarValorDeclarado(valorUsd: number): number {
   if (!Number.isFinite(valorUsd) || valorUsd < 0) {
     throw AppError.badRequest('El valor declarado no puede ser negativo.');

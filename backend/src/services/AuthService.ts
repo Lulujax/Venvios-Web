@@ -3,7 +3,10 @@ import jwt from 'jsonwebtoken';
 import { randomInt } from 'node:crypto';
 import type { CifradoCedula } from '../domain/cifrado';
 import {
+  MAX_NUMERO_CASILLERO,
+  formatearCodigoCasillero,
   normalizarCodigoCasillero,
+  numeroDeCodigoCasillero,
   validarCedula,
   validarContrasena,
   validarEmail,
@@ -190,7 +193,7 @@ export class AuthService {
       cedulaCifrada: this.cifrado.cifrar(datos.cedula),
       cedulaHuella: huella,
       email: datos.email,
-      codigo: await this.codigoLibre(),
+      codigo: await this.codigoLibre(ambito),
       telefono: datos.telefono,
       passwordHash: await hash(datos.contrasena),
       rol: datos.rol,
@@ -201,16 +204,40 @@ export class AuthService {
     return this.emitir(usuario);
   }
 
-  async codigoLibre(): Promise<string> {
-    for (let intento = 1; intento <= MAX_REINTENTOS_CODIGO; intento += 1) {
-      const candidato = `VENV-${this.generarDigitos()}`;
-      if (candidato !== CODIGO_INTERNO_SIN_DUENO && !(await this.usuarios.porCodigo(candidato, 'CLIENTE')) && !(await this.usuarios.porCodigo(candidato, 'PERSONAL'))) {
-        logger.info('Número de casillero asignado', { intento });
+  async codigoLibre(ambito: Ambito): Promise<string> {
+    if (ambito === 'CLIENTE') return this.siguienteCodigoDeCliente();
+    return this.codigoAleatorioLibre();
+  }
+
+  private async siguienteCodigoDeCliente(): Promise<string> {
+    const mayor = await this.usuarios.mayorCodigoDeClientes();
+    let numero = (mayor ? (numeroDeCodigoCasillero(mayor) ?? 0) : 0) + 1;
+    for (let intento = 1; intento <= MAX_REINTENTOS_CODIGO && numero <= MAX_NUMERO_CASILLERO; intento += 1) {
+      const candidato = formatearCodigoCasillero(numero);
+      if (!(await this.codigoOcupado(candidato))) {
+        logger.info('Número de casillero asignado', { numero });
         return candidato;
       }
-      logger.warn('Número de casillero repetido, se genera otro', { intento });
+      logger.warn('Número de casillero ocupado por el personal, se salta', { numero });
+      numero += 1;
     }
     throw new AppError('No se pudo generar un número de casillero. Intenta de nuevo.', 500);
+  }
+
+  private async codigoAleatorioLibre(): Promise<string> {
+    for (let intento = 1; intento <= MAX_REINTENTOS_CODIGO; intento += 1) {
+      const candidato = `VENV-${this.generarDigitos()}`;
+      if (candidato !== CODIGO_INTERNO_SIN_DUENO && !(await this.codigoOcupado(candidato))) {
+        logger.info('Código de personal asignado', { intento });
+        return candidato;
+      }
+      logger.warn('Código de personal repetido, se genera otro', { intento });
+    }
+    throw new AppError('No se pudo generar un código. Intenta de nuevo.', 500);
+  }
+
+  private async codigoOcupado(codigo: string): Promise<boolean> {
+    return Boolean((await this.usuarios.porCodigo(codigo, 'CLIENTE')) || (await this.usuarios.porCodigo(codigo, 'PERSONAL')));
   }
 
   private claveIntentos(ambito: Ambito, identificador: string): string {

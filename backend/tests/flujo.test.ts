@@ -87,18 +87,44 @@ describe('cuentas', () => {
     }
   });
 
-  it('el número de casillero repetido se vuelve a generar', async () => {
-    const secuencia = ['111111', '111111', '222222'];
-    const repos = crearRepositoriosMemoria();
-    const servicio = new AuthService(repos.usuarios, new CifradoCedula('a'.repeat(64)), {
-      CLIENTE: { secreto: 'secreto-de-prueba-largo', limitador: new LimitadorIntentos(repos.intentos), duracionSegundos: 60 },
-      PERSONAL: { secreto: 'secreto-personal-de-prueba', limitador: new LimitadorIntentos(repos.intentos), duracionSegundos: 60 },
-    }, () => secuencia.shift() ?? '999999');
+  describe('numeración progresiva de casilleros', () => {
+    function crearServicio(generarDigitos?: () => string) {
+      const repos = crearRepositoriosMemoria();
+      const servicio = new AuthService(repos.usuarios, new CifradoCedula('a'.repeat(64)), {
+        CLIENTE: { secreto: 'secreto-de-prueba-largo', limitador: new LimitadorIntentos(repos.intentos), duracionSegundos: 60 },
+        PERSONAL: { secreto: 'secreto-personal-de-prueba', limitador: new LimitadorIntentos(repos.intentos), duracionSegundos: 60 },
+      }, generarDigitos);
+      return servicio;
+    }
     const base = { nombre: 'Ana Perez', email: 'a@correo.com', telefono: '584141111111', cedula: '11111111', contrasena: 'ClavePrueba2026!' };
-    const primero = await servicio.registrarCliente(base);
-    const segundo = await servicio.registrarCliente({ ...base, email: 'b@correo.com', telefono: '584142222222', cedula: '22222222' });
-    expect(primero.usuario.codigo).toBe('VENV-111111');
-    expect(segundo.usuario.codigo).toBe('VENV-222222');
+    const otro = (n: number) => ({ ...base, email: `c${n}@correo.com`, telefono: `58414${String(n).padStart(7, '0')}`, cedula: String(20000000 + n) });
+
+    it('caso feliz: el primer cliente recibe VENV-000001 y los siguientes suben de uno en uno', async () => {
+      const servicio = crearServicio();
+      const primero = await servicio.registrarCliente(base);
+      const segundo = await servicio.registrarCliente(otro(2));
+      const tercero = await servicio.registrarCliente(otro(3));
+      expect([primero.usuario.codigo, segundo.usuario.codigo, tercero.usuario.codigo]).toEqual(['VENV-000001', 'VENV-000002', 'VENV-000003']);
+    });
+
+    it('caso límite: el personal con un código dentro de la secuencia no se repite en los clientes', async () => {
+      const servicio = crearServicio(() => '000002');
+      const cliente = await servicio.registrarCliente(base);
+      const personal = await servicio.crearPersonal({ ...otro(9), rol: 'OPERADOR' }, 'admin-1');
+      const siguiente = await servicio.registrarCliente(otro(3));
+      expect(cliente.usuario.codigo).toBe('VENV-000001');
+      expect(personal.codigo).toBe('VENV-000002');
+      expect(siguiente.usuario.codigo).toBe('VENV-000003');
+    });
+
+    it('caso de error: el personal con un código aleatorio repetido recibe otro', async () => {
+      const secuencia = ['111111', '111111', '222222'];
+      const servicio = crearServicio(() => secuencia.shift() ?? '999999');
+      const primero = await servicio.crearPersonal({ ...base, rol: 'OPERADOR' }, 'admin-1');
+      const segundo = await servicio.crearPersonal({ ...otro(2), rol: 'ADMIN' }, 'admin-1');
+      expect(primero.codigo).toBe('VENV-111111');
+      expect(segundo.codigo).toBe('VENV-222222');
+    });
   });
 
   it('sin sesión se rechaza con 401', async () => {

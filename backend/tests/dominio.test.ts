@@ -5,6 +5,8 @@ import { esMontoExacto, validarReferenciaPago } from '../src/domain/pagos';
 import {
   validarCedula,
   normalizarCodigoCasillero,
+  formatearCodigoCasillero,
+  numeroDeCodigoCasillero,
   validarContrasena,
   validarEmail,
   validarNombre,
@@ -189,5 +191,24 @@ describe('pago exacto y referencia', () => {
     expect(() => validarReferenciaPago('12345')).toThrow('6 y 12');
     expect(() => validarReferenciaPago('1234567890123')).toThrow();
     expect(() => validarReferenciaPago('ABC123')).toThrow();
+  });
+});
+
+describe('número de casillero progresivo', () => {
+  it('caso feliz: formatea con seis dígitos y lo vuelve a leer', () => {
+    expect(formatearCodigoCasillero(1)).toBe('VENV-000001');
+    expect(numeroDeCodigoCasillero('VENV-000042')).toBe(42);
+  });
+
+  it('caso límite: acepta 0 y 999999', () => {
+    expect(formatearCodigoCasillero(0)).toBe('VENV-000000');
+    expect(formatearCodigoCasillero(999999)).toBe('VENV-999999');
+  });
+
+  it('caso de error: rechaza negativos, decimales y más de seis dígitos', () => {
+    expect(() => formatearCodigoCasillero(-1)).toThrow();
+    expect(() => formatearCodigoCasillero(1.5)).toThrow();
+    expect(() => formatearCodigoCasillero(1000000)).toThrow();
+    expect(numeroDeCodigoCasillero('TMP-abc')).toBeNull();
   });
 });

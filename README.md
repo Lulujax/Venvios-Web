@@ -15,7 +15,7 @@ npm run dev
 - API: http://localhost:4000/api/salud
 - Sin `DATABASE_URL` la API usa datos en memoria (se pierden al reiniciar). Es lo ideal para probar.
 - Cuentas de prueba: se crean desde `backend/.env` (`ADMIN_PASSWORD` para el administrador y `OPERADOR_PASSWORD` para un operador). Sin esas variables no existen. Ninguna clave va en el repositorio.
-- Cada cliente recibe un número de casillero `VENV-123456` y entra con su correo o con ese número.
+- Cada cliente recibe un número de casillero progresivo (`VENV-000001`, `VENV-000002`...) y entra con su correo o con ese número.
 - Cada día el servidor consulta la tasa BCV a `ve.dolarapi.com`. Sin internet, el administrador la carga a mano en Admin → Tasa BCV.
 - La cámara solo funciona con candado (https) o en `localhost`. Para probar con el teléfono real hay que desplegar (ver abajo).
 
