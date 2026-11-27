@@ -288,3 +288,134 @@ export interface EventoHistorial {
   actorId: string | null;
   fecha: string;
 }
+
+export type TipoReporte = 'inventario' | 'prealertas-pendientes' | 'estado-de-cuenta';
+export type EtapaInventario = 'EN_BODEGA' | 'SIN_DUENO' | 'ESPERANDO_PAGO' | 'LISTO_PARA_SALIR';
+export type EtapaCliente = 'POR_LLEGAR' | 'EN_BODEGA' | 'ESPERANDO_PAGO' | 'LISTO_PARA_SALIR' | 'EN_RUTA' | 'ENTREGADO';
+export type OrigenPaqueteEstado = 'PREALERTA' | 'SIN_PREALERTA' | 'SIN_REGISTRO';
+
+export interface PrealertaOrigenVista {
+  id: string;
+  tienda: string;
+  fecha: string;
+}
+
+export interface ItemInventario {
+  paqueteId: string;
+  tracking: string;
+  etapa: EtapaInventario;
+  etiquetaEtapa: string;
+  prealertaOrigen: PrealertaOrigenVista | null;
+  origenEstado: OrigenPaqueteEstado;
+  pesoKg: number | null;
+  recibidoEn: string | null;
+  diasEnBodega: number | null;
+  avisado: boolean;
+  tieneFoto: boolean;
+  envioId: string;
+}
+
+export interface ClienteInventario {
+  cliente: { id: string; nombre: string; codigo: string };
+  totalPaquetes: number;
+  pesoTotalKg: number;
+  items: ItemInventario[];
+}
+
+export interface ReporteInventario {
+  tipo: 'inventario';
+  generadoEn: string;
+  periodo: { desde: string | null; hasta: string | null };
+  resumen: {
+    totalPaquetes: number;
+    pesoTotalKg: number;
+    sinAvisar: number;
+    porEtapa: Record<EtapaInventario, number>;
+  };
+  clientes: ClienteInventario[];
+}
+
+export interface PrealertaPendienteVista {
+  envioId: string;
+  tienda: string;
+  fechaAviso: string;
+  diasDesdeAviso: number;
+  llegaron: number;
+  total: number;
+  faltan: number;
+  trackingsFaltantes: string[];
+}
+
+export interface ReportePrealertasPendientes {
+  tipo: 'prealertas-pendientes';
+  generadoEn: string;
+  periodo: { desde: string | null; hasta: string | null };
+  resumen: {
+    totalPrealertas: number;
+    totalPaquetesPorLlegar: number;
+    totalClientes: number;
+    sinRegistroPrealerta: number;
+  };
+  clientes: Array<{
+    cliente: { id: string; nombre: string; codigo: string };
+    totalPorLlegar: number;
+    prealertas: PrealertaPendienteVista[];
+  }>;
+}
+
+export interface PaqueteEstadoCuenta {
+  paqueteId: string;
+  tracking: string;
+  prealertaOrigen: PrealertaOrigenVista | null;
+  origenEstado: OrigenPaqueteEstado;
+  pesoKg: number | null;
+  recibidoEn: string | null;
+  diasEnBodega: number | null;
+  avisado: boolean;
+  tieneFoto: boolean;
+}
+
+export interface ConsolidadoEstadoCuenta {
+  envioId: string;
+  numero: number;
+  etapa: 'ESPERANDO_PAGO' | 'LISTO_PARA_SALIR' | 'EN_RUTA' | 'ENTREGADO';
+  etiquetaEtapa: string;
+  estado: EstadoEnvio;
+  etiquetaEstado: string;
+  transportista: Transportista;
+  pesoTotalKg: number | null;
+  creadoEn: string;
+  entregadoEn: string | null;
+  paquetes: PaqueteEstadoCuenta[];
+}
+
+export interface ReporteEstadoCuenta {
+  tipo: 'estado-de-cuenta';
+  generadoEn: string;
+  periodo: { desde: string | null; hasta: string | null };
+  cliente: { id: string; nombre: string; codigo: string };
+  resumen: {
+    totalPaquetes: number;
+    porEtapa: Record<EtapaCliente, number>;
+    incluyeEntregados: boolean;
+    sinRegistroPrealerta: number;
+  };
+  prealertas: PrealertaPendienteVista[];
+  enBodega: PaqueteEstadoCuenta[];
+  consolidados: ConsolidadoEstadoCuenta[];
+  entregados: ConsolidadoEstadoCuenta[];
+}
+
+export type ReporteGenerado = ReporteInventario | ReportePrealertasPendientes | ReporteEstadoCuenta;
+
+export interface ClienteFiltroVista {
+  id: string;
+  nombre: string;
+  codigo: string;
+}
+
+export interface RespuestaReporte {
+  reporte: ReporteGenerado;
+  clienteFiltro: ClienteFiltroVista | null;
+  filtrosTexto: string;
+}

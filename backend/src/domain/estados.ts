@@ -24,6 +24,14 @@ export const ESTADOS_CONSOLIDADO_ABIERTOS: EstadoEnvio[] = ['POR_CONSOLIDAR', 'P
 export const ESTADOS_COBRABLES: EstadoEnvio[] = ['POR_PAGAR', 'POR_CONFIRMAR'];
 export const ESTADOS_FUERA_DE_BODEGA: EstadoEnvio[] = ['DESPACHADO', 'CERRADO', 'CANCELADO', 'ARCHIVADO'];
 
+export const TIENDA_SIN_PREALERTA = 'Sin prealerta';
+export const TIENDA_DEVUELTO = 'Devuelto a bodega';
+export const TIENDAS_INTERNAS_BODEGA = [TIENDA_SIN_PREALERTA, TIENDA_DEVUELTO] as const;
+
+export function esPrealertaReal(envio: { tipo: TipoEnvio; tienda: string; estado?: EstadoEnvio }): boolean {
+  return envio.tipo === 'ALERTA' && !(TIENDAS_INTERNAS_BODEGA as readonly string[]).includes(envio.tienda) && envio.estado !== 'CANCELADO';
+}
+
 export const ETIQUETAS_ESTADO: Record<EstadoEnvio, string> = {
   PREALERTADO: 'Prealertado',
   RECIBIDO_PARCIAL: 'Recibido parcial',

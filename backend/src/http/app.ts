@@ -6,10 +6,12 @@ import multer from 'multer';
 import { z, ZodError } from 'zod';
 import type { Contexto } from '../config/contexto';
 import { ESTADOS_ENVIO } from '../domain/estados';
+import { ETAPAS_INVENTARIO } from '../domain/reportes';
 import { ambitoDeRol, type Ambito, type Rol, type Usuario } from '../repositories/tipos';
 import { MAX_BYTES_IMAGEN, type ArchivoEntrada } from '../services/Almacenamiento';
 import { esPersonal, type Actor, type FiltroBodega } from '../services/EnvioService';
 import { TIPOS_MENSAJE, type TipoMensaje } from '../services/MensajeService';
+import type { ConsultaReporte } from '../services/ReporteService';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
 
@@ -420,21 +422,49 @@ export function crearApp(contexto: Contexto): express.Express {
       incluirEnCamino: req.query.incluirEnCamino === '1',
     };
   };
-  const enviarCsv = (res: Response, nombre: string, contenido: string) => {
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${nombre}-${new Date().toISOString().slice(0, 10)}.csv"`);
+  const enviarExcel = (res: Response, nombre: string, contenido: Buffer, nombreCompleto = false) => {
+    const archivo = nombreCompleto ? nombre : `${nombre}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${archivo}"`);
     res.setHeader('Cache-Control', 'no-store');
     res.send(contenido);
   };
   const enviarPdf = (res: Response, nombre: string, contenido: Buffer) => {
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${nombre}-${new Date().toISOString().slice(0, 10)}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${nombre}"`);
     res.setHeader('Cache-Control', 'no-store');
     res.send(contenido);
   };
+  const textoOpcional = (valor: unknown): string | undefined => (typeof valor === 'string' && valor.trim() ? valor.trim() : undefined);
+  const esquemaReporte = z.object({
+    clienteId: z.string().trim().min(1).optional(),
+    etapa: z.enum(ETAPAS_INVENTARIO).optional(),
+    minDias: z.coerce.number().int().min(1).max(3650).optional(),
+    soloSinAvisar: z.enum(['0', '1', 'true', 'false']).optional(),
+    desde: z.string().trim().optional(),
+    hasta: z.string().trim().optional(),
+  });
+  const consultaReporteDe = (req: Request): ConsultaReporte => {
+    const bruto = esquemaReporte.parse({
+      clienteId: textoOpcional(req.query.clienteId),
+      etapa: textoOpcional(req.query.etapa),
+      minDias: textoOpcional(req.query.minDias),
+      soloSinAvisar: textoOpcional(req.query.soloSinAvisar),
+      desde: textoOpcional(req.query.desde),
+      hasta: textoOpcional(req.query.hasta),
+    });
+    return {
+      clienteId: bruto.clienteId,
+      etapa: bruto.etapa,
+      minDias: bruto.minDias,
+      soloSinAvisar: bruto.soloSinAvisar === '1' || bruto.soloSinAvisar === 'true',
+      desde: bruto.desde,
+      hasta: bruto.hasta,
+    };
+  };
 
   staff.get('/envios/lista', ruta(async (req, res) => res.json(await contexto.envios.listarPagina(actorDe(req), esquemaLista.parse(req.query)))));
-  staff.get('/envios/exportar.csv', ruta(async (req, res) => enviarCsv(res, 'envios', await contexto.envios.exportarEnviosCsv(actorDe(req), esquemaLista.parse(req.query)))));
+  staff.get('/envios/exportar.xlsx', ruta(async (req, res) => enviarExcel(res, 'envios', await contexto.envios.exportarEnviosExcel(actorDe(req), esquemaLista.parse(req.query)))));
   staff.post('/envios/despachar-lote', rutaTx(async (req, res) => {
     const c = z.object({ items: z.array(z.object({ envioId: z.string(), guia: z.string().max(60) })).min(1).max(50) }).parse(req.body);
     res.json(await contexto.envios.despacharLote(actorDe(req), c.items));
@@ -444,8 +474,16 @@ export function crearApp(contexto: Contexto): express.Express {
     const c = z.object({ ids: z.array(z.string()).min(1).max(100), clienteId: z.string().nullable(), motivo: z.string().optional() }).parse(req.body);
     res.json(await contexto.envios.asignarLote(actorDe(req), c.ids, c.clienteId, c.motivo));
   }));
-  staff.get('/bodega/exportar.csv', ruta(async (req, res) => enviarCsv(res, 'bodega', await contexto.envios.exportarBodegaCsv(actorDe(req), filtroBodegaDe(req)))));
-  staff.get('/bodega/exportar.pdf', ruta(async (req, res) => enviarPdf(res, 'bodega', await contexto.envios.exportarBodegaPdf(actorDe(req), filtroBodegaDe(req)))));
+  staff.get('/bodega/exportar.xlsx', ruta(async (req, res) => enviarExcel(res, 'bodega', await contexto.envios.exportarBodegaExcel(actorDe(req), filtroBodegaDe(req)))));
+  staff.get('/reportes/:tipo.pdf', ruta(async (req, res) => {
+    const { nombre, buffer } = await contexto.reportes.generarPdf(actorDe(req), req.params.tipo!, consultaReporteDe(req));
+    enviarPdf(res, nombre, buffer);
+  }));
+  staff.get('/reportes/:tipo.xlsx', ruta(async (req, res) => {
+    const { nombre, buffer } = await contexto.reportes.generarExcel(actorDe(req), req.params.tipo!, consultaReporteDe(req));
+    enviarExcel(res, nombre, buffer, true);
+  }));
+  staff.get('/reportes/:tipo', ruta(async (req, res) => res.json(await contexto.reportes.generar(actorDe(req), req.params.tipo!, consultaReporteDe(req)))));
   staff.get(
     '/bodega',
     ruta(async (req, res) => {

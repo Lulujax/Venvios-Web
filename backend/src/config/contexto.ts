@@ -19,6 +19,7 @@ import { MensajeService } from '../services/MensajeService';
 import { PagoService } from '../services/PagoService';
 import { PerfilService } from '../services/PerfilService';
 import { PublicoService } from '../services/PublicoService';
+import { ReporteService } from '../services/ReporteService';
 import { TasaService, type ConsultaTasa } from '../services/TasaService';
 import { logger } from '../utils/logger';
 
@@ -35,6 +36,7 @@ export interface Contexto {
   perfil: PerfilService;
   mensajes: MensajeService;
   publico: PublicoService;
+  reportes: ReporteService;
   produccion: boolean;
 }
 
@@ -77,6 +79,7 @@ export function crearContexto(opciones: OpcionesContexto): Contexto {
   const perfil = new PerfilService(opciones.repos.usuarios, opciones.repos.eventosCuenta, cifrado, auth);
   const mensajes = new MensajeService(envios, config, opciones.urlApp);
   const publico = new PublicoService(config, tasas);
+  const reportes = new ReporteService(opciones.repos, opciones.reloj);
   return {
     repos: opciones.repos,
     almacenamiento: opciones.almacenamiento,
@@ -90,6 +93,7 @@ export function crearContexto(opciones: OpcionesContexto): Contexto {
     perfil,
     mensajes,
     publico,
+    reportes,
     produccion: opciones.produccion ?? false,
   };
 }

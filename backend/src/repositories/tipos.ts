@@ -61,6 +61,7 @@ export interface Usuario {
 export interface Paquete {
   id: string;
   envioId: string;
+  prealertaOrigenId: string | null;
   trackingTexto: string;
   trackingNormalizado: string;
   estado: EstadoPaquete;
@@ -71,6 +72,13 @@ export interface Paquete {
   avisadoPorId: string | null;
   recibidoPorId: string | null;
   recibidoEn: Date | null;
+}
+
+export interface PaqueteConEnvio {
+  paquete: Paquete;
+  envioTipo: TipoEnvio;
+  envioEstado: EstadoEnvio;
+  envioClienteId: string;
 }
 
 export interface EntregaGuardada {
@@ -151,6 +159,7 @@ export interface NuevoPaquete {
   trackingTexto: string;
   trackingNormalizado: string;
   valorDeclaradoCentavos?: number;
+  prealertaOrigenId?: string | null;
 }
 
 export interface NuevoEnvio {
@@ -210,10 +219,12 @@ export interface EventoCuentaRepository {
 export interface EnvioRepository {
   crear(datos: NuevoEnvio): Promise<Envio>;
   porId(id: string): Promise<Envio | null>;
+  porIds(ids: string[]): Promise<Envio[]>;
   listar(filtro: FiltroEnvios): Promise<Envio[]>;
   porTracking(trackingNormalizado: string): Promise<Envio | null>;
   porPaqueteId(paqueteId: string): Promise<Envio | null>;
   porFotoPaquete(ruta: string): Promise<Envio | null>;
+  paquetesPorOrigen(prealertaIds: string[]): Promise<PaqueteConEnvio[]>;
   actualizar(id: string, cambios: CambiosEnvio, estadoEsperado?: EstadoEnvio): Promise<Envio>;
   actualizarPaquete(id: string, cambios: CambiosPaquete, estadoEsperado?: EstadoPaquete): Promise<Paquete>;
   agregarPaquetes(envioId: string, paquetes: NuevoPaquete[]): Promise<Paquete[]>;

@@ -1,3 +1,4 @@
+import ExcelJS from 'exceljs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PNG_MINIMO, crearEntorno, crearPersonalYEntrar, registrarCliente, type Entorno } from './ayudas';
 
@@ -84,24 +85,44 @@ describe('lista de envíos paginada en el servidor (RF-149 a RF-151, RF-161)', (
   });
 });
 
-describe('descargar CSV (RF-152, RF-159)', () => {
-  it('caso feliz: el CSV de envíos trae todas las filas del filtro, con encabezado y sin cédula ni teléfono', async () => {
+async function filasExcel(respuesta: { body: Buffer | Record<string, unknown> }): Promise<string[][]> {
+  const libro = new ExcelJS.Workbook();
+  const buffer = Buffer.isBuffer(respuesta.body) ? respuesta.body : Buffer.from(respuesta.body as unknown as ArrayBuffer);
+  await libro.xlsx.load(buffer as unknown as ExcelJS.Buffer);
+  const hoja = libro.worksheets[0]!;
+  const filas: string[][] = [];
+  hoja.eachRow((fila) => {
+    const valores: string[] = [];
+    for (let i = 1; i <= hoja.columnCount; i += 1) {
+      const valor = fila.getCell(i).value;
+      valores.push(valor === null || valor === undefined ? '' : String(valor));
+    }
+    filas.push(valores);
+  });
+  return filas;
+}
+
+describe('descargar Excel (RF-152, RF-159)', () => {
+  it('caso feliz: el Excel de envíos trae todas las filas del filtro, con encabezado y sin cédula ni teléfono', async () => {
     const operador = await crearPersonalYEntrar(entorno, 'OPERADOR');
     const cliente = await registrarCliente(entorno, { nombre: 'Marta Exportada' });
     for (let i = 0; i < 12; i += 1) await alerta(cliente, `CSV-${i}-${Math.floor(Math.random() * 1e6)}`);
-    const r = await operador.agente.get('/api/staff/envios/exportar.csv');
+    const r = await operador.agente.get('/api/staff/envios/exportar.xlsx').buffer(true).parse((res, cb) => {
+      const trozos: Buffer[] = [];
+      res.on('data', (t) => trozos.push(Buffer.from(t)));
+      res.on('end', () => cb(null, Buffer.concat(trozos)));
+    });
     expect(r.status).toBe(200);
-    expect(r.headers['content-type']).toContain('text/csv');
-    expect(r.headers['content-disposition']).toMatch(/attachment; filename="envios-\d{4}-\d{2}-\d{2}\.csv"/);
-    const texto = r.text.replace(/^﻿/, '');
-    const lineas = texto.trim().split('\r\n');
-    expect(lineas[0]).toBe('Envío;Tipo;Cliente;Casillero;Estado;Paquetes;Trackings;Transportista;Total USD;Creado (UTC);Actualizado (UTC)');
-    expect(lineas).toHaveLength(13);
-    expect(lineas[1]).toContain('Marta Exportada');
-    expect(texto).not.toMatch(/cédula|cedula/i);
+    expect(r.headers['content-type']).toContain('spreadsheetml.sheet');
+    expect(r.headers['content-disposition']).toMatch(/attachment; filename="envios-\d{4}-\d{2}-\d{2}\.xlsx"/);
+    const filas = await filasExcel(r);
+    expect(filas[0]).toEqual(['Envío', 'Tipo', 'Cliente', 'Casillero', 'Estado', 'Paquetes', 'Trackings', 'Transportista', 'Total USD', 'Creado (UTC)', 'Actualizado (UTC)']);
+    expect(filas).toHaveLength(13);
+    expect(filas[1]?.join(';')).toContain('Marta Exportada');
+    expect(filas.flat().join(';')).not.toMatch(/cédula|cedula/i);
   });
 
-  it('límite: el CSV de la bodega respeta el filtro de días y trae los días en bodega', async () => {
+  it('límite: el Excel de la bodega respeta el filtro de días y trae los días en bodega', async () => {
     const operador = await crearPersonalYEntrar(entorno, 'OPERADOR');
     const cliente = await registrarCliente(entorno);
     const vieja = await alerta(cliente, `VIEJO-${Math.floor(Math.random() * 1e6)}`);
@@ -114,16 +135,20 @@ describe('descargar CSV (RF-152, RF-159)', () => {
     const filtrados = await operador.agente.get('/api/staff/bodega?minDias=15');
     expect(filtrados.body.paquetes).toHaveLength(1);
     expect(filtrados.body.paquetes[0]).toMatchObject({ paqueteId: vieja.paqueteId, diasEnBodega: 20, avisado: false });
-    const csv = await operador.agente.get('/api/staff/bodega/exportar.csv?minDias=15');
-    const lineas = csv.text.replace(/^﻿/, '').trim().split('\r\n');
-    expect(lineas).toHaveLength(2);
-    expect(lineas[1]).toContain(';20;');
+    const r = await operador.agente.get('/api/staff/bodega/exportar.xlsx?minDias=15').buffer(true).parse((res, cb) => {
+      const trozos: Buffer[] = [];
+      res.on('data', (t) => trozos.push(Buffer.from(t)));
+      res.on('end', () => cb(null, Buffer.concat(trozos)));
+    });
+    const filas = await filasExcel(r);
+    expect(filas).toHaveLength(2);
+    expect(filas[1]).toContain('20');
   });
 
-  it('error: un cliente no puede descargar ninguno de los dos CSV', async () => {
+  it('error: un cliente no puede descargar ninguno de los dos Excel', async () => {
     const cliente = await registrarCliente(entorno);
-    expect((await cliente.agente.get('/api/staff/envios/exportar.csv')).status).toBe(401);
-    expect((await cliente.agente.get('/api/staff/bodega/exportar.csv')).status).toBe(401);
+    expect((await cliente.agente.get('/api/staff/envios/exportar.xlsx')).status).toBe(401);
+    expect((await cliente.agente.get('/api/staff/bodega/exportar.xlsx')).status).toBe(401);
   });
 });
 

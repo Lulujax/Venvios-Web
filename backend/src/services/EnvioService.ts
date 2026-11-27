@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { hash } from '@node-rs/argon2';
 import type { CifradoCedula } from '../domain/cifrado';
-import { aCsv, dineroCsv, fechaCsv } from '../domain/csv';
+import { aExcel, dineroExcel, fechaExcel } from '../domain/excel';
 import { dolaresABolivaresCentavos } from '../domain/dinero';
 import {
   ESTADOS_ALERTA_ACTIVOS,
@@ -9,6 +9,8 @@ import {
   ESTADOS_ENVIO,
   ESTADOS_FUERA_DE_BODEGA,
   ETIQUETAS_ESTADO,
+  TIENDA_DEVUELTO,
+  TIENDA_SIN_PREALERTA,
   estadoDeAlerta,
   validarDespacho,
   validarTransicion,
@@ -17,12 +19,10 @@ import {
   type TipoEnvio,
 } from '../domain/estados';
 import { ETIQUETAS_HITO, recorridoVisible } from '../domain/hitos';
-import { armarInformeBodega } from '../domain/informeBodega';
 import { entregaDesdePerfil } from '../domain/perfil';
 import { calcularPrecio, kilosACentesimas, modalidadPropuesta, type Modalidad, type PrecioCalculado } from '../domain/tarifas';
 import { codigoContieneTracking, coincidenTrackings, normalizarTracking } from '../domain/tracking';
 import { limpiarTexto, validarCedula, validarPesoKg, validarTelefono, validarValorDeclarado } from '../domain/validaciones';
-import { generarPdfInformeBodega } from '../pdf/informeBodegaPdf';
 import type { Envio, Hito, Pago, Paquete, Repositorios, Rol, Transportista, Usuario } from '../repositories/tipos';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
@@ -152,16 +152,6 @@ export interface FiltroBodega {
   incluirEnCamino?: boolean;
 }
 
-function textoDeFiltrosBodega(filtro: FiltroBodega): string {
-  const partes: string[] = [];
-  if (filtro.q?.trim()) partes.push(`búsqueda "${filtro.q.trim()}"`);
-  if (filtro.sinDueno) partes.push('sin dueño');
-  if (filtro.sinAvisar) partes.push('sin avisar');
-  if (filtro.minDias) partes.push(`${filtro.minDias} días o más en bodega`);
-  if (filtro.incluirEnCamino) partes.push('incluye lo que falta por llegar');
-  return partes.join(' · ');
-}
-
 export interface ResultadoLoteGeneral {
   exitosos: string[];
   fallidos: Array<{ id: string; motivo: string }>;
@@ -194,8 +184,6 @@ const MAX_TRACKINGS = 20;
 const MAX_PAQUETES_CONSOLIDADO = 50;
 export const TELEFONO_SIN_ASIGNAR = '0000000000';
 export const CODIGO_SIN_ASIGNAR = 'VENV-000000';
-const TIENDA_SIN_PREALERTA = 'Sin prealerta';
-const TIENDA_DEVUELTO = 'Devuelto a bodega';
 const ESTADOS_CON_PAGO: EstadoEnvio[] = ['POR_CONFIRMAR', 'PAGADO', 'DESPACHADO', 'CERRADO'];
 const ESTADOS_EN_BODEGA: EstadoEnvio[] = ESTADOS_ENVIO.filter((estado) => !ESTADOS_FUERA_DE_BODEGA.includes(estado));
 export const LIMITE_LISTA_PERSONAL = 200;
@@ -423,7 +411,7 @@ export class EnvioService {
     return { envios: await this.vistas(trozo), total: todos.length, pagina, porPagina, paginas };
   }
 
-  async exportarEnviosCsv(actor: Actor, filtro: FiltroLista = {}): Promise<string> {
+  async exportarEnviosExcel(actor: Actor, filtro: FiltroLista = {}): Promise<Buffer> {
     this.exigirPersonal(actor);
     const envios = await this.enviosFiltrados(filtro);
     const clientes = new Map((await this.repos.usuarios.porIds([...new Set(envios.map((e) => e.clienteId))])).map((c) => [c.id, c]));
@@ -440,51 +428,30 @@ export class EnvioService {
         envio.paquetes.length,
         envio.paquetes.map((p) => p.trackingTexto).join(' | '),
         envio.transportista,
-        dineroCsv(envio.totalCentavos),
-        fechaCsv(envio.creadoEn),
-        fechaCsv(envio.actualizadoEn),
+        dineroExcel(envio.totalCentavos),
+        fechaExcel(envio.creadoEn),
+        fechaExcel(envio.actualizadoEn),
       ];
     });
-    logger.info('CSV de envíos generado', { actor: actor.id, filas: filas.length });
-    return aCsv(['Envío', 'Tipo', 'Cliente', 'Casillero', 'Estado', 'Paquetes', 'Trackings', 'Transportista', 'Total USD', 'Creado (UTC)', 'Actualizado (UTC)'], filas);
+    logger.info('Excel de envíos generado', { actor: actor.id, filas: filas.length });
+    return aExcel('Envíos', ['Envío', 'Tipo', 'Cliente', 'Casillero', 'Estado', 'Paquetes', 'Trackings', 'Transportista', 'Total USD', 'Creado (UTC)', 'Actualizado (UTC)'], filas);
   }
 
-  async exportarBodegaCsv(actor: Actor, filtro: FiltroBodega = {}): Promise<string> {
+  async exportarBodegaExcel(actor: Actor, filtro: FiltroBodega = {}): Promise<Buffer> {
     const items = await this.bodega(actor, filtro);
     const filas = items.map((item) => [
       item.cliente.nombre,
       item.cliente.codigo,
       item.tracking,
-      item.pesoKg === null ? '' : String(item.pesoKg).replace('.', ','),
-      fechaCsv(item.recibidoEn),
+      item.pesoKg === null ? '' : Number(item.pesoKg.toFixed(2)),
+      fechaExcel(item.recibidoEn),
       item.diasEnBodega,
       item.sinDueno ? '' : item.avisado,
       item.tieneFoto,
       item.tipoEnvio === 'CONSOLIDADO' ? 'Consolidado' : 'Alerta',
     ]);
-    logger.info('CSV de bodega generado', { actor: actor.id, filas: filas.length });
-    return aCsv(['Cliente', 'Casillero', 'Tracking', 'Peso (kg)', 'Recibido (UTC)', 'Días en bodega', 'Avisado', 'Con foto', 'Tipo de envío'], filas);
-  }
-
-  async exportarBodegaPdf(actor: Actor, filtro: FiltroBodega = {}): Promise<Buffer> {
-    const items = await this.bodega(actor, filtro);
-    const informe = armarInformeBodega(
-      items.map((item) => ({
-        tracking: item.tracking,
-        pesoKg: item.pesoKg,
-        recibidoEn: item.recibidoEn,
-        diasEnBodega: item.diasEnBodega,
-        avisado: item.avisado,
-        tieneFoto: item.tieneFoto,
-        tipoEnvio: item.tipoEnvio,
-        sinDueno: item.sinDueno,
-        enCamino: item.enCamino,
-        cliente: item.cliente,
-      })),
-    );
-    const filtrosTexto = textoDeFiltrosBodega(filtro);
-    logger.info('PDF de bodega generado', { actor: actor.id, clientes: informe.clientes.length, paquetes: informe.resumen.totalPaquetes });
-    return generarPdfInformeBodega(informe, filtrosTexto);
+    logger.info('Excel de bodega generado', { actor: actor.id, filas: filas.length });
+    return aExcel('Bodega', ['Cliente', 'Casillero', 'Tracking', 'Peso (kg)', 'Recibido (UTC)', 'Días en bodega', 'Avisado', 'Con foto', 'Tipo de envío'], filas);
   }
 
   private async ejecutarLote(actor: Actor, ids: string[], limite: number, nombre: string, accion: (id: string) => Promise<unknown>): Promise<ResultadoLoteGeneral> {
@@ -684,7 +651,9 @@ export class EnvioService {
     await this.evento(envio.id, actor, 'PREALERTA', `Alerta con ${paquetes.length} paquete(s)`);
     if (reclamados.length > 0) {
       await this.repos.envios.moverPaquetes(reclamados.map((r) => r.paqueteId), envio.id, reclamados.map((r) => r.origenId));
-      for (const reclamado of reclamados) await this.repos.envios.actualizarPaquete(reclamado.paqueteId, { valorDeclaradoCentavos: reclamado.valorDeclaradoCentavos });
+      for (const reclamado of reclamados) {
+        await this.repos.envios.actualizarPaquete(reclamado.paqueteId, { valorDeclaradoCentavos: reclamado.valorDeclaradoCentavos, prealertaOrigenId: envio.id });
+      }
       for (const origenId of new Set(reclamados.map((r) => r.origenId))) {
         await this.refrescarAlerta(origenId);
         await this.evento(origenId, actor, 'RECLAMO', 'Un cliente reclamó este paquete al registrar su alerta');
@@ -872,6 +841,7 @@ export class EnvioService {
     const nota = limpiarTexto(motivo, 200);
     const tienda = envio.tienda;
     const nuevo = await this.llevarABodega(destino.id, [paqueteId], tienda, envio.id);
+    if (paquete.prealertaOrigenId !== null) await this.repos.envios.actualizarPaquete(paqueteId, { prealertaOrigenId: null });
     await this.refrescarAlerta(envio.id);
     await this.evento(envio.id, actor, 'CAMBIO_DUENO', `Paquete ${paquete.trackingTexto} pasó a otro dueño${nota ? `: ${nota}` : ''}`, { destino: destino.id });
     await this.evento(nuevo.id, actor, 'ASIGNACION', clienteId ? `Paquete asignado${nota ? `: ${nota}` : ''}` : `Paquete devuelto a sin dueño${nota ? `: ${nota}` : ''}`, { origen: envio.id });

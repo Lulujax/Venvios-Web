@@ -144,10 +144,11 @@ model Envio {
   creadoEn               DateTime      @default(now())
   actualizadoEn          DateTime      @updatedAt
 
-  cliente  Usuario   @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  paquetes Paquete[]
-  pagos    Pago[]
-  eventos  Evento[]
+  cliente          Usuario   @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  paquetes         Paquete[] @relation("EnvioPaquetes")
+  paquetesDeOrigen Paquete[] @relation("PaquetePrealertaOrigen")
+  pagos            Pago[]
+  eventos          Evento[]
 
   @@index([clienteId, estado])
   @@index([estado])
@@ -155,23 +156,26 @@ model Envio {
 }
 
 model Paquete {
-  id                   String        @id @default(cuid())
-  envioId              String
-  trackingTexto        String
-  trackingNormalizado  String        @unique
-  estado               EstadoPaquete @default(ESPERADO)
-  pesoCentesimas       Int?
-  valorDeclaradoCentavos Int         @default(0)
-  fotoPath             String?
-  avisadoEn            DateTime?
-  avisadoPorId         String?
-  recibidoPorId        String?
-  recibidoEn           DateTime?
+  id                     String        @id @default(cuid())
+  envioId                String
+  prealertaOrigenId      String?
+  trackingTexto          String
+  trackingNormalizado    String        @unique
+  estado                 EstadoPaquete @default(ESPERADO)
+  pesoCentesimas         Int?
+  valorDeclaradoCentavos Int           @default(0)
+  fotoPath               String?
+  avisadoEn              DateTime?
+  avisadoPorId           String?
+  recibidoPorId          String?
+  recibidoEn             DateTime?
 
-  envio  Envio         @relation(fields: [envioId], references: [id], onDelete: Cascade)
-  hitos  PaqueteHito[]
+  envio           Envio         @relation("EnvioPaquetes", fields: [envioId], references: [id], onDelete: Cascade)
+  prealertaOrigen Envio?        @relation("PaquetePrealertaOrigen", fields: [prealertaOrigenId], references: [id], onDelete: SetNull)
+  hitos           PaqueteHito[]
 
   @@index([envioId])
+  @@index([prealertaOrigenId])
   @@index([fotoPath])
 }
 

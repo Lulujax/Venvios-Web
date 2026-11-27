@@ -1,4 +1,4 @@
-# 006 Reportes de bodega (PDF y CSV)
+# 006 Reportes de bodega (PDF y Excel)
 
 ## El qué y el porqué
 El cliente necesita sacar reportes que respondan preguntas concretas de la bodega, no una lista plana de paquetes:
@@ -22,18 +22,22 @@ Vocabulario único que usan los tres reportes:
 
 Los paquetes descartados o de envíos cancelados no aparecen en ningún reporte.
 
+### Definiciones
+- **Sin avisar**: paquete con dueño en etapa **En bodega** que aún no tiene aviso de llegada registrado.
+- **Días en bodega**: días completos transcurridos desde la fecha de llegada a la oficina hasta el momento del reporte.
+
 ## Requisitos
 
 ### Pantalla
 - RF-1: EL SISTEMA mostrará en Bodega un solo botón "Generar reporte" que lleva a una pantalla propia, con un botón para volver a Bodega.
-- RF-2: EL SISTEMA pedirá primero el tipo de reporte entre tres opciones (Inventario de bodega, Prealertas pendientes, Estado de cuenta de un cliente), cada una con una frase corta de qué responde; después mostrará solo los filtros que aplican a ese tipo, y al final los botones de PDF y CSV.
+- RF-2: EL SISTEMA pedirá primero el tipo de reporte entre tres opciones (Inventario de bodega, Prealertas pendientes, Estado de cuenta de un cliente), cada una con una frase corta de qué responde; después mostrará solo los filtros que aplican a ese tipo, y al final los botones de PDF y Excel.
 - RF-3: EL SISTEMA mostrará antes de descargar un resumen de lo que saldrá en el reporte (los mismos totales que trae el resumen del PDF), para que el operador vea si es lo que quiere.
 - RF-4: EL SISTEMA mostrará cada filtro activo como una pastilla con su propia opción de quitarlo, más un "Limpiar todo" cuando haya al menos uno. Tipo de reporte y filtros quedan en la dirección web, así que no se pierden al recargar.
 - RF-5: EL SISTEMA permitirá elegir el cliente con el buscador de clientes que ya usa el panel (nombre, casillero, correo o cédula).
 
 ### Origen de cada paquete
 - RF-6: EL SISTEMA guardará en cada paquete la prealerta en la que el cliente lo avisó, y ese dato no cambiará cuando el paquete se consolide, se desarme el consolidado o se despache.
-- RF-7: CUANDO un paquete llegue sin prealerta y después un cliente lo reclame al registrar su prealerta, EL SISTEMA guardará esa prealerta como su origen. SI el personal asigna a mano un paquete sin dueño, ENTONCES el paquete quedará como "sin prealerta". [Asumido, el dueño puede cambiarlo]
+- RF-7: CUANDO un paquete llegue sin prealerta y después un cliente lo reclame al registrar su prealerta, EL SISTEMA guardará esa prealerta como su origen. SI el personal asigna a mano un paquete sin dueño, ENTONCES el paquete quedará como "sin prealerta".
 - RF-8: CUANDO se aplique este cambio, EL SISTEMA guardará como origen la prealerta actual de cada paquete que todavía esté dentro de una prealerta real. Los paquetes que ya estaban consolidados antes del cambio quedarán sin origen registrado y el reporte los contará aparte como "sin registro de prealerta".
 
 ### Inventario de bodega
@@ -44,25 +48,25 @@ Los paquetes descartados o de envíos cancelados no aparecen en ningún reporte.
 ### Prealertas pendientes
 - RF-12: EL SISTEMA listará las prealertas que tienen al menos un paquete por llegar, agrupadas por cliente; por cada prealerta: tienda, fecha del aviso, días desde el aviso, "llegaron X de Y" y la lista de trackings que faltan.
 - RF-13: EL SISTEMA mostrará arriba un resumen con cuántas prealertas están pendientes, cuántos paquetes faltan por llegar en total y cuántos clientes tienen algo pendiente.
-- RF-14: EL SISTEMA permitirá filtrar este reporte por cliente. No se marca ninguna prealerta como "atrasada"; solo se muestran los días desde el aviso.
+- RF-14: EL SISTEMA permitirá filtrar este reporte por cliente y mostrará los días desde el aviso sin marcar ninguna prealerta como atrasada.
 
 ### Estado de cuenta de un cliente
 - RF-15: EL SISTEMA exigirá elegir un cliente para este reporte; sin cliente elegido, los botones de descarga no se activan y la pantalla dice por qué.
 - RF-16: EL SISTEMA mostrará los totales del cliente por etapa (Por llegar, En bodega, Esperando pago, Listo para salir, En ruta, Entregado) y el detalle: sus prealertas con "llegaron X de Y" y lo que falta, sus paquetes en bodega y sus consolidados que aún no se entregan, con su estado.
-- RF-17: Los entregados se mostrarán solo si caen dentro del periodo elegido (RF-24); si no se elige periodo, no se muestran entregados. Para todo su historial, la pantalla y el PDF indicarán que está en Envíos, y la pantalla tendrá el enlace a Envíos filtrado por ese cliente.
-
-### Periodo
-- RF-24: EL SISTEMA permitirá elegir un periodo en los tres reportes con un campo "Desde" y otro "Hasta", y atajos de un clic: últimos 30 días, 60 días y 90 días (que llenan "Desde" y "Hasta" solos y se pueden ajustar a mano). Sin periodo elegido, el reporte no recorta por fecha.
-- RF-25: EL SISTEMA aplicará el periodo según el reporte: en Inventario, a la fecha en que el paquete llegó a la bodega; en Prealertas pendientes, a la fecha en que se avisó la prealerta; en Estado de cuenta, a la fecha de llegada, de aviso y de entrega según cada bloque.
-- RF-26: SI "Desde" es posterior a "Hasta", ENTONCES EL SISTEMA mostrará un aviso claro y no permitirá descargar hasta corregirlo. El periodo aparecerá como pastilla de filtro activo y dentro del PDF, junto a los filtros aplicados.
+- RF-17: SI se elige un periodo (RF-24), ENTONCES EL SISTEMA mostrará los paquetes entregados dentro de ese rango; SI no se elige periodo, ENTONCES EL SISTEMA no mostrará entregados. EL SISTEMA indicará en pantalla y en el PDF que el historial completo está en Envíos, y la pantalla incluirá el enlace a Envíos filtrado por ese cliente.
 
 ### Descarga
-- RF-18: EL SISTEMA generará los tres reportes en PDF (con la marca, resumen arriba y detalle agrupado) y en CSV (una fila por paquete, con las mismas columnas que el detalle), al momento y sin guardarlos en el servidor.
-- RF-19: Los archivos se llamarán `inventario-AAAA-MM-DD`, `prealertas-pendientes-AAAA-MM-DD` y `estado-de-cuenta-CASILLERO-AAAA-MM-DD`, con su extensión.
+- RF-18: EL SISTEMA generará los tres reportes en PDF (con la marca, resumen arriba y detalle agrupado) y en Excel (.xlsx, una fila por paquete con las mismas columnas que el detalle), al momento y sin guardarlos en el servidor. El Excel tendrá encabezado con el color de la marca, texto en negrita, fila de encabezado fija, columnas con ancho ajustado, filas alternadas para leer mejor y los números/fechas con formato claro.
+- RF-19: EL SISTEMA nombrará los archivos descargados como `inventario-AAAA-MM-DD`, `prealertas-pendientes-AAAA-MM-DD` y `estado-de-cuenta-CASILLERO-AAAA-MM-DD`, con su extensión (`.pdf` o `.xlsx`).
 - RF-20: SI ningún paquete cumple los filtros, ENTONCES EL SISTEMA generará igual el archivo, con el resumen en cero y un aviso de "sin resultados".
 - RF-21: SI la descarga falla (por ejemplo, la sesión venció), ENTONCES EL SISTEMA mostrará un mensaje claro en la pantalla en vez de no hacer nada.
 - RF-22: EL SISTEMA solo permitirá ver o descargar reportes a una sesión de personal (operador o administrador).
-- RF-23: Ningún reporte incluirá datos sensibles del cliente (cédula, teléfono, dirección, datos de entrega); solo nombre y casillero.
+- RF-23: EL SISTEMA excluirá de todos los reportes los datos sensibles del cliente (cédula, teléfono, dirección y datos de entrega), mostrando únicamente nombre y casillero.
+
+### Periodo
+- RF-24: EL SISTEMA permitirá elegir un periodo en los tres reportes con un campo "Desde" y otro "Hasta", y atajos de un clic: últimos 30 días, 60 días y 90 días (que llenan "Desde" y "Hasta" solos y se pueden ajustar a mano). Sin periodo elegido, el reporte no recorta por fecha.
+- RF-25: EL SISTEMA aplicará el periodo según el reporte: en Inventario, a la fecha en que el paquete llegó a la bodega; en Prealertas pendientes, a la fecha en que se avisó la prealerta; en Estado de cuenta, a la fecha de aviso para "Por llegar" y prealertas, a la fecha de llegada para "En bodega" y consolidados, y a la fecha de entrega para "Entregado".
+- RF-26: SI "Desde" es posterior a "Hasta", ENTONCES EL SISTEMA mostrará un aviso claro y no permitirá descargar hasta corregirlo. El periodo aparecerá como pastilla de filtro activo y dentro del PDF, junto a los filtros aplicados.
 
 ## Cómo sé que está listo
 - En Bodega veo un solo botón "Generar reporte"; me lleva a la pantalla de reportes y "Volver a bodega" me regresa.
@@ -72,10 +76,10 @@ Los paquetes descartados o de envíos cancelados no aparecen en ningún reporte.
 - Pongo filtros, recargo la página y siguen ahí con su pastilla; los quito uno a uno o con "Limpiar todo".
 - Pulso "30 días": "Desde" y "Hasta" se llenan solos; el reporte trae solo lo que llegó (o se avisó) en ese rango, y puedo ajustar las fechas a mano. Con "Desde" después de "Hasta" me avisa y no deja descargar.
 - El resumen que veo en pantalla antes de descargar coincide con el resumen del PDF.
-- Descargo cada tipo en PDF y CSV: los nombres de archivo siguen el formato acordado y el PDF cabe en una sola hoja cuando hay pocos datos.
+- Descargo cada tipo en PDF y Excel: los nombres de archivo siguen el formato acordado, el PDF cabe en una sola hoja cuando hay pocos datos y el Excel se ve con encabezado de marca, columnas legibles y filas alternadas.
 - Con filtros que no encuentran nada, el archivo se genera con el aviso de "sin resultados".
 - Con la sesión vencida, la pantalla muestra el error en vez de no hacer nada; sin sesión de personal, las rutas responden "no autorizado".
-- Ningún PDF ni CSV trae cédula, teléfono ni dirección.
+- Ningún PDF ni Excel trae cédula, teléfono ni dirección.
 - Las pruebas automáticas del proyecto pasan.
 
 ## Fuera de alcance
@@ -84,4 +88,3 @@ Los paquetes descartados o de envíos cancelados no aparecen en ningún reporte.
 - Reportes de dinero (cobros, pagos, totales en dólares).
 - Que el cliente vea su estado de cuenta desde su propia cuenta.
 - Recuperar la prealerta de origen de los paquetes que ya estaban consolidados antes de este cambio.
-- Cambiar o quitar la descarga CSV de la lista de Envíos.

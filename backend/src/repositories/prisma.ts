@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { Prisma, PrismaClient } from '@prisma/client';
-import type { EstadoEnvio } from '../domain/estados';
+import { esPrealertaReal, type EstadoEnvio } from '../domain/estados';
 import type { TipoHito } from '../domain/hitos';
 import { EnvioConHitos } from './conHitos';
 import { AppError } from '../utils/errors';
@@ -34,6 +34,7 @@ import type {
   Pago,
   PagoRepository,
   Paquete,
+  PaqueteConEnvio,
   PerfilEntrega,
   Repositorios,
   Rol,
@@ -289,20 +290,35 @@ export class EnvioPrisma implements EnvioRepository {
   }
 
   async crear(datos: NuevoEnvio): Promise<Envio> {
+    const tipo = datos.tipo ?? 'ALERTA';
+    const estado = datos.estado ?? (tipo === 'CONSOLIDADO' ? 'POR_CONSOLIDAR' : 'PREALERTADO');
+    const esReal = esPrealertaReal({ tipo, tienda: datos.tienda, estado });
     const fila = await this.bd.envio.create({
       data: {
-        tipo: datos.tipo ?? 'ALERTA',
-        estado: datos.estado ?? (datos.tipo === 'CONSOLIDADO' ? 'POR_CONSOLIDAR' : 'PREALERTADO'),
+        tipo,
+        estado,
         clienteId: datos.clienteId,
         modalidad: datos.modalidad,
         transportista: datos.transportista,
         tienda: datos.tienda,
         valorDeclaradoCentavos: datos.valorDeclaradoCentavos,
-        paquetes: { create: datos.paquetes },
+        ...(esReal ? {} : { paquetes: { create: datos.paquetes } }),
       },
       include: { paquetes: true },
     });
-    return aEnvio(fila);
+    if (!esReal || datos.paquetes.length === 0) return aEnvio(fila);
+    const paquetes = await Promise.all(
+      datos.paquetes.map((p) =>
+        this.bd.paquete.create({
+          data: {
+            ...p,
+            envioId: fila.id,
+            prealertaOrigenId: p.prealertaOrigenId === undefined ? fila.id : p.prealertaOrigenId,
+          },
+        }),
+      ),
+    );
+    return aEnvio({ ...fila, paquetes });
   }
 
   private async buscarUno(where: Prisma.EnvioWhereInput): Promise<Envio | null> {
@@ -313,6 +329,13 @@ export class EnvioPrisma implements EnvioRepository {
   async porId(id: string): Promise<Envio | null> {
     const fila = await this.bd.envio.findUnique({ where: { id }, include: { paquetes: true } });
     return fila ? aEnvio(fila) : null;
+  }
+
+  async porIds(ids: string[]): Promise<Envio[]> {
+    const unicos = [...new Set(ids)];
+    if (unicos.length === 0) return [];
+    const filas = await this.bd.envio.findMany({ where: { id: { in: unicos } }, include: { paquetes: true } });
+    return filas.map(aEnvio);
   }
 
   async listar(filtro: FiltroEnvios): Promise<Envio[]> {
@@ -343,6 +366,21 @@ export class EnvioPrisma implements EnvioRepository {
     return this.buscarUno({ paquetes: { some: { fotoPath: ruta } } });
   }
 
+  async paquetesPorOrigen(prealertaIds: string[]): Promise<PaqueteConEnvio[]> {
+    const unicos = [...new Set(prealertaIds)];
+    if (unicos.length === 0) return [];
+    const filas = await this.bd.paquete.findMany({
+      where: { prealertaOrigenId: { in: unicos } },
+      include: { envio: { select: { tipo: true, estado: true, clienteId: true } } },
+    });
+    return filas.map(({ envio, ...paquete }) => ({
+      paquete,
+      envioTipo: envio.tipo,
+      envioEstado: envio.estado,
+      envioClienteId: envio.clienteId,
+    }));
+  }
+
   async actualizar(id: string, cambios: CambiosEnvio, estadoEsperado?: EstadoEnvio): Promise<Envio> {
     const { entrega, ...resto } = cambios;
     const where: Prisma.EnvioWhereUniqueInput = estadoEsperado === undefined ? { id } : { id, estado: estadoEsperado };
@@ -361,8 +399,14 @@ export class EnvioPrisma implements EnvioRepository {
   }
 
   async agregarPaquetes(envioId: string, paquetes: NuevoPaquete[]): Promise<Paquete[]> {
+    const envio = await this.bd.envio.findUnique({ where: { id: envioId }, select: { id: true, tipo: true, tienda: true, estado: true } });
+    if (!envio) throw AppError.notFound('El envío no existe.');
+    const esReal = esPrealertaReal(envio);
     const creados: Paquete[] = [];
-    for (const paquete of paquetes) creados.push(await this.bd.paquete.create({ data: { ...paquete, envioId } }));
+    for (const paquete of paquetes) {
+      const prealertaOrigenId = paquete.prealertaOrigenId === undefined ? (esReal ? envioId : null) : paquete.prealertaOrigenId;
+      creados.push(await this.bd.paquete.create({ data: { ...paquete, envioId, prealertaOrigenId } }));
+    }
     return creados;
   }
 

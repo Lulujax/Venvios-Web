@@ -84,7 +84,7 @@ export function ListaEnvios() {
 
   const consulta = new URLSearchParams({ estado, orden });
   if (q) consulta.set('q', q);
-  const enlaceCsv = `/api/staff/envios/exportar.csv?${consulta.toString()}`;
+  const enlaceExcel = `/api/staff/envios/exportar.xlsx?${consulta.toString()}`;
   const { datos, cargando, error, recargar } = useCarga(() => api.get<PaginaEnvios>(`/staff/envios/lista?${consulta.toString()}&pagina=${pagina}`), [estado, orden, q, pagina]);
 
   const cambiar = (clave: string, valor: string) => {
@@ -177,7 +177,7 @@ export function ListaEnvios() {
             </p>
             <div className="flex flex-wrap gap-2">
               {elegidos.length > 0 && <button type="button" className="btn btn-primario btn-chico" onClick={() => setDespachando(true)}>Despachar {elegidos.length} seleccionados</button>}
-              <a className="btn btn-suave btn-chico" href={enlaceCsv} download><FiDownload aria-hidden /> Descargar CSV</a>
+              <a className="btn btn-suave btn-chico" href={enlaceExcel} download><FiDownload aria-hidden /> Exportar Excel</a>
             </div>
           </div>
 

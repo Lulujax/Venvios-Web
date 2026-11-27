@@ -3,8 +3,10 @@ import { Alerta, Campo } from './ui';
 import { api, mensajeDeError } from '../lib/api';
 import type { Usuario } from '../lib/tipos';
 
+type ClienteMinimo = Pick<Usuario, 'id' | 'nombre' | 'codigo'>;
+
 interface BuscadorClienteProps {
-  cliente: Usuario | null;
+  cliente: ClienteMinimo | null;
   onElegir: (cliente: Usuario | null) => void;
   etiqueta?: string;
 }

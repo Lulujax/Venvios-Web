@@ -1,9 +1,20 @@
 import { hitoDeEstadoConsolidado, type TipoHito } from '../domain/hitos';
-import type { CambiosEnvio, CambiosPaquete, Envio, EnvioRepository, EstadoPaquete, Evento, FiltroEnvios, HitoRepository, NuevoEnvio, NuevoPaquete, Paquete } from './tipos';
-import type { EstadoEnvio } from '../domain/estados';
+import type {
+  CambiosEnvio,
+  CambiosPaquete,
+  Envio,
+  EnvioRepository,
+  EstadoPaquete,
+  Evento,
+  FiltroEnvios,
+  HitoRepository,
+  NuevoEnvio,
+  NuevoPaquete,
+  Paquete,
+  PaqueteConEnvio,
+} from './tipos';
+import { esPrealertaReal, type EstadoEnvio } from '../domain/estados';
 import { logger } from '../utils/logger';
-
-const TIENDAS_SIN_PREALERTA = ['Sin prealerta', 'Devuelto a bodega'];
 
 export class EnvioConHitos implements EnvioRepository {
   constructor(
@@ -19,13 +30,18 @@ export class EnvioConHitos implements EnvioRepository {
 
   async crear(datos: NuevoEnvio): Promise<Envio> {
     const envio = await this.interno.crear(datos);
-    const esPrealerta = envio.tipo === 'ALERTA' && !TIENDAS_SIN_PREALERTA.includes(envio.tienda) && envio.estado === 'PREALERTADO';
-    if (esPrealerta) await this.registrar(envio.paquetes.map((p) => p.id), 'PREALERTADO');
+    if (esPrealertaReal(envio) && envio.estado === 'PREALERTADO') {
+      await this.registrar(envio.paquetes.map((p) => p.id), 'PREALERTADO');
+    }
     return envio;
   }
 
   porId(id: string): Promise<Envio | null> {
     return this.interno.porId(id);
+  }
+
+  porIds(ids: string[]): Promise<Envio[]> {
+    return this.interno.porIds(ids);
   }
 
   listar(filtro: FiltroEnvios): Promise<Envio[]> {
@@ -42,6 +58,10 @@ export class EnvioConHitos implements EnvioRepository {
 
   porFotoPaquete(ruta: string): Promise<Envio | null> {
     return this.interno.porFotoPaquete(ruta);
+  }
+
+  paquetesPorOrigen(prealertaIds: string[]): Promise<PaqueteConEnvio[]> {
+    return this.interno.paquetesPorOrigen(prealertaIds);
   }
 
   async actualizar(id: string, cambios: CambiosEnvio, estadoEsperado?: EstadoEnvio): Promise<Envio> {
@@ -63,7 +83,7 @@ export class EnvioConHitos implements EnvioRepository {
   async agregarPaquetes(envioId: string, paquetes: NuevoPaquete[]): Promise<Paquete[]> {
     const creados = await this.interno.agregarPaquetes(envioId, paquetes);
     const envio = await this.interno.porId(envioId);
-    if (envio && envio.tipo === 'ALERTA' && !TIENDAS_SIN_PREALERTA.includes(envio.tienda)) await this.registrar(creados.map((p) => p.id), 'PREALERTADO');
+    if (envio && esPrealertaReal(envio)) await this.registrar(creados.map((p) => p.id), 'PREALERTADO');
     return creados;
   }
 

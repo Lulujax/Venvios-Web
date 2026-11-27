@@ -163,11 +163,7 @@ export default function Bodega() {
   const puedeAsignar = elegidos.length > 0 && elegidos.every((item) => item.sinDueno && item.tipoEnvio === 'ALERTA');
   const puedeConsolidar = elegidos.length > 0 && elegidos.every((item) => !item.sinDueno && item.tipoEnvio === 'ALERTA' && item.cliente.id === elegidos[0]!.cliente.id);
 
-  const consultaReporte = new URLSearchParams();
-  if (q) consultaReporte.set('q', q);
-  if (mostrar) consultaReporte.set('mostrar', mostrar);
-  if (dias > 0) consultaReporte.set('dias', String(dias));
-  const enlaceReporte = `/panel/bodega/reporte?${consultaReporte.toString()}`;
+  const enlaceReporte = '/panel/bodega/reporte';
 
   function alternar(paqueteId: string) {
     setSeleccion((actual) => {

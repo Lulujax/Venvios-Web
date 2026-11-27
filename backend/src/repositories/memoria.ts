@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 import type { EstadoEnvio } from '../domain/estados';
+import { esPrealertaReal } from '../domain/estados';
 import type { TipoHito } from '../domain/hitos';
 import { EnvioConHitos } from './conHitos';
 import { AppError } from '../utils/errors';
@@ -33,6 +34,7 @@ import type {
   Pago,
   PagoRepository,
   Paquete,
+  PaqueteConEnvio,
   Repositorios,
   Rol,
   TasaGuardada,
@@ -210,10 +212,11 @@ export class EnvioMemoria implements EnvioRepository, ConInstantanea {
     };
   }
 
-  private construirPaquete(envioId: string, nuevo: NuevoPaquete): Paquete {
+  private construirPaquete(envioId: string, nuevo: NuevoPaquete, prealertaOrigenDefecto: string | null): Paquete {
     return {
       id: randomUUID(),
       envioId,
+      prealertaOrigenId: nuevo.prealertaOrigenId === undefined ? prealertaOrigenDefecto : nuevo.prealertaOrigenId,
       trackingTexto: nuevo.trackingTexto,
       trackingNormalizado: nuevo.trackingNormalizado,
       estado: 'ESPERADO',
@@ -247,6 +250,8 @@ export class EnvioMemoria implements EnvioRepository, ConInstantanea {
     const id = randomUUID();
     const ahora = new Date();
     const tipo = datos.tipo ?? 'ALERTA';
+    const estado = datos.estado ?? (tipo === 'CONSOLIDADO' ? 'POR_CONSOLIDAR' : 'PREALERTADO');
+    const prealertaOrigen = esPrealertaReal({ tipo, tienda: datos.tienda, estado }) ? id : null;
     const numero = this.siguienteNumero;
     this.siguienteNumero += 1;
     const envio: Envio = {
@@ -258,7 +263,7 @@ export class EnvioMemoria implements EnvioRepository, ConInstantanea {
       transportista: datos.transportista,
       tienda: datos.tienda,
       valorDeclaradoCentavos: datos.valorDeclaradoCentavos,
-      estado: datos.estado ?? (tipo === 'CONSOLIDADO' ? 'POR_CONSOLIDAR' : 'PREALERTADO'),
+      estado,
       pesoTotalCentesimas: null,
       pesoCobrableCentesimas: null,
       fleteCentavos: null,
@@ -270,7 +275,7 @@ export class EnvioMemoria implements EnvioRepository, ConInstantanea {
       guiaFotoPath: null,
       creadoEn: ahora,
       actualizadoEn: ahora,
-      paquetes: datos.paquetes.map((p) => this.construirPaquete(id, p)),
+      paquetes: datos.paquetes.map((p) => this.construirPaquete(id, p, prealertaOrigen)),
     };
     this.envios.set(id, envio);
     return copiar(envio);
@@ -279,6 +284,10 @@ export class EnvioMemoria implements EnvioRepository, ConInstantanea {
   async porId(id: string): Promise<Envio | null> {
     const envio = this.envios.get(id);
     return envio ? copiar(envio) : null;
+  }
+
+  async porIds(ids: string[]): Promise<Envio[]> {
+    return [...new Set(ids)].map((id) => this.envios.get(id)).filter((e): e is Envio => Boolean(e)).map(copiar);
   }
 
   private coincideTexto(envio: Envio, texto: string | undefined): boolean {
@@ -315,6 +324,25 @@ export class EnvioMemoria implements EnvioRepository, ConInstantanea {
 
   async porFotoPaquete(ruta: string): Promise<Envio | null> {
     return this.buscar((e) => e.paquetes.some((p) => p.fotoPath === ruta));
+  }
+
+  async paquetesPorOrigen(prealertaIds: string[]): Promise<PaqueteConEnvio[]> {
+    const buscados = new Set(prealertaIds);
+    if (buscados.size === 0) return [];
+    const resultado: PaqueteConEnvio[] = [];
+    for (const envio of this.envios.values()) {
+      for (const paquete of envio.paquetes) {
+        if (paquete.prealertaOrigenId && buscados.has(paquete.prealertaOrigenId)) {
+          resultado.push({
+            paquete: copiar(paquete),
+            envioTipo: envio.tipo,
+            envioEstado: envio.estado,
+            envioClienteId: envio.clienteId,
+          });
+        }
+      }
+    }
+    return resultado;
   }
 
   async actualizar(id: string, cambios: CambiosEnvio, estadoEsperado?: EstadoEnvio): Promise<Envio> {
@@ -354,7 +382,8 @@ export class EnvioMemoria implements EnvioRepository, ConInstantanea {
     const envio = this.envios.get(envioId);
     if (!envio) throw AppError.notFound('El envío no existe.');
     this.verificarTrackingLibre(nuevos.map((p) => p.trackingNormalizado));
-    const creados = nuevos.map((p) => this.construirPaquete(envioId, p));
+    const prealertaOrigen = esPrealertaReal(envio) ? envioId : null;
+    const creados = nuevos.map((p) => this.construirPaquete(envioId, p, prealertaOrigen));
     envio.paquetes.push(...creados);
     return copiar(creados);
   }
