@@ -20,8 +20,8 @@ const COLOR = {
 } as const;
 
 const COLUMNAS = [
-  { titulo: 'Tracking', ancho: 150 },
-  { titulo: 'Peso (kg)', ancho: 50 },
+  { titulo: 'Tracking', ancho: 145 },
+  { titulo: 'Peso', ancho: 55 },
   { titulo: 'Recibido', ancho: 95 },
   { titulo: 'Días', ancho: 35 },
   { titulo: 'Avisado', ancho: 50 },
@@ -104,7 +104,7 @@ function dibujarEncabezadoTabla(doc: PDFKit.PDFDocument) {
   let x = MARGEN;
   doc.font('Helvetica-Bold').fontSize(9).fillColor(COLOR.blanco);
   for (const columna of COLUMNAS) {
-    doc.text(columna.titulo, x + 5, y + 5, { width: columna.ancho - 10 });
+    doc.text(columna.titulo, x + 5, y + 5, { width: columna.ancho - 10, height: 12, ellipsis: true, lineBreak: false });
     x += columna.ancho;
   }
   doc.font('Helvetica');
@@ -171,9 +171,12 @@ function dibujarPiePagina(doc: PDFKit.PDFDocument) {
   const rango = doc.bufferedPageRange();
   for (let i = rango.start; i < rango.start + rango.count; i++) {
     doc.switchToPage(i);
-    const y = doc.page.height - doc.page.margins.bottom + 8;
+    const margenInferior = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
+    const y = doc.page.height - margenInferior + 8;
     doc.moveTo(MARGEN, y).lineTo(MARGEN + anchoDeTabla(), y).strokeColor(COLOR.oro).lineWidth(1).stroke();
-    doc.fontSize(8).fillColor(COLOR.suave).font('Helvetica').text(`Página ${i + 1} de ${rango.count} · Venvios Express`, MARGEN, y + 5, { width: anchoDeTabla(), align: 'center' });
+    doc.fontSize(8).fillColor(COLOR.suave).font('Helvetica').text(`Página ${i + 1} de ${rango.count} · Venvios Express`, MARGEN, y + 5, { width: anchoDeTabla(), height: 12, ellipsis: true, lineBreak: false, align: 'center' });
+    doc.page.margins.bottom = margenInferior;
   }
 }
 
