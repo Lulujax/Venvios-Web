@@ -190,6 +190,7 @@ export interface ItemBodega {
   sinDueno: boolean;
   avisado: boolean;
   diasEnBodega: number | null;
+  enCamino: boolean;
   cliente: { id: string; nombre: string; codigo: string };
 }
 

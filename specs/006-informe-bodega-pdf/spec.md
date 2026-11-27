@@ -15,6 +15,8 @@ El informe reutiliza los mismos datos y filtros que ya tiene la pantalla de Bode
 - RF-6: CUANDO se pulse "Descargar PDF" en la pantalla de Bodega, EL SISTEMA generará el archivo al momento (no se guarda en el servidor) y lo entregará con nombre `bodega-AAAA-MM-DD.pdf`.
 - RF-7: SI ningún paquete cumple los filtros pedidos, ENTONCES EL SISTEMA generará igual el PDF, con el resumen en cero y un aviso de "sin paquetes" en vez de la tabla vacía.
 - RF-8: EL SISTEMA solo permitirá descargar este informe a una sesión de personal (operador o administrador), igual que el resto de la pantalla de Bodega.
+- RF-9: EL SISTEMA mostrará un solo botón "Generar reporte" en la pantalla de Bodega (en vez de dos botones de descarga sueltos), que lleva a una pantalla propia con la elección de formato (PDF o CSV) y la opción "Incluir lo que falta por llegar", para que el operador no tenga que adivinar entre varios botones. La opción de incluir lo que falta por llegar aplica a los dos formatos. Esa pantalla lleva los filtros que estaban puestos en Bodega y un botón para volver a Bodega con esos mismos filtros.
+- RF-10: SI la descarga del reporte falla (por ejemplo, la sesión venció), ENTONCES EL SISTEMA mostrará un mensaje claro de error en la pantalla, en vez de quedarse en silencio sin descargar nada.
 
 ## Cómo sé que está listo
 - Entro a Bodega sin ningún filtro y pulso "Descargar PDF": se descarga un PDF con el resumen arriba y todos los paquetes agrupados por cliente, con su subtotal.
@@ -23,6 +25,8 @@ El informe reutiliza los mismos datos y filtros que ya tiene la pantalla de Bode
 - Marco "Incluir lo que falta por llegar" y descargo: el PDF también muestra, dentro de cada cliente, los paquetes que aún no llegan, marcados "Esperado".
 - Si el filtro no encuentra ningún paquete, el PDF se genera igual, sin romperse, con el aviso de "sin paquetes".
 - Si intento la descarga sin haber iniciado sesión como personal, la respuesta es "no autorizado".
+- Veo un solo botón "Generar reporte"; al pulsarlo entro a una pantalla con PDF, CSV y la casilla de "lo que falta por llegar", sin botones sueltos adicionales, y con un botón para volver a Bodega con los mismos filtros que tenía puestos.
+- Si fuerzo un error en la descarga (por ejemplo, con la sesión vencida), la pantalla muestra un mensaje de error en vez de no hacer nada.
 - Las pruebas automáticas del proyecto pasan.
 
 ## Fuera de alcance

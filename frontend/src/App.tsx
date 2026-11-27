@@ -25,6 +25,7 @@ import PagosPendientes from './pages/panel/PagosPendientes';
 const Administracion = lazy(() => import('./pages/panel/Administracion'));
 const Escaneo = lazy(() => import('./pages/panel/Escaneo'));
 const Bodega = lazy(() => import('./pages/panel/Bodega'));
+const ReporteBodega = lazy(() => import('./pages/panel/ReporteBodega'));
 
 function Protegida({ roles, ambito = 'cliente' }: { roles: Rol[]; ambito?: 'cliente' | 'equipo' }) {
   const { usuario, cargando } = useAuth();
@@ -92,6 +93,7 @@ export default function App() {
           <Route index element={<Inicio />} />
           <Route path="escanear" element={<Escaneo />} />
           <Route path="bodega" element={<Bodega />} />
+          <Route path="bodega/reporte" element={<ReporteBodega />} />
           <Route path="envios" element={<ListaEnvios />} />
           <Route path="envios/:id" element={<DetalleEnvio personal />} />
           <Route path="pagos" element={<PagosPendientes />} />

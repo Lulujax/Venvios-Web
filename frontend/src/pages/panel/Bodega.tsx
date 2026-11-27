@@ -135,7 +135,6 @@ export default function Bodega() {
   const [resumen, setResumen] = useState<{ texto: string; hayFallos: boolean } | null>(null);
   const [errorLote, setErrorLote] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
-  const [incluirEnCamino, setIncluirEnCamino] = useState(false);
 
   const cambiar = (clave: string, valor: string) => {
     const nuevos = new URLSearchParams(params);
@@ -164,15 +163,11 @@ export default function Bodega() {
   const puedeAsignar = elegidos.length > 0 && elegidos.every((item) => item.sinDueno && item.tipoEnvio === 'ALERTA');
   const puedeConsolidar = elegidos.length > 0 && elegidos.every((item) => !item.sinDueno && item.tipoEnvio === 'ALERTA' && item.cliente.id === elegidos[0]!.cliente.id);
 
-  const consultaCsv = new URLSearchParams();
-  if (q) consultaCsv.set('q', q);
-  if (mostrar === 'SIN_DUENO') consultaCsv.set('sinDueno', '1');
-  if (mostrar === 'SIN_AVISAR') consultaCsv.set('sinAvisar', '1');
-  if (dias > 0) consultaCsv.set('minDias', String(dias));
-  const enlaceCsv = `/api/staff/bodega/exportar.csv?${consultaCsv.toString()}`;
-  const consultaPdf = new URLSearchParams(consultaCsv);
-  if (incluirEnCamino) consultaPdf.set('incluirEnCamino', '1');
-  const enlacePdf = `/api/staff/bodega/exportar.pdf?${consultaPdf.toString()}`;
+  const consultaReporte = new URLSearchParams();
+  if (q) consultaReporte.set('q', q);
+  if (mostrar) consultaReporte.set('mostrar', mostrar);
+  if (dias > 0) consultaReporte.set('dias', String(dias));
+  const enlaceReporte = `/panel/bodega/reporte?${consultaReporte.toString()}`;
 
   function alternar(paqueteId: string) {
     setSeleccion((actual) => {
@@ -283,12 +278,7 @@ export default function Bodega() {
               {puedeAvisar && <button type="button" className="btn btn-primario btn-chico" disabled={ocupado} onClick={() => void marcarAvisados()}>Marcar {elegidos.length} como avisados</button>}
               {puedeAsignar && <button type="button" className="btn btn-primario btn-chico" onClick={() => setPanel(panel === 'asignar' ? null : 'asignar')}>Asignar {elegidos.length} a un cliente</button>}
               {puedeConsolidar && <button type="button" className="btn btn-suave btn-chico" onClick={() => setPanel(panel === 'consolidar' ? null : 'consolidar')}>Consolidar {elegidos.length}</button>}
-              <label className="flex items-center gap-1.5 text-xs text-suave">
-                <input type="checkbox" className="h-4 w-4" checked={incluirEnCamino} onChange={(e) => setIncluirEnCamino(e.target.checked)} />
-                Incluir lo que falta por llegar
-              </label>
-              <a className="btn btn-suave btn-chico" href={enlaceCsv} download><FiDownload aria-hidden /> Descargar CSV</a>
-              <a className="btn btn-suave btn-chico" href={enlacePdf} download><FiDownload aria-hidden /> Descargar PDF</a>
+              <Link className="btn btn-suave btn-chico" to={enlaceReporte}><FiDownload aria-hidden /> Generar reporte</Link>
             </div>
           </div>
 

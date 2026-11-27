@@ -81,6 +81,7 @@ const ITEM_BODEGA: ItemBodega = {
   sinDueno: false,
   avisado: false,
   diasEnBodega: 1,
+  enCamino: false,
   cliente: { id: 'cli-1', nombre: 'Ana Prueba Rojas', codigo: 'VENV-123456' },
 };
 
