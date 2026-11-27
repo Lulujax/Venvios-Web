@@ -17,10 +17,12 @@ import {
   type TipoEnvio,
 } from '../domain/estados';
 import { ETIQUETAS_HITO, recorridoVisible } from '../domain/hitos';
+import { armarInformeBodega } from '../domain/informeBodega';
 import { entregaDesdePerfil } from '../domain/perfil';
 import { calcularPrecio, kilosACentesimas, modalidadPropuesta, type Modalidad, type PrecioCalculado } from '../domain/tarifas';
 import { codigoContieneTracking, coincidenTrackings, normalizarTracking } from '../domain/tracking';
 import { limpiarTexto, validarCedula, validarPesoKg, validarTelefono, validarValorDeclarado } from '../domain/validaciones';
+import { generarPdfInformeBodega } from '../pdf/informeBodegaPdf';
 import type { Envio, Hito, Pago, Paquete, Repositorios, Rol, Transportista, Usuario } from '../repositories/tipos';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
@@ -114,6 +116,7 @@ export interface ItemBodega {
   sinDueno: boolean;
   avisado: boolean;
   diasEnBodega: number | null;
+  enCamino: boolean;
   cliente: { id: string; nombre: string; codigo: string };
 }
 
@@ -146,6 +149,17 @@ export interface FiltroBodega {
   sinDueno?: boolean;
   sinAvisar?: boolean;
   minDias?: number;
+  incluirEnCamino?: boolean;
+}
+
+function textoDeFiltrosBodega(filtro: FiltroBodega): string {
+  const partes: string[] = [];
+  if (filtro.q?.trim()) partes.push(`búsqueda "${filtro.q.trim()}"`);
+  if (filtro.sinDueno) partes.push('sin dueño');
+  if (filtro.sinAvisar) partes.push('sin avisar');
+  if (filtro.minDias) partes.push(`${filtro.minDias} días o más en bodega`);
+  if (filtro.incluirEnCamino) partes.push('incluye lo que falta por llegar');
+  return partes.join(' · ');
 }
 
 export interface ResultadoLoteGeneral {
@@ -450,6 +464,27 @@ export class EnvioService {
     ]);
     logger.info('CSV de bodega generado', { actor: actor.id, filas: filas.length });
     return aCsv(['Cliente', 'Casillero', 'Tracking', 'Peso (kg)', 'Recibido (UTC)', 'Días en bodega', 'Avisado', 'Con foto', 'Tipo de envío'], filas);
+  }
+
+  async exportarBodegaPdf(actor: Actor, filtro: FiltroBodega = {}): Promise<Buffer> {
+    const items = await this.bodega(actor, filtro);
+    const informe = armarInformeBodega(
+      items.map((item) => ({
+        tracking: item.tracking,
+        pesoKg: item.pesoKg,
+        recibidoEn: item.recibidoEn,
+        diasEnBodega: item.diasEnBodega,
+        avisado: item.avisado,
+        tieneFoto: item.tieneFoto,
+        tipoEnvio: item.tipoEnvio,
+        sinDueno: item.sinDueno,
+        enCamino: item.enCamino,
+        cliente: item.cliente,
+      })),
+    );
+    const filtrosTexto = textoDeFiltrosBodega(filtro);
+    logger.info('PDF de bodega generado', { actor: actor.id, clientes: informe.clientes.length, paquetes: informe.resumen.totalPaquetes });
+    return generarPdfInformeBodega(informe, filtrosTexto);
   }
 
   private async ejecutarLote(actor: Actor, ids: string[], limite: number, nombre: string, accion: (id: string) => Promise<unknown>): Promise<ResultadoLoteGeneral> {
@@ -1191,7 +1226,8 @@ export class EnvioService {
       if (!cliente) continue;
       const sinDueno = cliente.telefono === TELEFONO_SIN_ASIGNAR;
       for (const paquete of envio.paquetes) {
-        if (paquete.estado !== 'RECIBIDO') continue;
+        if (paquete.estado !== 'RECIBIDO' && !(filtro.incluirEnCamino && paquete.estado === 'ESPERADO')) continue;
+        const recibido = paquete.estado === 'RECIBIDO';
         items.push({
           paqueteId: paquete.id,
           tracking: paquete.trackingTexto,
@@ -1205,6 +1241,7 @@ export class EnvioService {
           sinDueno,
           avisado: Boolean(paquete.avisadoEn),
           diasEnBodega: paquete.recibidoEn ? Math.max(0, Math.floor((Date.now() - paquete.recibidoEn.getTime()) / MS_POR_DIA)) : null,
+          enCamino: !recibido,
           cliente: { id: cliente.id, nombre: sinDueno ? 'Sin dueño' : cliente.nombre, codigo: sinDueno ? '' : cliente.codigo },
         });
       }

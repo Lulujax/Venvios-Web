@@ -417,11 +417,18 @@ export function crearApp(contexto: Contexto): express.Express {
       sinDueno: req.query.sinDueno === '1',
       sinAvisar: req.query.sinAvisar === '1',
       minDias: Number.isFinite(minDias) && minDias > 0 ? Math.trunc(minDias) : undefined,
+      incluirEnCamino: req.query.incluirEnCamino === '1',
     };
   };
   const enviarCsv = (res: Response, nombre: string, contenido: string) => {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${nombre}-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(contenido);
+  };
+  const enviarPdf = (res: Response, nombre: string, contenido: Buffer) => {
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${nombre}-${new Date().toISOString().slice(0, 10)}.pdf"`);
     res.setHeader('Cache-Control', 'no-store');
     res.send(contenido);
   };
@@ -438,6 +445,7 @@ export function crearApp(contexto: Contexto): express.Express {
     res.json(await contexto.envios.asignarLote(actorDe(req), c.ids, c.clienteId, c.motivo));
   }));
   staff.get('/bodega/exportar.csv', ruta(async (req, res) => enviarCsv(res, 'bodega', await contexto.envios.exportarBodegaCsv(actorDe(req), filtroBodegaDe(req)))));
+  staff.get('/bodega/exportar.pdf', ruta(async (req, res) => enviarPdf(res, 'bodega', await contexto.envios.exportarBodegaPdf(actorDe(req), filtroBodegaDe(req)))));
   staff.get(
     '/bodega',
     ruta(async (req, res) => {
