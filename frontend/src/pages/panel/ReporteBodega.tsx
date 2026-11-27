@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { FiArrowLeft, FiDownload, FiFileText } from 'react-icons/fi';
+import { FiArrowLeft, FiDownload, FiFileText, FiX } from 'react-icons/fi';
 import { BuscadorCliente } from '../../components/BuscadorCliente';
 import { Alerta, Cargando, ErrorCarga } from '../../components/ui';
 import { ambitoActual, CABECERA_AMBITO } from '../../lib/ambito';
@@ -21,13 +21,24 @@ function consultaBodega(q: string, mostrar: Mostrar, dias: number, incluirEnCami
   return consulta;
 }
 
+function Chip({ etiqueta, alQuitar }: { etiqueta: string; alQuitar: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-marino-50 py-1 pl-3 pr-1.5 text-sm text-marino-900">
+      {etiqueta}
+      <button type="button" className="rounded-full p-0.5 hover:bg-marino-100" onClick={alQuitar} aria-label={`Quitar filtro: ${etiqueta}`}>
+        <FiX aria-hidden />
+      </button>
+    </span>
+  );
+}
+
 export default function ReporteBodega() {
   const [params, setParams] = useSearchParams();
   const q = params.get('q') ?? '';
   const mostrar = (params.get('mostrar') ?? '') as Mostrar;
   const dias = Number.parseInt(params.get('dias') ?? '0', 10) || 0;
+  const incluirEnCamino = params.get('enCamino') === '1';
   const [cliente, setCliente] = useState<Usuario | null>(null);
-  const [incluirEnCamino, setIncluirEnCamino] = useState(false);
   const [formatoDescargando, setFormatoDescargando] = useState<FormatoReporte | null>(null);
   const [errorReporte, setErrorReporte] = useState<string | null>(null);
 
@@ -43,6 +54,16 @@ export default function ReporteBodega() {
     cambiar('q', elegido ? elegido.codigo : '');
   }
 
+  function quitarBusqueda() {
+    setCliente(null);
+    cambiar('q', '');
+  }
+
+  function limpiarTodo() {
+    setCliente(null);
+    setParams({}, { replace: true });
+  }
+
   const { datos, cargando, error } = useCarga(
     () => api.get<{ paquetes: ItemBodega[] }>(`/staff/bodega?${consultaBodega(q, mostrar, dias, incluirEnCamino).toString()}`).then((r) => r.paquetes),
     [q, mostrar, dias, incluirEnCamino],
@@ -51,14 +72,13 @@ export default function ReporteBodega() {
   const recibidos = datos?.filter((item) => !item.enCamino).length ?? 0;
   const enCamino = datos?.filter((item) => item.enCamino).length ?? 0;
 
-  const filtrosTexto = [
-    cliente ? `cliente ${cliente.nombre}` : q ? `búsqueda "${q}"` : null,
-    mostrar === 'SIN_DUENO' ? 'sin dueño' : null,
-    mostrar === 'SIN_AVISAR' ? 'sin avisar' : null,
-    dias > 0 ? `${dias} días o más en bodega` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const filtros = [
+    q ? { etiqueta: cliente ? `Cliente: ${cliente.nombre}` : `Búsqueda: "${q}"`, alQuitar: quitarBusqueda } : null,
+    mostrar === 'SIN_DUENO' ? { etiqueta: 'Sin dueño', alQuitar: () => cambiar('mostrar', '') } : null,
+    mostrar === 'SIN_AVISAR' ? { etiqueta: 'Sin avisar', alQuitar: () => cambiar('mostrar', '') } : null,
+    dias > 0 ? { etiqueta: `${dias} días o más`, alQuitar: () => cambiar('dias', '') } : null,
+    incluirEnCamino ? { etiqueta: 'Incluye lo que falta por llegar', alQuitar: () => cambiar('enCamino', '') } : null,
+  ].filter((f): f is { etiqueta: string; alQuitar: () => void } => f !== null);
 
   async function descargar(formato: FormatoReporte) {
     setFormatoDescargando(formato);
@@ -99,6 +119,17 @@ export default function ReporteBodega() {
       <p className="mt-1 text-suave">Elige qué paquetes quieres y cómo bajarlos.</p>
 
       <div className="tarjeta mt-5 space-y-4 p-5">
+        {filtros.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-linea pb-4">
+            {filtros.map((f) => (
+              <Chip key={f.etiqueta} etiqueta={f.etiqueta} alQuitar={f.alQuitar} />
+            ))}
+            <button type="button" className="text-sm font-bold text-suave hover:text-marino hover:underline" onClick={limpiarTodo}>
+              Limpiar todo
+            </button>
+          </div>
+        )}
+
         <div>
           <p className="etiqueta">Cliente (déjalo vacío para toda la bodega)</p>
           <BuscadorCliente cliente={cliente} onElegir={elegirCliente} etiqueta="Buscar un cliente" />
@@ -136,13 +167,13 @@ export default function ReporteBodega() {
             <p className="text-sm text-suave">
               Vas a bajar <b className="text-marino-900">{recibidos}</b> {recibidos === 1 ? 'paquete' : 'paquetes'}
               {incluirEnCamino && enCamino > 0 ? ` y ${enCamino} por llegar` : ''}
-              {filtrosTexto ? ` · ${filtrosTexto}` : ' · toda la bodega, sin filtros'}.
+              {filtros.length === 0 ? ' · toda la bodega, sin filtros' : ''}.
             </p>
           )}
         </div>
 
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" className="h-5 w-5" checked={incluirEnCamino} onChange={(e) => setIncluirEnCamino(e.target.checked)} />
+          <input type="checkbox" className="h-5 w-5" checked={incluirEnCamino} onChange={(e) => cambiar('enCamino', e.target.checked ? '1' : '')} />
           Incluir lo que falta por llegar (prealertado, aún sin llegar a la bodega)
         </label>
 

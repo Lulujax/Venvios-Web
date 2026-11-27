@@ -19,6 +19,7 @@ El informe reutiliza los mismos datos y filtros que ya tiene la pantalla de Bode
 - RF-10: SI la descarga del reporte falla (por ejemplo, la sesión venció), ENTONCES EL SISTEMA mostrará un mensaje claro de error en la pantalla, en vez de quedarse en silencio sin descargar nada.
 - RF-11: EL SISTEMA permitirá elegir un cliente puntual en la pantalla de reporte con el mismo buscador de clientes (autocompletar por nombre, casillero, correo o cédula) que ya se usa en el resto del panel, en vez de solo un cuadro de texto libre. Al elegir un cliente, el reporte queda limitado a sus paquetes (en bodega y, si se marca, los que le faltan por llegar).
 - RF-12: CUANDO haya un cliente elegido, EL SISTEMA mostrará un enlace a su historial completo (incluyendo lo ya despachado y entregado) en la pantalla de Envíos, que ya existe y permite buscar por cliente con todos los estados.
+- RF-13: EL SISTEMA mostrará, cuando haya al menos un filtro activo (cliente, mostrar, días, incluir lo que falta por llegar), una pastilla por cada uno con su propia opción de quitarlo solo a él, más un enlace "Limpiar todo". Todos los filtros de esta pantalla (incluido "incluir lo que falta por llegar") quedan en la dirección web, para que no se pierdan ni queden sin forma de quitarlos si se recarga la página.
 
 ## Cómo sé que está listo
 - Entro a Bodega sin ningún filtro y pulso "Descargar PDF": se descarga un PDF con el resumen arriba y todos los paquetes agrupados por cliente, con su subtotal.
@@ -30,6 +31,7 @@ El informe reutiliza los mismos datos y filtros que ya tiene la pantalla de Bode
 - Veo un solo botón "Generar reporte"; al pulsarlo entro a una pantalla con sus propios filtros, PDF, CSV y la casilla de "lo que falta por llegar", sin botones sueltos adicionales, y con un botón para volver a Bodega con los filtros que queden puestos.
 - Desde esa pantalla elijo un cliente con el buscador (no escribo texto libre) y descargo: el reporte sale solo con los paquetes de ese cliente, sin tener que volver a Bodega.
 - Con un cliente elegido, veo un enlace a su historial completo en Envíos, y al abrirlo veo también lo que ya se le despachó o entregó.
+- Con cualquier filtro puesto, veo su pastilla con su propia opción de quitarlo, y un "Limpiar todo". Si recargo la página con un filtro puesto, la pastilla y la opción de quitarlo siguen ahí (no se pierden).
 - Si fuerzo un error en la descarga (por ejemplo, con la sesión vencida), la pantalla muestra un mensaje de error en vez de no hacer nada.
 - Las pruebas automáticas del proyecto pasan.
 
