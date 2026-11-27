@@ -8,8 +8,9 @@ import type { ItemBodega } from '../../lib/tipos';
 import { useCarga } from '../../lib/useCarga';
 
 type FormatoReporte = 'csv' | 'pdf';
+type Mostrar = '' | 'SIN_DUENO' | 'SIN_AVISAR';
 
-function consultaBodega(q: string, mostrar: string, dias: number, incluirEnCamino: boolean): URLSearchParams {
+function consultaBodega(q: string, mostrar: Mostrar, dias: number, incluirEnCamino: boolean): URLSearchParams {
   const consulta = new URLSearchParams();
   if (q) consulta.set('q', q);
   if (mostrar === 'SIN_DUENO') consulta.set('sinDueno', '1');
@@ -20,13 +21,20 @@ function consultaBodega(q: string, mostrar: string, dias: number, incluirEnCamin
 }
 
 export default function ReporteBodega() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const q = params.get('q') ?? '';
-  const mostrar = params.get('mostrar') ?? '';
+  const mostrar = (params.get('mostrar') ?? '') as Mostrar;
   const dias = Number.parseInt(params.get('dias') ?? '0', 10) || 0;
   const [incluirEnCamino, setIncluirEnCamino] = useState(false);
   const [formatoDescargando, setFormatoDescargando] = useState<FormatoReporte | null>(null);
   const [errorReporte, setErrorReporte] = useState<string | null>(null);
+
+  const cambiar = (clave: string, valor: string) => {
+    const nuevos = new URLSearchParams(params);
+    if (valor) nuevos.set(clave, valor);
+    else nuevos.delete(clave);
+    setParams(nuevos, { replace: true });
+  };
 
   const { datos, cargando, error } = useCarga(
     () => api.get<{ paquetes: ItemBodega[] }>(`/staff/bodega?${consultaBodega(q, mostrar, dias, incluirEnCamino).toString()}`).then((r) => r.paquetes),
@@ -81,18 +89,44 @@ export default function ReporteBodega() {
       </Link>
 
       <h1 className="text-3xl">Generar reporte</h1>
-      <p className="mt-1 text-suave">Elige cómo quieres bajar lo que hay en bodega.</p>
+      <p className="mt-1 text-suave">Elige qué paquetes quieres y cómo bajarlos.</p>
 
       <div className="tarjeta mt-5 space-y-4 p-5">
-        {cargando && <Cargando />}
-        {error && <ErrorCarga mensaje={error} />}
-        {datos && (
-          <p className="text-sm text-suave">
-            Vas a bajar <b className="text-marino-900">{recibidos}</b> {recibidos === 1 ? 'paquete' : 'paquetes'}
-            {incluirEnCamino && enCamino > 0 ? ` y ${enCamino} por llegar` : ''}
-            {filtrosTexto ? ` · ${filtrosTexto}` : ' · toda la bodega, sin filtros'}.
-          </p>
-        )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label htmlFor="buscar-reporte" className="etiqueta">Buscar un cliente o tracking</label>
+            <input id="buscar-reporte" className="campo" type="search" placeholder="Nombre, casillero o tracking" defaultValue={q} onChange={(e) => cambiar('q', e.target.value.trim())} />
+          </div>
+          <div>
+            <label htmlFor="mostrar-reporte" className="etiqueta">Mostrar</label>
+            <select id="mostrar-reporte" className="campo" value={mostrar} onChange={(e) => cambiar('mostrar', e.target.value)}>
+              <option value="">Todos</option>
+              <option value="SIN_DUENO">Sin dueño</option>
+              <option value="SIN_AVISAR">Sin avisar</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="dias-reporte" className="etiqueta">Días en bodega</label>
+            <select id="dias-reporte" className="campo" value={dias} onChange={(e) => cambiar('dias', e.target.value === '0' ? '' : e.target.value)}>
+              <option value={0}>Cualquiera</option>
+              <option value={7}>7 o más</option>
+              <option value={15}>15 o más</option>
+              <option value={30}>30 o más</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="border-t border-linea pt-4">
+          {cargando && <Cargando />}
+          {error && <ErrorCarga mensaje={error} />}
+          {datos && (
+            <p className="text-sm text-suave">
+              Vas a bajar <b className="text-marino-900">{recibidos}</b> {recibidos === 1 ? 'paquete' : 'paquetes'}
+              {incluirEnCamino && enCamino > 0 ? ` y ${enCamino} por llegar` : ''}
+              {filtrosTexto ? ` · ${filtrosTexto}` : ' · toda la bodega, sin filtros'}.
+            </p>
+          )}
+        </div>
 
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" className="h-5 w-5" checked={incluirEnCamino} onChange={(e) => setIncluirEnCamino(e.target.checked)} />
