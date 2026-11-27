@@ -49,7 +49,12 @@ Los paquetes descartados o de envíos cancelados no aparecen en ningún reporte.
 ### Estado de cuenta de un cliente
 - RF-15: EL SISTEMA exigirá elegir un cliente para este reporte; sin cliente elegido, los botones de descarga no se activan y la pantalla dice por qué.
 - RF-16: EL SISTEMA mostrará los totales del cliente por etapa (Por llegar, En bodega, Esperando pago, Listo para salir, En ruta, Entregado) y el detalle: sus prealertas con "llegaron X de Y" y lo que falta, sus paquetes en bodega y sus consolidados que aún no se entregan, con su estado.
-- RF-17: Los entregados se mostrarán solo de los últimos [NECESITA ACLARACIÓN: ¿cuántos días hacia atrás? propuesta: 30] días; para todo su historial, la pantalla y el PDF indicarán que está en Envíos, y la pantalla tendrá el enlace a Envíos filtrado por ese cliente.
+- RF-17: Los entregados se mostrarán solo si caen dentro del periodo elegido (RF-24); si no se elige periodo, no se muestran entregados. Para todo su historial, la pantalla y el PDF indicarán que está en Envíos, y la pantalla tendrá el enlace a Envíos filtrado por ese cliente.
+
+### Periodo
+- RF-24: EL SISTEMA permitirá elegir un periodo en los tres reportes con un campo "Desde" y otro "Hasta", y atajos de un clic: últimos 30 días, 60 días y 90 días (que llenan "Desde" y "Hasta" solos y se pueden ajustar a mano). Sin periodo elegido, el reporte no recorta por fecha.
+- RF-25: EL SISTEMA aplicará el periodo según el reporte: en Inventario, a la fecha en que el paquete llegó a la bodega; en Prealertas pendientes, a la fecha en que se avisó la prealerta; en Estado de cuenta, a la fecha de llegada, de aviso y de entrega según cada bloque.
+- RF-26: SI "Desde" es posterior a "Hasta", ENTONCES EL SISTEMA mostrará un aviso claro y no permitirá descargar hasta corregirlo. El periodo aparecerá como pastilla de filtro activo y dentro del PDF, junto a los filtros aplicados.
 
 ### Descarga
 - RF-18: EL SISTEMA generará los tres reportes en PDF (con la marca, resumen arriba y detalle agrupado) y en CSV (una fila por paquete, con las mismas columnas que el detalle), al momento y sin guardarlos en el servidor.
@@ -65,6 +70,7 @@ Los paquetes descartados o de envíos cancelados no aparecen en ningún reporte.
 - Elijo "Inventario de bodega": veo todo lo físico agrupado por cliente, con la etapa de cada paquete, y el resumen por etapa cuadra con la lista.
 - Elijo "Estado de cuenta", sin cliente no puedo descargar y la pantalla me dice que elija uno; con cliente veo sus totales por etapa, sus prealertas y el enlace a su historial en Envíos.
 - Pongo filtros, recargo la página y siguen ahí con su pastilla; los quito uno a uno o con "Limpiar todo".
+- Pulso "30 días": "Desde" y "Hasta" se llenan solos; el reporte trae solo lo que llegó (o se avisó) en ese rango, y puedo ajustar las fechas a mano. Con "Desde" después de "Hasta" me avisa y no deja descargar.
 - El resumen que veo en pantalla antes de descargar coincide con el resumen del PDF.
 - Descargo cada tipo en PDF y CSV: los nombres de archivo siguen el formato acordado y el PDF cabe en una sola hoja cuando hay pocos datos.
 - Con filtros que no encuentran nada, el archivo se genera con el aviso de "sin resultados".
