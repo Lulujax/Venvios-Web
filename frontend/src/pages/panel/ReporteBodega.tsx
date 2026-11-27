@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { FiArrowLeft, FiDownload, FiFileText } from 'react-icons/fi';
+import { BuscadorCliente } from '../../components/BuscadorCliente';
 import { Alerta, Cargando, ErrorCarga } from '../../components/ui';
 import { ambitoActual, CABECERA_AMBITO } from '../../lib/ambito';
 import { api, mensajeDeError } from '../../lib/api';
-import type { ItemBodega } from '../../lib/tipos';
+import type { ItemBodega, Usuario } from '../../lib/tipos';
 import { useCarga } from '../../lib/useCarga';
 
 type FormatoReporte = 'csv' | 'pdf';
@@ -25,6 +26,7 @@ export default function ReporteBodega() {
   const q = params.get('q') ?? '';
   const mostrar = (params.get('mostrar') ?? '') as Mostrar;
   const dias = Number.parseInt(params.get('dias') ?? '0', 10) || 0;
+  const [cliente, setCliente] = useState<Usuario | null>(null);
   const [incluirEnCamino, setIncluirEnCamino] = useState(false);
   const [formatoDescargando, setFormatoDescargando] = useState<FormatoReporte | null>(null);
   const [errorReporte, setErrorReporte] = useState<string | null>(null);
@@ -36,6 +38,11 @@ export default function ReporteBodega() {
     setParams(nuevos, { replace: true });
   };
 
+  function elegirCliente(elegido: Usuario | null) {
+    setCliente(elegido);
+    cambiar('q', elegido ? elegido.codigo : '');
+  }
+
   const { datos, cargando, error } = useCarga(
     () => api.get<{ paquetes: ItemBodega[] }>(`/staff/bodega?${consultaBodega(q, mostrar, dias, incluirEnCamino).toString()}`).then((r) => r.paquetes),
     [q, mostrar, dias, incluirEnCamino],
@@ -45,7 +52,7 @@ export default function ReporteBodega() {
   const enCamino = datos?.filter((item) => item.enCamino).length ?? 0;
 
   const filtrosTexto = [
-    q ? `búsqueda "${q}"` : null,
+    cliente ? `cliente ${cliente.nombre}` : q ? `búsqueda "${q}"` : null,
     mostrar === 'SIN_DUENO' ? 'sin dueño' : null,
     mostrar === 'SIN_AVISAR' ? 'sin avisar' : null,
     dias > 0 ? `${dias} días o más en bodega` : null,
@@ -92,11 +99,17 @@ export default function ReporteBodega() {
       <p className="mt-1 text-suave">Elige qué paquetes quieres y cómo bajarlos.</p>
 
       <div className="tarjeta mt-5 space-y-4 p-5">
+        <div>
+          <p className="etiqueta">Cliente (déjalo vacío para toda la bodega)</p>
+          <BuscadorCliente cliente={cliente} onElegir={elegirCliente} etiqueta="Buscar un cliente" />
+          {cliente && (
+            <Link to={`/panel/envios?estado=TODOS&q=${encodeURIComponent(cliente.codigo)}`} className="mt-2 inline-block text-sm font-bold text-marino hover:underline">
+              Ver su historial completo en Envíos (incluye lo ya despachado y entregado)
+            </Link>
+          )}
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <label htmlFor="buscar-reporte" className="etiqueta">Buscar un cliente o tracking</label>
-            <input id="buscar-reporte" className="campo" type="search" placeholder="Nombre, casillero o tracking" defaultValue={q} onChange={(e) => cambiar('q', e.target.value.trim())} />
-          </div>
           <div>
             <label htmlFor="mostrar-reporte" className="etiqueta">Mostrar</label>
             <select id="mostrar-reporte" className="campo" value={mostrar} onChange={(e) => cambiar('mostrar', e.target.value)}>

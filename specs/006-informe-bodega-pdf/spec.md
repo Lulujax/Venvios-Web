@@ -17,6 +17,8 @@ El informe reutiliza los mismos datos y filtros que ya tiene la pantalla de Bode
 - RF-8: EL SISTEMA solo permitirá descargar este informe a una sesión de personal (operador o administrador), igual que el resto de la pantalla de Bodega.
 - RF-9: EL SISTEMA mostrará un solo botón "Generar reporte" en la pantalla de Bodega (en vez de dos botones de descarga sueltos), que lleva a una pantalla propia con sus propios filtros (buscar, sin dueño, sin avisar, días en bodega), la elección de formato (PDF o CSV) y la opción "Incluir lo que falta por llegar", para que el operador pueda armar el reporte que quiera (incluyendo el de un solo cliente) sin tener que adivinar entre varios botones ni ir y volver a Bodega. La opción de incluir lo que falta por llegar aplica a los dos formatos. Esa pantalla arranca con los filtros que traía Bodega y tiene un botón para volver con los filtros que queden puestos.
 - RF-10: SI la descarga del reporte falla (por ejemplo, la sesión venció), ENTONCES EL SISTEMA mostrará un mensaje claro de error en la pantalla, en vez de quedarse en silencio sin descargar nada.
+- RF-11: EL SISTEMA permitirá elegir un cliente puntual en la pantalla de reporte con el mismo buscador de clientes (autocompletar por nombre, casillero, correo o cédula) que ya se usa en el resto del panel, en vez de solo un cuadro de texto libre. Al elegir un cliente, el reporte queda limitado a sus paquetes (en bodega y, si se marca, los que le faltan por llegar).
+- RF-12: CUANDO haya un cliente elegido, EL SISTEMA mostrará un enlace a su historial completo (incluyendo lo ya despachado y entregado) en la pantalla de Envíos, que ya existe y permite buscar por cliente con todos los estados.
 
 ## Cómo sé que está listo
 - Entro a Bodega sin ningún filtro y pulso "Descargar PDF": se descarga un PDF con el resumen arriba y todos los paquetes agrupados por cliente, con su subtotal.
@@ -26,7 +28,8 @@ El informe reutiliza los mismos datos y filtros que ya tiene la pantalla de Bode
 - Si el filtro no encuentra ningún paquete, el PDF se genera igual, sin romperse, con el aviso de "sin paquetes".
 - Si intento la descarga sin haber iniciado sesión como personal, la respuesta es "no autorizado".
 - Veo un solo botón "Generar reporte"; al pulsarlo entro a una pantalla con sus propios filtros, PDF, CSV y la casilla de "lo que falta por llegar", sin botones sueltos adicionales, y con un botón para volver a Bodega con los filtros que queden puestos.
-- Desde esa pantalla busco un cliente puntual (nombre o casillero) y descargo: el reporte sale solo con los paquetes de ese cliente, sin tener que volver a Bodega.
+- Desde esa pantalla elijo un cliente con el buscador (no escribo texto libre) y descargo: el reporte sale solo con los paquetes de ese cliente, sin tener que volver a Bodega.
+- Con un cliente elegido, veo un enlace a su historial completo en Envíos, y al abrirlo veo también lo que ya se le despachó o entregó.
 - Si fuerzo un error en la descarga (por ejemplo, con la sesión vencida), la pantalla muestra un mensaje de error en vez de no hacer nada.
 - Las pruebas automáticas del proyecto pasan.
 
